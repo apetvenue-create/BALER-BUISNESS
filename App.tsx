@@ -1,0 +1,747 @@
+
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Transaction, 
+  TransactionType, 
+  Translation, 
+  Language,
+  StoredAccount,
+  AccountType,
+  DateFilter,
+  StockMovement,
+  ManualAdjustment
+} from './types';
+import { TRANSLATIONS } from './constants';
+import { getDatesInRange, formatIndianCurrency, formatDisplayDate } from './utils';
+import { TransactionModal } from './components/TransactionModal';
+import { AccountPageController } from './pages/AccountPage/AccountPage.controller';
+import { StockPageController } from './pages/StockPage/StockPage.controller';
+import { ReportsPageController } from './pages/ReportsPage/ReportsPage.controller';
+import { DateInput } from './components/DateInput';
+
+const App: React.FC = () => {
+  // State
+  const [language, setLanguage] = useState<Language>('en');
+  const t = TRANSLATIONS[language];
+  
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accounts, setAccounts] = useState<StoredAccount[]>([]);
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  
+  const [activeTab, setActiveTab] = useState<'transactions' | 'accounts' | 'stock' | 'reports'>('transactions');
+  
+  // Cashbook State
+  const [dateFilter, setDateFilter] = useState<DateFilter>({
+      mode: 'single',
+      singleDate: new Date().toISOString().split('T')[0],
+      fromDate: new Date().toISOString().split('T')[0],
+      toDate: new Date().toISOString().split('T')[0]
+  });
+
+  // Opening Balance State (Manually set start values)
+  const [initialOpeningBalance, setInitialOpeningBalance] = useState({ cash: 0, online: 0 });
+  const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
+  const [tempOpeningBalance, setTempOpeningBalance] = useState({ cash: '0', online: '0' });
+
+  // Stats Section State
+  const [statsStartDate, setStatsStartDate] = useState<string>(
+      new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+  );
+  const [statsEndDate, setStatsEndDate] = useState<string>(
+      new Date().toISOString().split('T')[0]
+  );
+  
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<TransactionType>('income');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [modalDefaults, setModalDefaults] = useState<{ category?: string, accountName?: string }>({});
+
+  // --- Persistence ---
+  useEffect(() => {
+    // Load Data
+    const savedTxs = localStorage.getItem('transactions');
+    if (savedTxs) try { setTransactions(JSON.parse(savedTxs)); } catch(e) {}
+
+    const savedAccs = localStorage.getItem('accounts');
+    if (savedAccs) try { setAccounts(JSON.parse(savedAccs)); } catch(e) {}
+
+    const savedStock = localStorage.getItem('stockMovements');
+    if (savedStock) try { setStockMovements(JSON.parse(savedStock)); } catch(e) {}
+
+    const savedOB = localStorage.getItem('openingBalanceData');
+    if (savedOB) try { setInitialOpeningBalance(JSON.parse(savedOB)); } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+  }, [transactions]);
+  
+  useEffect(() => {
+    localStorage.setItem('accounts', JSON.stringify(accounts));
+  }, [accounts]);
+
+  useEffect(() => {
+    localStorage.setItem('stockMovements', JSON.stringify(stockMovements));
+  }, [stockMovements]);
+
+  useEffect(() => {
+    localStorage.setItem('openingBalanceData', JSON.stringify(initialOpeningBalance));
+  }, [initialOpeningBalance]);
+
+  // --- Handlers ---
+
+  const handleCreateAccount = (name: string, type: AccountType, rate?: number) => {
+      if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) return;
+      
+      const validTypes: AccountType[] = ['labour', 'partner', 'customer', 'supplier', 'other'];
+      const safeType = validTypes.includes(type) ? type : 'other';
+
+      const newAccount: StoredAccount = {
+          name,
+          type: safeType,
+          rate,
+          attendance: {},
+          hisaabDays: {},
+          manualAdjustments: []
+      };
+      setAccounts(prev => [...prev, newAccount]);
+  };
+
+  const handleUpdateAccount = (updated: StoredAccount) => {
+      setAccounts(prev => prev.map(a => a.name === updated.name ? updated : a));
+  };
+
+  const handleAddTransaction = (data: Omit<Transaction, 'id' | 'timestamp'>, endDate?: string) => {
+      if (data.accountName) {
+          handleCreateAccount(data.accountName, data.category as AccountType); 
+      }
+
+      // --- AUTO-ADJUST DATE FILTER (CASHBOOK RULE) ---
+      const txDate = data.date;
+      const isRangeTransaction = endDate && endDate > txDate;
+
+      if (isRangeTransaction) {
+          setDateFilter({
+              mode: 'range',
+              singleDate: txDate, 
+              fromDate: txDate,
+              toDate: endDate
+          });
+      } else {
+          const isInsideActiveRange = 
+              dateFilter.mode === 'range' && 
+              txDate >= dateFilter.fromDate && 
+              txDate <= dateFilter.toDate;
+
+          if (!isInsideActiveRange) {
+              setDateFilter({
+                  mode: 'single',
+                  singleDate: txDate,
+                  fromDate: txDate,
+                  toDate: txDate
+              });
+          }
+      }
+
+      if (editingTransaction) {
+          setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? { ...t, ...data } : t));
+      } else {
+          if (endDate && endDate !== data.date) {
+              const dates = getDatesInRange(data.date, endDate);
+              const newTransactions: Transaction[] = dates.map((d, index) => ({
+                  ...data,
+                  date: d,
+                  id: Date.now() + index,
+                  timestamp: Date.now() + index
+              }));
+              setTransactions(prev => [...prev, ...newTransactions]);
+          } else {
+              const newTrans: Transaction = {
+                  ...data,
+                  id: Date.now(),
+                  timestamp: Date.now(),
+              };
+              setTransactions(prev => [...prev, newTrans]);
+          }
+      }
+      setEditingTransaction(null);
+  };
+
+  const handleDeleteTransaction = (id: number) => {
+      if (window.confirm(t.confirmDelete)) {
+          setTransactions(prev => prev.filter(t => t.id !== id));
+      }
+  };
+  
+  const openTransactionModal = (mode: TransactionType, defaults?: { category?: string, accountName?: string }, editData?: Transaction) => {
+      setModalMode(mode);
+      setModalDefaults(defaults || {});
+      setEditingTransaction(editData || null);
+      setIsModalOpen(true);
+  };
+
+  // Opening Balance Modal Handlers
+  const openBalanceModal = () => {
+      setTempOpeningBalance({
+          cash: initialOpeningBalance.cash.toString(),
+          online: initialOpeningBalance.online.toString()
+      });
+      setIsBalanceModalOpen(true);
+  };
+
+  const saveOpeningBalance = () => {
+      setInitialOpeningBalance({
+          cash: parseFloat(tempOpeningBalance.cash) || 0,
+          online: parseFloat(tempOpeningBalance.online) || 0
+      });
+      setIsBalanceModalOpen(false);
+  };
+
+  // Stock Handlers
+  const handleAddStockMovement = (m: StockMovement) => setStockMovements(prev => [...prev, m]);
+  const handleUpdateStockMovement = (m: StockMovement) => setStockMovements(prev => prev.map(sm => sm.id === m.id ? m : sm));
+  const handleDeleteStockMovement = (id: number) => setStockMovements(prev => prev.filter(sm => sm.id !== id));
+
+  // --- Logic: Calculations ---
+
+  const displayedTransactions = useMemo(() => {
+      let filtered = transactions;
+      if (dateFilter.mode === 'single') {
+          filtered = filtered.filter(t => t.date === dateFilter.singleDate);
+      } else {
+          filtered = filtered.filter(t => t.date >= dateFilter.fromDate && t.date <= dateFilter.toDate);
+      }
+      return filtered.sort((a,b) => a.timestamp - b.timestamp);
+  }, [transactions, dateFilter]);
+
+  // Previous Balance: Initial + (Income - Expense) before start date
+  const previousBalance = useMemo(() => {
+      const startDate = dateFilter.mode === 'single' ? dateFilter.singleDate : dateFilter.fromDate;
+      
+      let cash = initialOpeningBalance.cash;
+      let online = initialOpeningBalance.online;
+
+      transactions.forEach(t => {
+          if (t.date < startDate) {
+              if (t.type === 'income') {
+                  if (t.paymentType === 'cash') cash += t.amount;
+                  else online += t.amount;
+              } else {
+                  if (t.paymentType === 'cash') cash -= t.amount;
+                  else online -= t.amount;
+              }
+          }
+      });
+
+      return { cash, online, total: cash + online };
+  }, [transactions, dateFilter, initialOpeningBalance]);
+
+  const totalIncome = displayedTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+  const totalExpense = displayedTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  
+  // Net change in current view
+  const currentNetChange = totalIncome - totalExpense;
+  const finalBalance = previousBalance.total + currentNetChange;
+
+  // Stats Logic
+  const stats = useMemo(() => {
+    let expense = 0;
+    let labour = 0;
+    let oil = 0;
+    let partnerIn = 0;
+    let electricity = 0;
+    
+    transactions.forEach(t => {
+        if (t.date >= statsStartDate && t.date <= statsEndDate) {
+            if (t.type === 'expense') {
+                expense += t.amount;
+                if (t.category === 'labour') {
+                    labour += t.amount;
+                }
+                if (t.category === 'oil') {
+                    oil += t.amount;
+                }
+                if (t.category === 'electricity') {
+                    electricity += t.amount;
+                }
+            } else if (t.type === 'income' && t.category === 'partner') {
+                partnerIn += t.amount;
+            }
+        }
+    });
+
+    let dispatchedKg = 0;
+    stockMovements.forEach(m => {
+        if (m.date >= statsStartDate && m.date <= statsEndDate && m.type === 'out') {
+            dispatchedKg += m.quantityKg;
+        }
+    });
+
+    const dispatchedQuintal = dispatchedKg / 100;
+    const labourPerQuintal = dispatchedQuintal > 0 ? (labour / dispatchedQuintal) : 0;
+    
+    return { expense, labour, oil, electricity, partnerIn, dispatchedQuintal, labourPerQuintal };
+  }, [transactions, stockMovements, statsStartDate, statsEndDate]);
+
+  // Helpers
+  const getTranslated = (text?: string) => text || "";
+  
+  const getCategoryLabel = (cat: string) => {
+      if (cat === 'customer') return t.customerOption;
+      if (cat === 'partner') return t.partnerOption;
+      if (cat === 'shop') return t.shopOption;
+      if (cat === 'labour') return t.labourOption;
+      if (cat === 'oil') return t.oilOption;
+      if (cat === 'electricity') return t.electricityOption;
+      if (cat === 'supplier') return t.supplierOption;
+      return cat;
+  };
+
+  return (
+      <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
+          {/* Header */}
+          <header className="bg-white shadow z-10">
+              <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+                  <h1 className="text-xl font-bold text-gray-800">{t.pageTitle}</h1>
+                  <div className="flex items-center gap-2">
+                      <label className="text-sm font-semibold text-gray-600">{t.langLabel}</label>
+                      <select 
+                          value={language} 
+                          onChange={(e) => setLanguage(e.target.value as Language)}
+                          className="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      >
+                          <option value="en">English</option>
+                          <option value="hi">हिंदी</option>
+                          <option value="pa">ਪੰਜਾਬੀ</option>
+                      </select>
+                  </div>
+              </div>
+              {/* Tabs */}
+              <div className="flex overflow-x-auto bg-gray-50 border-t">
+                  <button 
+                      onClick={() => setActiveTab('transactions')}
+                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'transactions' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                  >
+                      {t.tabTransactions}
+                  </button>
+                  <button 
+                      onClick={() => setActiveTab('accounts')}
+                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'accounts' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                  >
+                      {t.tabAccounts}
+                  </button>
+                  <button 
+                      onClick={() => setActiveTab('stock')}
+                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'stock' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                  >
+                      {t.tabStock}
+                  </button>
+                  <button 
+                      onClick={() => setActiveTab('reports')}
+                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'reports' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
+                  >
+                      {t.tabReports}
+                  </button>
+              </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="flex-1 max-w-7xl mx-auto w-full p-4 overflow-hidden flex flex-col">
+              {activeTab === 'transactions' && (
+                  <div className="flex flex-col space-y-6">
+                      
+                      {/* Date Selection Card */}
+                      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                           <div className="flex flex-col gap-2">
+                               <h2 className="text-sm font-bold text-gray-500 uppercase">{t.dateSelectionTitle}</h2>
+                               <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                   <div className="flex bg-gray-100 p-1 rounded w-fit">
+                                       <button 
+                                          onClick={() => setDateFilter(prev => ({ ...prev, mode: 'single' }))}
+                                          className={`px-3 py-1 text-xs font-bold rounded transition ${dateFilter.mode === 'single' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+                                       >
+                                          {t.singleDayLabel}
+                                       </button>
+                                       <button 
+                                          onClick={() => setDateFilter(prev => ({ ...prev, mode: 'range' }))}
+                                          className={`px-3 py-1 text-xs font-bold rounded transition ${dateFilter.mode === 'range' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+                                       >
+                                          {t.dateRangeLabel}
+                                       </button>
+                                   </div>
+                                   <div className="flex gap-2 items-center">
+                                       {dateFilter.mode === 'single' ? (
+                                           <DateInput 
+                                              value={dateFilter.singleDate} 
+                                              onChange={(d) => setDateFilter(prev => ({ ...prev, singleDate: d, fromDate: d, toDate: d }))}
+                                           />
+                                       ) : (
+                                           <>
+                                              <DateInput 
+                                                  value={dateFilter.fromDate}
+                                                  onChange={(d) => setDateFilter(prev => ({ ...prev, fromDate: d }))}
+                                              />
+                                              <span className="text-gray-400">➜</span>
+                                              <DateInput 
+                                                  value={dateFilter.toDate}
+                                                  onChange={(d) => setDateFilter(prev => ({ ...prev, toDate: d }))}
+                                              />
+                                           </>
+                                       )}
+                                   </div>
+                               </div>
+                           </div>
+                      </div>
+
+                      {/* PREVIOUS BALANCE CARD */}
+                      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white relative">
+                            <button 
+                                onClick={openBalanceModal}
+                                className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition"
+                                title={t.editOpeningBalanceTitle}
+                            >
+                                ✎
+                            </button>
+
+                            <h2 className="text-2xl font-bold mb-4 pr-10">{t.prevBalTitle}</h2>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+                                    <p className="text-sm opacity-90">{t.cashBalLabel}</p>
+                                    <p className="text-2xl font-bold">₹{formatIndianCurrency(previousBalance.cash)}</p>
+                                </div>
+                                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+                                    <p className="text-sm opacity-90">{t.onlineBalLabel}</p>
+                                    <p className="text-2xl font-bold">₹{formatIndianCurrency(previousBalance.online)}</p>
+                                </div>
+                                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+                                    <p className="text-sm opacity-90">{t.totalBalLabel}</p>
+                                    <p className="text-2xl font-bold">₹{formatIndianCurrency(previousBalance.total)}</p>
+                                </div>
+                            </div>
+                      </div>
+
+                      {/* INCOME TRANSACTIONS TABLE */}
+                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                          <div className="flex justify-between items-center mb-4">
+                              <h2 className="text-xl font-bold text-green-600">{t.incomeTitle}</h2>
+                              <button 
+                                  onClick={() => openTransactionModal('income')}
+                                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
+                              >
+                                  {t.addIncomeBtn}
+                              </button>
+                          </div>
+                          <div className="overflow-x-auto">
+                              <table className="w-full">
+                                  <thead className="bg-green-50">
+                                      <tr>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.incomeTypeHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {displayedTransactions.filter(tr => tr.type === 'income').length === 0 && (
+                                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noIncome}</td></tr>
+                                      )}
+                                      {displayedTransactions.filter(tr => tr.type === 'income').map(tr => (
+                                          <tr key={tr.id} className="border-b hover:bg-gray-50">
+                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
+                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
+                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
+                                              <td className="px-4 py-3">
+                                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                      {tr.paymentType}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3">
+                                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                                      {getCategoryLabel(tr.category)}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-right font-bold text-green-600">₹{formatIndianCurrency(tr.amount)}</td>
+                                              <td className="px-4 py-3 text-right">
+                                                  <div className="flex justify-end items-center gap-2">
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
+                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
+                                                          title={t.editBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                          </svg>
+                                                      </button>
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
+                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
+                                                          title={t.deleteBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                          </svg>
+                                                      </button>
+                                                  </div>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                                  <tfoot className="bg-green-100">
+                                      <tr>
+                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
+                                              {t.incomeTotalLabel} <span className="text-green-700 text-lg ml-2">₹{formatIndianCurrency(totalIncome)}</span>
+                                          </td>
+                                          <td colSpan={4}></td>
+                                      </tr>
+                                  </tfoot>
+                              </table>
+                          </div>
+                      </div>
+
+                      {/* EXPENSE TRANSACTIONS TABLE */}
+                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                          <div className="flex justify-between items-center mb-4">
+                              <h2 className="text-xl font-bold text-red-600">{t.expenseTitle}</h2>
+                              <button 
+                                  onClick={() => openTransactionModal('expense')}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
+                              >
+                                  {t.addExpenseBtn}
+                              </button>
+                          </div>
+                          <div className="overflow-x-auto">
+                              <table className="w-full">
+                                  <thead className="bg-red-50">
+                                      <tr>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.expenseTypeHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {displayedTransactions.filter(tr => tr.type === 'expense').length === 0 && (
+                                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noExpense}</td></tr>
+                                      )}
+                                      {displayedTransactions.filter(tr => tr.type === 'expense').map(tr => (
+                                          <tr key={tr.id} className="border-b hover:bg-gray-50">
+                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
+                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
+                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
+                                              <td className="px-4 py-3">
+                                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                      {tr.paymentType}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3">
+                                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                                      {getCategoryLabel(tr.category)}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-right font-bold text-red-600">₹{formatIndianCurrency(tr.amount)}</td>
+                                              <td className="px-4 py-3 text-right">
+                                                  <div className="flex justify-end items-center gap-2">
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
+                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
+                                                          title={t.editBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                          </svg>
+                                                      </button>
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
+                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
+                                                          title={t.deleteBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                          </svg>
+                                                      </button>
+                                                  </div>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                                  <tfoot className="bg-red-100">
+                                      <tr>
+                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
+                                              {t.expenseTotalLabel} <span className="text-red-700 text-lg ml-2">₹{formatIndianCurrency(totalExpense)}</span>
+                                          </td>
+                                          <td colSpan={4}></td>
+                                      </tr>
+                                  </tfoot>
+                              </table>
+                          </div>
+                      </div>
+
+                      {/* FINAL BALANCE CARD */}
+                      <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white text-center">
+                          <h2 className="text-2xl font-bold mb-2">{t.finalBalanceTitle}</h2>
+                          <p className="text-5xl font-bold">₹{formatIndianCurrency(finalBalance)}</p>
+                      </div>
+
+                      {/* --- SUMMARY REPORT (STATS) SECTION --- */}
+                      <div className="bg-white rounded-lg shadow-md p-6 border-t-4 border-indigo-500">
+                          <h2 className="text-2xl font-bold text-gray-800 mb-6">{t.statsTitle}</h2>
+                          
+                          <div className="flex flex-col md:flex-row gap-4 mb-8">
+                              <div className="w-full md:w-64">
+                                  <DateInput 
+                                      label={t.fromDateLabel}
+                                      value={statsStartDate} 
+                                      onChange={setStatsStartDate}
+                                  />
+                              </div>
+                              <div className="w-full md:w-64">
+                                  <DateInput 
+                                      label={t.toDateLabel}
+                                      value={statsEndDate} 
+                                      onChange={setStatsEndDate}
+                                  />
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                              {/* Total Expense */}
+                              <div className="p-5 bg-red-50 rounded-lg border border-red-100 shadow-sm">
+                                   <p className="text-xs uppercase tracking-wide font-bold text-red-500 mb-1">{t.statsTotalExpense}</p>
+                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.expense)}</p>
+                              </div>
+                              {/* Labour Expense */}
+                              <div className="p-5 bg-orange-50 rounded-lg border border-orange-100 shadow-sm">
+                                   <p className="text-xs uppercase tracking-wide font-bold text-orange-500 mb-1">{t.statsLabourExpense}</p>
+                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.labour)}</p>
+                              </div>
+                              {/* Oil Expense */}
+                              <div className="p-5 bg-yellow-50 rounded-lg border border-yellow-100 shadow-sm">
+                                   <p className="text-xs uppercase tracking-wide font-bold text-yellow-600 mb-1">{t.statsOilExpense}</p>
+                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.oil)}</p>
+                              </div>
+                              {/* Electricity Expense */}
+                              <div className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
+                                      <p className="text-xs uppercase tracking-wide font-bold text-blue-600 mb-1">{t.statsElectricityExpense}</p>
+                                      <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.electricity)}</p>
+                              </div>
+                              {/* Dispatch / Labour Cost */}
+                              <div className="p-5 bg-purple-50 rounded-lg border border-purple-100 shadow-sm md:col-span-2 lg:col-span-1">
+                                       <p className="text-xs uppercase tracking-wide font-bold text-purple-600 mb-1">{t.statsLabourPerQuintal}</p>
+                                       <div className="flex items-baseline gap-2">
+                                           <p className="text-2xl font-bold text-gray-800">₹{stats.labourPerQuintal.toFixed(2)}</p>
+                                           <span className="text-xs text-gray-500">/ Quintal</span>
+                                       </div>
+                                       <p className="text-[10px] text-gray-400 mt-1">({stats.dispatchedQuintal.toFixed(2)} Q Dispatched)</p>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
+              {activeTab === 'accounts' && (
+                  <AccountPageController 
+                      transactions={transactions}
+                      stockMovements={stockMovements}
+                      t={t}
+                      accounts={accounts}
+                      onAddAccount={handleCreateAccount}
+                      onUpdateAccount={handleUpdateAccount}
+                      onOpenTransactionModal={openTransactionModal}
+                  />
+              )}
+
+              {activeTab === 'stock' && (
+                  <StockPageController 
+                      t={t}
+                      language={language}
+                      stockMovements={stockMovements}
+                      transactions={transactions}
+                      accounts={accounts}
+                      onAddStockMovement={handleAddStockMovement}
+                      onUpdateStockMovement={handleUpdateStockMovement}
+                      onDeleteStockMovement={handleDeleteStockMovement}
+                      onAddTransaction={handleAddTransaction}
+                      onAddAccount={handleCreateAccount}
+                      onUpdateAccount={handleUpdateAccount}
+                  />
+              )}
+
+              {activeTab === 'reports' && (
+                  <ReportsPageController 
+                      transactions={transactions}
+                      t={t}
+                      language={language}
+                      getTranslated={getTranslated}
+                  />
+              )}
+          </main>
+
+          {/* Transaction Modal */}
+          <TransactionModal 
+              isOpen={isModalOpen}
+              onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }}
+              onSubmit={handleAddTransaction}
+              initialData={editingTransaction}
+              mode={modalMode}
+              t={t}
+              availableAccounts={accounts}
+              defaultCategory={modalDefaults.category}
+              defaultAccountName={modalDefaults.accountName}
+          />
+
+          {/* Opening Balance Modal */}
+          {isBalanceModalOpen && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl animate-fade-in">
+                      <h3 className="text-xl font-bold mb-4">{t.editOpeningBalanceTitle}</h3>
+                      <div className="mb-4">
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialCashLabel}</label>
+                          <input 
+                              type="number"
+                              value={tempOpeningBalance.cash}
+                              onChange={(e) => setTempOpeningBalance(prev => ({ ...prev, cash: e.target.value }))}
+                              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          />
+                      </div>
+                      <div className="mb-6">
+                          <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialOnlineLabel}</label>
+                          <input 
+                              type="number"
+                              value={tempOpeningBalance.online}
+                              onChange={(e) => setTempOpeningBalance(prev => ({ ...prev, online: e.target.value }))}
+                              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          />
+                      </div>
+                      <div className="flex gap-3">
+                          <button 
+                              onClick={saveOpeningBalance} 
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition"
+                          >
+                              {t.saveBtn}
+                          </button>
+                          <button 
+                              onClick={() => setIsBalanceModalOpen(false)} 
+                              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold transition"
+                          >
+                              {t.cancelBtn}
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          )}
+      </div>
+  );
+};
+
+export default App;
