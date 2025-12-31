@@ -19,6 +19,7 @@ interface StockPageControllerProps {
   onAddTransaction: (t: Omit<Transaction, 'id' | 'timestamp'>) => void;
   onAddAccount: (name: string, type: AccountType) => void;
   onUpdateAccount: (acc: StoredAccount) => void;
+  getTranslated: (text?: string) => string;
 }
 
 export const StockPageController: React.FC<StockPageControllerProps> = ({
@@ -32,7 +33,8 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
   onDeleteStockMovement,
   onAddTransaction,
   onAddAccount,
-  onUpdateAccount
+  onUpdateAccount,
+  getTranslated
 }) => {
   // Navigation State Removed
 
@@ -204,6 +206,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
 
        customerAccounts={customerAccounts}
        onDownloadPdf={handleDownloadPdf}
+       getTranslated={getTranslated}
     />
   );
 };

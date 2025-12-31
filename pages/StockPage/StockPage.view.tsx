@@ -45,6 +45,7 @@ interface StockPageViewProps {
 
   // PDF
   onDownloadPdf: () => void;
+  getTranslated: (text?: string) => string;
 }
 
 export const StockPageView: React.FC<StockPageViewProps> = ({
@@ -78,7 +79,8 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
   onDeleteStockMovement,
 
   customerAccounts,
-  onDownloadPdf
+  onDownloadPdf,
+  getTranslated
 }) => {
 
   const displayStock = unit === 'KG' ? currentStockKg : (currentStockKg / 100);
@@ -402,7 +404,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                         </span>
                                     </td>
                                     <td className="p-3 font-medium text-gray-800">
-                                        {move.accountName || move.note || '-'}
+                                        {getTranslated(move.accountName || move.note) || '-'}
                                     </td>
                                     <td className="p-3 uppercase text-gray-600">{move.vehicleNumber || '-'}</td>
                                     <td className="p-3 text-right font-mono">
@@ -585,7 +587,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                                 }
                                             </div>
                                             <div className="text-xs text-gray-500">
-                                                {row.accountName ? row.accountName : row.note}
+                                                {getTranslated(row.accountName ? row.accountName : row.note)}
                                                 {row.vehicleNumber && ` (${row.vehicleNumber})`}
                                             </div>
                                         </td>
