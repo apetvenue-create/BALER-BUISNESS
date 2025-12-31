@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { Translation, StockMovement, StoredAccount } from '../../types';
 import { formatIndianCurrency, formatDisplayDate } from '../../utils';
@@ -98,6 +97,11 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
   const [editCustomer, setEditCustomer] = useState('');
   const [editNote, setEditNote] = useState('');
 
+  // Validation States
+  const [dispatchErrors, setDispatchErrors] = useState<Record<string, string>>({});
+  const [adjustErrors, setAdjustErrors] = useState<string>('');
+  const [editErrors, setEditErrors] = useState<string>('');
+
   const openEditModal = (m: StockMovement) => {
       setEditingMovement(m);
       setEditDate(m.date);
@@ -106,17 +110,23 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
       setEditVehicle(m.vehicleNumber || '');
       setEditCustomer(m.accountName || '');
       setEditNote(m.note || '');
+      setEditErrors('');
+  };
+
+  const validateEdit = (): boolean => {
+      const qtyNum = parseFloat(editQty);
+      if (isNaN(qtyNum) || qtyNum <= 0) {
+          setEditErrors(t.alertInvalidQty);
+          return false;
+      }
+      return true;
   };
 
   const handleSaveEdit = () => {
       if (!editingMovement) return;
+      if (!validateEdit()) return;
       
       const qtyNum = parseFloat(editQty);
-      if (isNaN(qtyNum) || qtyNum <= 0) {
-          alert(t.alertInvalidQty);
-          return;
-      }
-      
       const qtyKg = unit === 'KG' ? qtyNum : qtyNum * 100;
       let totalAmount = 0;
       let rate = 0;
@@ -142,11 +152,44 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
       setEditingMovement(null);
   };
 
+  const validateDispatch = (): boolean => {
+      const errors: Record<string, string> = {};
+      if (!selectedCustomer) errors.customer = t.errAccountRequired;
+      if (dispatchTotalKg <= 0) errors.qty = t.alertInvalidQty;
+      else if (dispatchTotalKg > currentStockKg) errors.qty = t.alertInsufficientStock;
+      
+      setDispatchErrors(errors);
+      return Object.keys(errors).length === 0;
+  };
+
+  const handleDispatchClick = () => {
+      if (!validateDispatch()) return;
+      onDispatch();
+      setDispatchErrors({});
+  };
+
+  const handleAdjustClick = (type: 'add' | 'sub') => {
+      const qty = parseFloat(adjustQty);
+      if (isNaN(qty) || qty <= 0) {
+          setAdjustErrors(type === 'add' ? t.alertEnterQtyAdd : t.alertEnterQtySub);
+          return;
+      }
+      if (type === 'sub') {
+          const qtyKg = unit === 'KG' ? qty : qty * 100;
+          if (currentStockKg < qtyKg) {
+              setAdjustErrors(t.alertInsufficientStock);
+              return;
+          }
+      }
+      
+      setAdjustErrors('');
+      if (type === 'add') onAddStock();
+      else onSubtractStock();
+  };
+
   // -- HISTORY CALCULATION HELPER --
   // Calculate Previous Stock dynamically for the Modal View
-  // Row Logic: Previous +/- Change = Remaining
   const getLedgerData = () => {
-      // Sort Chronologically: Oldest First
       const sorted = [...stockMovements].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.id - b.id);
       
       return sorted.map(m => {
@@ -215,21 +258,22 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                          {/* Actions Area */}
                          <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mt-2">
                              <p className="text-xs font-bold text-gray-500 mb-2 uppercase">{t.adjustStockTitle}</p>
-                             <div className="flex gap-2">
+                             <div className="flex gap-2 items-center">
                                  <input 
                                     type="number" 
                                     placeholder="0" 
-                                    className="w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className={`w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 ${adjustErrors ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500'}`}
                                     value={adjustQty}
-                                    onChange={(e) => setAdjustQty(e.target.value)}
+                                    onChange={(e) => { setAdjustQty(e.target.value); setAdjustErrors(''); }}
                                  />
-                                 <button onClick={onAddStock} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
+                                 <button onClick={() => handleAdjustClick('add')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
                                      {t.addStockBtn}
                                  </button>
-                                 <button onClick={onSubtractStock} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
+                                 <button onClick={() => handleAdjustClick('sub')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
                                      {t.subtractStockBtn}
                                  </button>
                              </div>
+                             {adjustErrors && <p className="text-red-500 text-xs mt-1 text-center font-semibold">{adjustErrors}</p>}
                          </div>
                     </div>
                 </div>
@@ -253,8 +297,8 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                         <label className="block text-sm font-semibold text-gray-600 mb-1">{t.tabCustomers}</label>
                         <select
                             value={selectedCustomer}
-                            onChange={e => setSelectedCustomer(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:outline-none"
+                            onChange={e => { setSelectedCustomer(e.target.value); setDispatchErrors(prev => ({...prev, customer: ''})); }}
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:outline-none ${dispatchErrors.customer ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}
                         >
                              <option value="">{t.selectAccountPlaceholder}</option>
                              {customerAccounts.map(acc => (
@@ -262,6 +306,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                              ))}
                              <option value="__new__" className="font-bold text-blue-600">+ {t.addNewAccount}</option>
                         </select>
+                        {dispatchErrors.customer && <p className="text-red-500 text-xs mt-1">{dispatchErrors.customer}</p>}
                     </div>
 
                     {/* Vehicle */}
@@ -283,10 +328,11 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                             type="number"
                             placeholder="0.00"
                             value={dispatchQty}
-                            onChange={e => setDispatchQty(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:outline-none text-lg font-mono"
+                            onChange={e => { setDispatchQty(e.target.value); setDispatchErrors(prev => ({...prev, qty: ''})); }}
+                            className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:outline-none text-lg font-mono ${dispatchErrors.qty ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}
                         />
-                        {unit === 'QUINTAL' && dispatchTotalKg > 0 && (
+                        {dispatchErrors.qty && <p className="text-red-500 text-xs mt-1">{dispatchErrors.qty}</p>}
+                        {unit === 'QUINTAL' && dispatchTotalKg > 0 && !dispatchErrors.qty && (
                             <p className="text-xs text-gray-500 mt-1">{t.convertedWeightLabel} {dispatchTotalKg} {t.unitKg}</p>
                         )}
                     </div>
@@ -310,8 +356,8 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                              <span className="text-xl font-bold text-green-600">₹{formatIndianCurrency(dispatchTotalPrice)}</span>
                          </div>
                          <button 
-                             onClick={onDispatch}
-                             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 rounded-lg shadow transition active:transform active:scale-95"
+                             onClick={handleDispatchClick}
+                             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 rounded-lg shadow transition active:transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
                          >
                              {t.dispatchBtn}
                          </button>
@@ -421,9 +467,10 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                            <input 
                                type="number"
                                value={editQty}
-                               onChange={e => setEditQty(e.target.value)}
-                               className="w-full border rounded px-3 py-2 font-mono"
+                               onChange={e => { setEditQty(e.target.value); setEditErrors(''); }}
+                               className={`w-full border rounded px-3 py-2 font-mono ${editErrors ? 'border-red-500 ring-1 ring-red-500' : ''}`}
                            />
+                           {editErrors && <p className="text-red-500 text-xs mt-1">{editErrors}</p>}
                        </div>
 
                        {/* Fields only for Dispatch */}

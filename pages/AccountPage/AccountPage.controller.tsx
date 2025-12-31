@@ -387,9 +387,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
           const rate = activeTab === 'labour' ? (parseInt(newAccountRate) || 400) : undefined;
           onAddAccount(newAccountName.trim(), activeTab, rate);
           handleCloseAddModal();
-      } else {
-          alert(t.enterAccountName);
-      }
+      } 
+      // Validation handled in View component now
   };
 
   const handleToggleAttendance = (date: string) => {

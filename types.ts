@@ -1,5 +1,4 @@
 
-
 export type Language = 'en' | 'hi' | 'pa';
 
 export type TransactionType = 'income' | 'expense';
@@ -396,4 +395,9 @@ export interface Translation {
   
   // Labour Specific
   hisaabHelp: string;
+
+  // Validation
+  errRequired: string;
+  errAccountRequired: string;
+  errPositiveAmount: string;
 }

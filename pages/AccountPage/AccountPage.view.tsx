@@ -125,6 +125,10 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   const [bonusForm, setBonusForm] = useState({ date: new Date().toISOString().split('T')[0], amount: '', note: '' });
   const [editingAdjustmentId, setEditingAdjustmentId] = useState<number | null>(null);
 
+  // Validation States
+  const [accountErrors, setAccountErrors] = useState<string>('');
+  const [bonusErrors, setBonusErrors] = useState<Record<string, string>>({});
+
   const handleOpenBonusModal = (adj?: ManualAdjustment) => {
       if (adj) {
           setEditingAdjustmentId(adj.id);
@@ -133,13 +137,23 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
           setEditingAdjustmentId(null);
           setBonusForm({ date: new Date().toISOString().split('T')[0], amount: '', note: '' });
       }
+      setBonusErrors({});
       setIsBonusModalOpen(true);
   };
 
   const handleBonusSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       const amt = parseFloat(bonusForm.amount);
-      if (!amt) return;
+      const errors: Record<string, string> = {};
+      
+      if (!amt || amt === 0) errors.amount = t.errPositiveAmount;
+      // Note is optional but good to check if truly required by business logic. 
+      // Assuming optional based on prompt "small local errors" for critical inputs.
+      
+      if (Object.keys(errors).length > 0) {
+          setBonusErrors(errors);
+          return;
+      }
 
       if (editingAdjustmentId && onUpdateAdjustment) {
           onUpdateAdjustment({
@@ -156,6 +170,15 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
           });
       }
       setIsBonusModalOpen(false);
+  };
+
+  const handleConfirmAddAccountClick = () => {
+      if (!newAccountName || !newAccountName.trim()) {
+          setAccountErrors(t.enterAccountName);
+          return;
+      }
+      setAccountErrors('');
+      onConfirmAddAccount();
   };
   
   // -- Helper for Report Controls --
@@ -804,17 +827,18 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                 <input 
                                     type="number"
                                     required
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none ${bonusErrors.amount ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-green-500 border-gray-300'}`}
                                     value={bonusForm.amount}
-                                    onChange={e => setBonusForm({...bonusForm, amount: e.target.value})}
+                                    onChange={e => { setBonusForm({...bonusForm, amount: e.target.value}); setBonusErrors({}); }}
                                     placeholder="0"
                                 />
+                                {bonusErrors.amount && <p className="text-red-500 text-xs mt-1">{bonusErrors.amount}</p>}
                             </div>
                             <div className="mb-6">
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">{t.adjustmentNote}</label>
                                 <input 
                                     type="text"
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none"
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none border-gray-300"
                                     value={bonusForm.note}
                                     onChange={e => setBonusForm({...bonusForm, note: e.target.value})}
                                     placeholder="Bonus / Overtime"
@@ -959,11 +983,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     <input 
                         autoFocus
                         type="text"
-                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none ${accountErrors ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500 border-gray-300'}`}
                         placeholder={t.enterAccountName}
                         value={newAccountName}
-                        onChange={e => onNewAccountNameChange(e.target.value)}
+                        onChange={e => { onNewAccountNameChange(e.target.value); setAccountErrors(''); }}
                     />
+                    {accountErrors && <p className="text-red-500 text-xs mt-1">{accountErrors}</p>}
                 </div>
 
                 {/* Optional Rate Field only for Labour */}
@@ -972,7 +997,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         <label className="block text-sm font-semibold text-gray-700 mb-1">{t.enterRate}</label>
                         <input 
                             type="number"
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none border-gray-300"
                             placeholder="400"
                             value={newAccountRate}
                             onChange={e => onNewAccountRateChange(e.target.value)}
@@ -982,7 +1007,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
                 <div className="flex gap-3">
                     <button 
-                        onClick={onConfirmAddAccount} 
+                        onClick={handleConfirmAddAccountClick} 
                         className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
                     >
                         {t.createBtn}

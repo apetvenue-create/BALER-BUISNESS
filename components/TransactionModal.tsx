@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, Translation, StoredAccount } from '../types';
 import { formatInputCurrency, parseCurrency } from '../utils';
@@ -41,6 +42,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   // UI State for Manual Account Entry
   const [isManualEntry, setIsManualEntry] = useState(false);
 
+  // Validation State
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   // Derived: Filter accounts based on selected category
   const filteredAccounts = useMemo(() => {
     if (!category) return [];
@@ -63,6 +67,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
+      setErrors({}); // Clear errors on open
       if (initialData) {
         setCategory(initialData.category);
         setAccountName(initialData.accountName || '');
@@ -96,32 +101,38 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   if (!isOpen) return null;
 
+  const validate = () => {
+      const newErrors: Record<string, string> = {};
+      const amount = parseCurrency(amountStr);
+      
+      if (!amount || amount <= 0) {
+          newErrors.amount = t.alertAmountRequired;
+      }
+
+      // Account Name Validation for specific categories
+      const requiresAccount = category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier';
+      
+      if (requiresAccount) {
+          if (!accountName || !accountName.trim()) {
+              newErrors.accountName = isManualEntry ? t.errRequired : t.errAccountRequired;
+          } else if (accountName === '__new__') {
+              newErrors.accountName = t.errAccountRequired;
+          }
+      }
+
+      if (isRange && endDate < date) {
+          newErrors.dateRange = t.alertDateOrder;
+      }
+
+      setErrors(newErrors);
+      return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = parseCurrency(amountStr);
     
-    // Validation
-    if (!amount) {
-        alert(t.alertAmountRequired);
-        return;
-    }
-
-    // Account Name Validation for specific categories
-    const requiresAccount = category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier';
-    
-    if (requiresAccount) {
-        if (!accountName || !accountName.trim()) {
-            alert(isManualEntry ? t.enterAccountName : t.selectAccountPlaceholder);
-            return;
-        }
-        if (accountName === '__new__') {
-           alert(t.selectAccountPlaceholder);
-           return;
-        }
-    }
-
-    if (isRange && endDate < date) {
-        alert(t.alertDateOrder);
+    if (!validate()) {
+        // Shake logic or focus could go here
         return;
     }
 
@@ -130,7 +141,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       category,
       accountName: accountName.trim(), 
       details,
-      amount,
+      amount: parseCurrency(amountStr),
       paymentType: paymentType as any,
       date,
     }, isRange ? endDate : undefined);
@@ -145,11 +156,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     } else {
         setAccountName(val);
     }
+    // Clear error on change
+    if (errors.accountName) setErrors(prev => ({ ...prev, accountName: '' }));
   };
 
   const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatInputCurrency(e.target.value);
     setAmountStr(formatted);
+    if (errors.amount) setErrors(prev => ({ ...prev, amount: '' }));
   };
 
   // Determine if the account selector should be visible
@@ -199,9 +213,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <DateInput 
                         label={t.rangeEndDateLabel}
                         value={endDate}
-                        onChange={setEndDate}
+                        onChange={(d) => {
+                            setEndDate(d);
+                            if (errors.dateRange) setErrors(prev => ({ ...prev, dateRange: '' }));
+                        }}
                         min={date}
+                        className={errors.dateRange ? "border-red-500" : ""}
                     />
+                    {errors.dateRange && <p className="text-red-500 text-xs mt-1">{errors.dateRange}</p>}
                     <p className="text-xs text-gray-500 mt-1 italic">
                         {t.rangeHelpText}
                     </p>
@@ -254,46 +273,56 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               
               {isManualEntry ? (
                   <div className="flex gap-2">
-                      <input 
-                          autoFocus
-                          type="text"
-                          value={accountName}
-                          onChange={e => setAccountName(e.target.value)}
-                          placeholder={t.enterAccountName}
-                          className={`flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
-                      />
+                      <div className="flex-1">
+                          <input 
+                              autoFocus
+                              type="text"
+                              value={accountName}
+                              onChange={e => {
+                                  setAccountName(e.target.value);
+                                  if (errors.accountName) setErrors(prev => ({...prev, accountName: ''}));
+                              }}
+                              placeholder={t.enterAccountName}
+                              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+                          />
+                          {errors.accountName && <p className="text-red-500 text-xs mt-1">{errors.accountName}</p>}
+                      </div>
                       <button 
                           type="button"
                           onClick={() => {
                               setIsManualEntry(false);
                               setAccountName('');
+                              setErrors(prev => ({...prev, accountName: ''}));
                           }}
-                          className="bg-gray-200 text-gray-600 px-3 rounded-lg hover:bg-gray-300 font-bold"
+                          className="bg-gray-200 text-gray-600 px-3 rounded-lg hover:bg-gray-300 font-bold h-[42px]"
                           title="Cancel"
                       >
                           ✕
                       </button>
                   </div>
               ) : (
-                  <select 
-                    value={accountName}
-                    onChange={handleAccountChange}
-                    className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
-                  >
-                    <option value="">{t.selectAccountPlaceholder}</option>
-                    
-                    {/* Render filtered accounts from state */}
-                    {filteredAccounts.map(acc => (
-                      <option key={acc.name} value={acc.name}>{acc.name}</option>
-                    ))}
-                    
-                    {/* Fallback: if editing and account name is not in list (legacy), show it */}
-                    {accountName && !filteredAccounts.some(a => a.name === accountName) && accountName !== '__new__' && (
-                        <option value={accountName}>{accountName}</option>
-                    )}
-                    
-                    <option value="__new__" className="font-bold text-blue-600">{t.addNewAccount}</option>
-                  </select>
+                  <div>
+                      <select 
+                        value={accountName}
+                        onChange={handleAccountChange}
+                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+                      >
+                        <option value="">{t.selectAccountPlaceholder}</option>
+                        
+                        {/* Render filtered accounts from state */}
+                        {filteredAccounts.map(acc => (
+                          <option key={acc.name} value={acc.name}>{acc.name}</option>
+                        ))}
+                        
+                        {/* Fallback: if editing and account name is not in list (legacy), show it */}
+                        {accountName && !filteredAccounts.some(a => a.name === accountName) && accountName !== '__new__' && (
+                            <option value={accountName}>{accountName}</option>
+                        )}
+                        
+                        <option value="__new__" className="font-bold text-blue-600">{t.addNewAccount}</option>
+                      </select>
+                      {errors.accountName && <p className="text-red-500 text-xs mt-1">{errors.accountName}</p>}
+                  </div>
               )}
             </div>
           )}
@@ -318,8 +347,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               value={amountStr}
               onChange={handleAmountChange}
               placeholder="0"
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.amount ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
             />
+            {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
           </div>
 
           <div className="mb-4">

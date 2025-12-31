@@ -1,5 +1,4 @@
 
-
 import { Translation, Language } from './types';
 
 export const TRANSLATIONS: Record<Language, Translation> = {
@@ -218,11 +217,11 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     unitKg: "KG",
     unitQuintal: "Quintal",
     alertInvalidQty: "Invalid Quantity",
-    alertEnterQtyAdd: "Please enter a valid quantity to add.",
-    alertEnterQtySub: "Please enter a valid quantity to subtract.",
+    alertEnterQtyAdd: "Enter valid quantity",
+    alertEnterQtySub: "Enter valid quantity",
     alertInsufficientStock: "Insufficient Stock!",
     alertAmountRequired: "Amount required",
-    alertDateOrder: "End date cannot be before start date",
+    alertDateOrder: "Start date must be before end date",
     editStockEntryTitle: "Edit Stock Entry",
     manualAddNote: "Manual Add",
     manualSubNote: "Manual Sub",
@@ -240,6 +239,11 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     downloadPdfBtn: "Download PDF",
     
     hisaabHelp: "Double click date to mark Hisaab",
+
+    // Validation
+    errRequired: "Required",
+    errAccountRequired: "Please select an account",
+    errPositiveAmount: "Must be > 0"
   },
   hi: {
     pageTitle: "लेनदेन प्रबंधन",
@@ -449,18 +453,18 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     // New Keys
     unitKg: "KG",
     unitQuintal: "Quintal",
-    alertInvalidQty: "Invalid Quantity",
-    alertEnterQtyAdd: "Please enter a valid quantity to add.",
-    alertEnterQtySub: "Please enter a valid quantity to subtract.",
-    alertInsufficientStock: "Insufficient Stock!",
-    alertAmountRequired: "Amount required",
-    alertDateOrder: "End date cannot be before start date",
-    editStockEntryTitle: "Edit Stock Entry",
-    manualAddNote: "Manual Add",
-    manualSubNote: "Manual Sub",
-    transactionHistory: "Transaction History",
-    addCustomerAccount: "+ Add Customer",
-    creatingCustomerAccount: "Creating Customer Account",
+    alertInvalidQty: "अमान्य मात्रा",
+    alertEnterQtyAdd: "सही मात्रा दर्ज करें",
+    alertEnterQtySub: "सही मात्रा दर्ज करें",
+    alertInsufficientStock: "स्टॉक कम है!",
+    alertAmountRequired: "राशि आवश्यक है",
+    alertDateOrder: "तारीख सही चुनें",
+    editStockEntryTitle: "स्टॉक एंट्री संपादित करें",
+    manualAddNote: "मैनुअल जोड़ा",
+    manualSubNote: "मैनुअल घटाया",
+    transactionHistory: "लेनदेन इतिहास",
+    addCustomerAccount: "+ ग्राहक जोड़ें",
+    creatingCustomerAccount: "नया ग्राहक खाता",
     dispatchTypeLabel: "DISPATCH",
     
     // Strictly Isolated Labels
@@ -471,6 +475,11 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     downloadPdfBtn: "PDF डाउनलोड करें",
     
     hisaabHelp: "हिसाब के लिए तारीख पर डबल क्लिक करें",
+
+    // Validation
+    errRequired: "अनिवार्य",
+    errAccountRequired: "खाता चुनें",
+    errPositiveAmount: "राशि > 0 होनी चाहिए"
   },
   pa: {
     pageTitle: "ਲੈਣ-ਦੇਣ ਪ੍ਰਬੰਧਨ",
@@ -681,11 +690,11 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     unitKg: "ਕਿਲੋ",
     unitQuintal: "ਕਵਿੰਟਲ",
     alertInvalidQty: "ਗਲਤ ਮਾਤਰਾ",
-    alertEnterQtyAdd: "ਕਿਰਪਾ ਕਰਕੇ ਜੋੜਨ ਲਈ ਸਹੀ ਮਾਤਰਾ ਦਰਜ ਕਰੋ।",
-    alertEnterQtySub: "ਕਿਰਪਾ ਕਰਕੇ ਘਟਾਉਣ ਲਈ ਸਹੀ ਮਾਤਰਾ ਦਰਜ ਕਰੋ।",
+    alertEnterQtyAdd: "ਸਹੀ ਮਾਤਰਾ ਦਰਜ ਕਰੋ",
+    alertEnterQtySub: "ਸਹੀ ਮਾਤਰਾ ਦਰਜ ਕਰੋ",
     alertInsufficientStock: "ਸਟਾਕ ਘੱਟ ਹੈ!",
     alertAmountRequired: "ਰਕਮ ਲੋੜੀਂਦੀ ਹੈ",
-    alertDateOrder: "ਅੰਤਿਮ ਤਾਰੀਖ ਸ਼ੁਰੂਆਤੀ ਤਾਰੀਖ ਤੋਂ ਪਹਿਲਾਂ ਨਹੀਂ ਹੋ ਸਕਦੀ",
+    alertDateOrder: "ਤਾਰੀਖ ਸਹੀ ਚੁਣੋ",
     editStockEntryTitle: "ਸਟਾਕ ਐਂਟਰੀ ਸੋਧੋ",
     manualAddNote: "ਮੈਨੁਅਲ ਜੋੜ",
     manualSubNote: "ਮੈਨੁਅਲ ਘਟਾਓ",
@@ -702,5 +711,10 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     downloadPdfBtn: "PDF ਡਾਊਨਲੋਡ ਕਰੋ",
 
     hisaabHelp: "ਹਿਸਾਬ ਲਈ ਤਾਰੀਖ 'ਤੇ ਡਬਲ ਕਲਿੱਕ ਕਰੋ",
+
+    // Validation
+    errRequired: "ਲੋੜੀਂਦਾ",
+    errAccountRequired: "ਖਾਤਾ ਚੁਣੋ",
+    errPositiveAmount: "ਰਕਮ > 0 ਹੋਣੀ ਚਾਹੀਦੀ ਹੈ"
   }
 };

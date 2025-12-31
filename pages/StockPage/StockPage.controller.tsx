@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Translation, StockMovement, StoredAccount, Transaction, AccountType, AccountTab, Language } from '../../types';
 import { StockPageView } from './StockPage.view';
@@ -76,10 +77,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
 
   const handleAddStock = () => {
       const qty = parseFloat(adjustQty);
-      if (isNaN(qty) || qty <= 0) {
-          alert(t.alertEnterQtyAdd);
-          return;
-      }
+      if (isNaN(qty) || qty <= 0) return; // Validation handled in View
 
       // Input qty respects current unit
       const qtyKg = unit === 'KG' ? qty : qty * 100;
@@ -98,16 +96,11 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
 
   const handleSubtractStock = () => {
       const qty = parseFloat(adjustQty);
-      if (isNaN(qty) || qty <= 0) {
-          alert(t.alertEnterQtySub);
-          return;
-      }
+      if (isNaN(qty) || qty <= 0) return; // Validation handled in View
 
       const qtyKg = unit === 'KG' ? qty : qty * 100;
-      if (currentStockKg < qtyKg) {
-          alert(t.alertInsufficientStock);
-          return;
-      }
+      // Insufficient stock check handled in view, but extra safety:
+      if (currentStockKg < qtyKg) return;
 
       const newMovement: StockMovement = {
           id: Date.now(),
@@ -137,10 +130,8 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
   }, [dispatchTotalKg, ratePerQuintal]);
 
   const handleDispatch = () => {
-      if (!selectedCustomer) {
-          alert(t.selectAccountPlaceholder);
-          return;
-      }
+      if (!selectedCustomer) return; // Validation handled in View
+      
       if (selectedCustomer === '__new__') {
           const name = prompt(t.enterAccountName);
           if (name) {
@@ -150,14 +141,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
           return; // Wait for re-render
       }
       
-      if (dispatchTotalKg <= 0) {
-          alert(t.alertInvalidQty);
-          return;
-      }
-      if (dispatchTotalKg > currentStockKg) {
-          alert(t.alertInsufficientStock);
-          return;
-      }
+      if (dispatchTotalKg <= 0 || dispatchTotalKg > currentStockKg) return; // Validation handled in View
 
       // 1. Create Stock Movement (The Bill)
       const movement: StockMovement = {
@@ -177,7 +161,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
       // Reset
       setDispatchQty('');
       setVehicleNumber('');
-      alert(t.stockDispatched); 
+      // No alert needed, View can show success toast if desired, but not required by spec
   };
 
   // Filter Accounts for Dropdown
