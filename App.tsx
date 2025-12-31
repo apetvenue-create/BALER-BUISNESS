@@ -22,6 +22,12 @@ import { translateBatch } from './services/ai';
 import { AuthProvider, useAuth } from './auth/auth.store';
 import { AuthGuard } from './auth/auth.guard';
 
+// Services
+import { TransactionService } from './services/transactions.service';
+import { AccountService } from './services/accounts.service';
+import { StockService } from './services/stock.service';
+import { SettingsService } from './services/settings.service';
+
 // --- AUTH HEADER COMPONENT ---
 const UserProfileHeader: React.FC = () => {
   const { session, signOut } = useAuth();
@@ -99,151 +105,91 @@ const FinancialApp: React.FC = () => {
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [modalDefaults, setModalDefaults] = useState<{ category?: string, accountName?: string }>({});
 
-  // --- Persistence ---
+  const [isLoading, setIsLoading] = useState(true);
+
+  // --- Initial Data Load (Migration from LocalStorage to Supabase) ---
+  const loadData = async () => {
+      setIsLoading(true);
+      try {
+          const [txs, accs, stocks, ob, transCache] = await Promise.all([
+              TransactionService.getAll(),
+              AccountService.getAll(),
+              StockService.getAll(),
+              SettingsService.get('openingBalanceData'),
+              SettingsService.get('translationCache')
+          ]);
+
+          setTransactions(txs);
+          setAccounts(accs);
+          setStockMovements(stocks);
+          if (ob) setInitialOpeningBalance(ob);
+          if (transCache) setTranslationCache(transCache);
+          
+      } catch (e: any) {
+          console.error("Failed to load data", e);
+          
+          let errorMessage = "Unknown error occurred";
+          if (typeof e === 'string') {
+              errorMessage = e;
+          } else if (e instanceof Error) {
+              errorMessage = e.message;
+          } else if (typeof e === 'object' && e !== null) {
+              errorMessage = e.message || e.error_description || JSON.stringify(e);
+          }
+          
+          // Fallback if errorMessage ends up being an object somehow (e.g. unstringifiable)
+          if (typeof errorMessage === 'object') {
+              try {
+                  errorMessage = JSON.stringify(errorMessage);
+              } catch {
+                  errorMessage = "Unparsable error object";
+              }
+          }
+
+          alert(`Error loading data from server: ${errorMessage}. Please refresh.`);
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
   useEffect(() => {
-    // Load Data
-    const savedTxs = localStorage.getItem('transactions');
-    if (savedTxs) try { setTransactions(JSON.parse(savedTxs)); } catch(e) {}
-
-    const savedAccs = localStorage.getItem('accounts');
-    if (savedAccs) try { setAccounts(JSON.parse(savedAccs)); } catch(e) {}
-
-    const savedStock = localStorage.getItem('stockMovements');
-    if (savedStock) try { setStockMovements(JSON.parse(savedStock)); } catch(e) {}
-
-    const savedOB = localStorage.getItem('openingBalanceData');
-    if (savedOB) try { setInitialOpeningBalance(JSON.parse(savedOB)); } catch (e) {}
-
-    const savedTrans = localStorage.getItem('translationCache');
-    if (savedTrans) try { setTranslationCache(JSON.parse(savedTrans)); } catch (e) {}
+    loadData();
   }, []);
 
-  useEffect(() => {
-    localStorage.setItem('transactions', JSON.stringify(transactions));
-  }, [transactions]);
-  
-  useEffect(() => {
-    localStorage.setItem('accounts', JSON.stringify(accounts));
-  }, [accounts]);
+  // --- Persistence Handlers (Replaces useEffect localStorage) ---
 
-  useEffect(() => {
-    localStorage.setItem('stockMovements', JSON.stringify(stockMovements));
-  }, [stockMovements]);
-
-  useEffect(() => {
-    localStorage.setItem('openingBalanceData', JSON.stringify(initialOpeningBalance));
-  }, [initialOpeningBalance]);
-
-  useEffect(() => {
-    localStorage.setItem('translationCache', JSON.stringify(translationCache));
-  }, [translationCache]);
-
-  // --- Translation Logic ---
-
-  const handleTranslateData = async () => {
-      if (language === 'en') return;
-      
-      setIsTranslating(true);
-      
-      // 1. Collect all translatable strings
-      const stringsToTranslate = new Set<string>();
-      
-      // Transactions
-      transactions.forEach(t => {
-          if (t.accountName) stringsToTranslate.add(t.accountName);
-          if (t.details) stringsToTranslate.add(t.details);
-          if (t.category && t.category === 'custom') stringsToTranslate.add(t.category);
-      });
-
-      // Accounts
-      accounts.forEach(a => {
-          stringsToTranslate.add(a.name);
-      });
-
-      // Stock
-      stockMovements.forEach(s => {
-          if (s.accountName) stringsToTranslate.add(s.accountName);
-          if (s.note) stringsToTranslate.add(s.note);
-      });
-
-      // Filter out what we already have in cache
-      const needed: string[] = [];
-      const currentCache = translationCache[language] || {};
-      
-      stringsToTranslate.forEach(str => {
-          if (!currentCache[str]) {
-              needed.push(str);
-          }
-      });
-
-      if (needed.length === 0) {
-          setIsTranslating(false);
-          return; // Already have everything
-      }
-
-      // 2. Call AI Service
-      try {
-          // Batch in chunks of 50 to avoid token limits if data is huge
-          const chunkSize = 50;
-          for (let i = 0; i < needed.length; i += chunkSize) {
-              const chunk = needed.slice(i, i + chunkSize);
-              const result = await translateBatch(chunk, language as 'hi' | 'pa');
-              
-              // Update Cache
-              setTranslationCache(prev => ({
-                  ...prev,
-                  [language]: {
-                      ...(prev[language] || {}),
-                      ...result
-                  }
-              }));
-          }
-      } catch (e) {
-          console.error("Translation Error", e);
-          alert("Translation failed. Please check your connection.");
-      } finally {
-          setIsTranslating(false);
-      }
-  };
-
-  // Helper passed to children to get text in current language
-  const getTranslated = (text?: string): string => {
-      if (!text) return "";
-      if (language === 'en') return text;
-      
-      const cache = translationCache[language];
-      if (cache && cache[text]) {
-          return cache[text];
-      }
-      return text; // Fallback to original
-  };
-
-  // --- Handlers ---
-
-  const handleCreateAccount = (name: string, type: AccountType, rate?: number) => {
+  const handleCreateAccount = async (name: string, type: AccountType, rate?: number) => {
       if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) return;
       
-      const validTypes: AccountType[] = ['labour', 'partner', 'customer', 'supplier', 'other'];
-      const safeType = validTypes.includes(type) ? type : 'other';
+      const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
 
-      const newAccount: StoredAccount = {
-          name,
-          type: safeType,
-          rate,
-          attendance: {},
-          hisaabDays: {},
-          manualAdjustments: []
-      };
-      setAccounts(prev => [...prev, newAccount]);
+      // 1. Optimistic Update (Optional, but safer to wait for DB)
+      // 2. Call Service
+      await AccountService.create(name, safeType, rate);
+      
+      // 3. Reload Accounts (Simplest for consistency)
+      const freshAccounts = await AccountService.getAll();
+      setAccounts(freshAccounts);
   };
 
-  const handleUpdateAccount = (updated: StoredAccount) => {
-      setAccounts(prev => prev.map(a => a.name === updated.name ? updated : a));
+  // Generic wrapper to refresh accounts
+  const refreshAccounts = async () => {
+      const fresh = await AccountService.getAll();
+      setAccounts(fresh);
   };
 
-  const handleAddTransaction = (data: Omit<Transaction, 'id' | 'timestamp'>, endDate?: string) => {
+  const handleUpdateAccount = async (updated: StoredAccount) => {
+      // Logic handled via specific controllers or refresh
+  };
+
+  const handleAddTransaction = async (data: Omit<Transaction, 'id' | 'timestamp'>, endDate?: string) => {
+      // 1. Create Account if needed
       if (data.accountName) {
-          handleCreateAccount(data.accountName, data.category as AccountType); 
+         // Check if exists locally first
+         const exists = accounts.some(a => a.name === data.accountName);
+         if (!exists) {
+             await handleCreateAccount(data.accountName, data.category as AccountType);
+         }
       }
 
       // --- AUTO-ADJUST DATE FILTER (CASHBOOK RULE) ---
@@ -274,32 +220,46 @@ const FinancialApp: React.FC = () => {
       }
 
       if (editingTransaction) {
-          setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? { ...t, ...data } : t));
+          // UPDATE
+          const updatedTx = { ...editingTransaction, ...data };
+          await TransactionService.update(updatedTx);
+          
+          // Refresh
+          const fresh = await TransactionService.getAll();
+          setTransactions(fresh);
       } else {
+          // CREATE
           if (endDate && endDate !== data.date) {
               const dates = getDatesInRange(data.date, endDate);
-              const newTransactions: Transaction[] = dates.map((d, index) => ({
-                  ...data,
-                  date: d,
-                  id: Date.now() + index,
-                  timestamp: Date.now() + index
-              }));
-              setTransactions(prev => [...prev, ...newTransactions]);
+              // Serial execution to ensure order/integrity
+              for (const d of dates) {
+                  await TransactionService.create({
+                      ...data,
+                      date: d,
+                      timestamp: Date.now() // timestamp handling in service overrides this usually, or we keep it
+                  });
+              }
           } else {
-              const newTrans: Transaction = {
+              await TransactionService.create({
                   ...data,
-                  id: Date.now(),
-                  timestamp: Date.now(),
-              };
-              setTransactions(prev => [...prev, newTrans]);
+                  timestamp: Date.now()
+              });
           }
+          // Refresh
+          const fresh = await TransactionService.getAll();
+          setTransactions(fresh);
       }
       setEditingTransaction(null);
+      // Also refresh accounts as balances might change
+      refreshAccounts(); 
   };
 
-  const handleDeleteTransaction = (id: number) => {
+  const handleDeleteTransaction = async (id: number) => {
       if (window.confirm(t.confirmDelete)) {
-          setTransactions(prev => prev.filter(t => t.id !== id));
+          await TransactionService.delete(id);
+          const fresh = await TransactionService.getAll();
+          setTransactions(fresh);
+          refreshAccounts();
       }
   };
   
@@ -319,18 +279,130 @@ const FinancialApp: React.FC = () => {
       setIsBalanceModalOpen(true);
   };
 
-  const saveOpeningBalance = () => {
-      setInitialOpeningBalance({
+  const saveOpeningBalance = async () => {
+      const newVal = {
           cash: parseFloat(tempOpeningBalance.cash) || 0,
           online: parseFloat(tempOpeningBalance.online) || 0
-      });
+      };
+      setInitialOpeningBalance(newVal);
+      await SettingsService.set('openingBalanceData', newVal);
       setIsBalanceModalOpen(false);
   };
 
   // Stock Handlers
-  const handleAddStockMovement = (m: StockMovement) => setStockMovements(prev => [...prev, m]);
-  const handleUpdateStockMovement = (m: StockMovement) => setStockMovements(prev => prev.map(sm => sm.id === m.id ? m : sm));
-  const handleDeleteStockMovement = (id: number) => setStockMovements(prev => prev.filter(sm => sm.id !== id));
+  const handleAddStockMovement = async (m: StockMovement) => {
+      await StockService.create(m);
+      const fresh = await StockService.getAll();
+      setStockMovements(fresh);
+      // Refresh accounts for customer balances
+      refreshAccounts();
+  };
+
+  const handleUpdateStockMovement = async (m: StockMovement) => {
+      await StockService.update(m);
+      const fresh = await StockService.getAll();
+      setStockMovements(fresh);
+      refreshAccounts();
+  };
+
+  const handleDeleteStockMovement = async (id: number) => {
+      if (window.confirm(t.confirmDelete)) {
+          await StockService.delete(id);
+          const fresh = await StockService.getAll();
+          setStockMovements(fresh);
+          refreshAccounts();
+      }
+  };
+
+  // Specific Account Handlers for Controller
+  const handleToggleAttendance = async (accountName: string, date: string, isPresent: boolean) => {
+     await AccountService.toggleAttendance(accountName, date, isPresent);
+     refreshAccounts();
+  };
+
+  const handleToggleHisaab = async (accountName: string, date: string, isHisaab: boolean) => {
+     await AccountService.toggleHisaab(accountName, date, isHisaab);
+     refreshAccounts();
+  };
+
+  const handleAddAdjustment = async (accountName: string, adj: {date: string, amount: number, note: string}) => {
+     await AccountService.addAdjustment(accountName, adj);
+     refreshAccounts();
+  };
+
+  const handleUpdateAdjustment = async (adj: ManualAdjustment) => {
+     await AccountService.updateAdjustment(adj);
+     refreshAccounts();
+  };
+
+  const handleDeleteAdjustment = async (id: number) => {
+     await AccountService.deleteAdjustment(id);
+     refreshAccounts();
+  };
+
+  // Save Translation Cache
+  useEffect(() => {
+     if (Object.keys(translationCache.hi).length > 0 || Object.keys(translationCache.pa).length > 0) {
+        SettingsService.set('translationCache', translationCache);
+     }
+  }, [translationCache]);
+
+  // --- Translation Logic ---
+  const getTranslated = (text?: string): string => {
+    if (!text) return "";
+    if (language === 'en') return text;
+    const cache = translationCache[language];
+    return cache && cache[text] ? cache[text] : text;
+  };
+
+  const handleTranslateData = async () => {
+      if (language === 'en') return;
+      setIsTranslating(true);
+      
+      const textsToTranslate = new Set<string>();
+      
+      // Accounts
+      accounts.forEach(a => textsToTranslate.add(a.name));
+      
+      // Transactions
+      transactions.forEach(t => {
+          if(t.accountName) textsToTranslate.add(t.accountName);
+          if(t.details) textsToTranslate.add(t.details);
+      });
+      
+      // Stock
+      stockMovements.forEach(m => {
+          if(m.accountName) textsToTranslate.add(m.accountName);
+          if(m.note) textsToTranslate.add(m.note);
+      });
+
+      // Filter out already translated
+      const currentCache = translationCache[language] || {};
+      const pendingTexts = Array.from(textsToTranslate).filter(t => !currentCache[t]);
+
+      if (pendingTexts.length === 0) {
+          setIsTranslating(false);
+          return;
+      }
+
+      try {
+          if (language === 'hi' || language === 'pa') {
+              const result = await translateBatch(pendingTexts, language);
+              
+              setTranslationCache(prev => ({
+                  ...prev,
+                  [language]: {
+                      ...prev[language],
+                      ...result
+                  }
+              }));
+          }
+      } catch (e) {
+          console.error("Translation error", e);
+      } finally {
+          setIsTranslating(false);
+      }
+  };
 
   // --- Logic: Calculations ---
 
@@ -424,6 +496,14 @@ const FinancialApp: React.FC = () => {
       if (cat === 'supplier') return t.supplierOption;
       return cat;
   };
+
+  if (isLoading) {
+      return (
+          <div className="min-h-screen flex items-center justify-center bg-gray-100">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+      );
+  }
 
   return (
       <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
@@ -645,7 +725,90 @@ const FinancialApp: React.FC = () => {
                                           </tr>
                                       ))}
                                   </tbody>
-                                  <tfoot className="bg-red-100">
+                                  <tfoot className="bg-green-50 border-t border-green-200">
+                                      <tr>
+                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
+                                              {t.incomeTotalLabel} <span className="text-green-700 text-lg ml-2">₹{formatIndianCurrency(totalIncome)}</span>
+                                          </td>
+                                          <td colSpan={4}></td>
+                                      </tr>
+                                  </tfoot>
+                              </table>
+                          </div>
+                      </div>
+
+                      {/* EXPENSE TRANSACTIONS TABLE */}
+                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+                          <div className="flex justify-between items-center mb-4">
+                              <h2 className="text-xl font-bold text-red-600">{t.expenseTitle}</h2>
+                              <button 
+                                  onClick={() => openTransactionModal('expense')}
+                                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
+                              >
+                                  {t.addExpenseBtn}
+                              </button>
+                          </div>
+                          <div className="overflow-x-auto">
+                              <table className="w-full">
+                                  <thead className="bg-red-50">
+                                      <tr>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.expenseTypeHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {displayedTransactions.filter(tr => tr.type === 'expense').length === 0 && (
+                                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noExpense}</td></tr>
+                                      )}
+                                      {displayedTransactions.filter(tr => tr.type === 'expense').map(tr => (
+                                          <tr key={tr.id} className="border-b hover:bg-gray-50">
+                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
+                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
+                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
+                                              <td className="px-4 py-3">
+                                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                      {tr.paymentType}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3">
+                                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                                      {getCategoryLabel(tr.category)}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-right font-bold text-red-600">₹{formatIndianCurrency(tr.amount)}</td>
+                                              <td className="px-4 py-3 text-right">
+                                                  <div className="flex justify-end items-center gap-2">
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
+                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
+                                                          title={t.editBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                          </svg>
+                                                      </button>
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
+                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
+                                                          title={t.deleteBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                          </svg>
+                                                      </button>
+                                                  </div>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                                  <tfoot className="bg-red-50 border-t border-red-200">
                                       <tr>
                                           <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
                                               {t.expenseTotalLabel} <span className="text-red-700 text-lg ml-2">₹{formatIndianCurrency(totalExpense)}</span>
@@ -729,6 +892,12 @@ const FinancialApp: React.FC = () => {
                       onUpdateAccount={handleUpdateAccount}
                       onOpenTransactionModal={openTransactionModal}
                       getTranslated={getTranslated}
+                      // Pass granular handlers
+                      onToggleAttendance={handleToggleAttendance}
+                      onToggleHisaab={handleToggleHisaab}
+                      onAddAdjustment={handleAddAdjustment}
+                      onUpdateAdjustment={handleUpdateAdjustment}
+                      onDeleteAdjustment={handleDeleteAdjustment}
                   />
               )}
 

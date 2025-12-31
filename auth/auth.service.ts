@@ -1,64 +1,59 @@
 
 import { AuthSession } from './auth.contract';
-import { SessionStorage } from '../storage/session.storage';
+import { supabase } from '../services/supabase';
 
-// This service mimics a real backend API client.
-// It can be replaced with Supabase/Firebase client later without breaking the app.
 export const AuthService = {
-  async signIn(email: string, _pass: string): Promise<AuthSession> {
-    // Simulate network latency (300-800ms)
-    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 500));
+  async signIn(email: string, pass: string): Promise<AuthSession> {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pass,
+    });
 
-    // Basic validation (Simulate backend validation)
-    if (!email || !email.includes('@')) {
-      throw new Error("Invalid email format");
-    }
-    if (!_pass || _pass.length < 3) {
-        throw new Error("Password too short");
-    }
+    if (error) throw new Error(error.message);
+    if (!data.session || !data.user) throw new Error("No session created");
 
-    // Generate simulated session
-    const session: AuthSession = {
-      userId: 'user_' + Math.random().toString(36).substring(2, 9),
-      email: email.toLowerCase(),
-      name: email.split('@')[0],
-      issuedAt: Date.now(),
-    };
-
-    // Persist via storage adapter
-    SessionStorage.save(session);
-    
-    return session;
+    return this._mapSession(data.user);
   },
 
-  async signUp(email: string, _pass: string, name: string): Promise<AuthSession> {
-    // Simulate network latency
-    await new Promise(resolve => setTimeout(resolve, 500));
+  async signUp(email: string, pass: string, name: string): Promise<AuthSession> {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password: pass,
+      options: {
+        data: { name }, // Store business name in metadata
+      },
+    });
 
-    // Backend Validation
-    if (!name || name.trim().length === 0) throw new Error("Business name is required");
-    if (!email || !email.includes('@')) throw new Error("Invalid email address");
-    if (!_pass || _pass.length < 6) throw new Error("Password must be at least 6 characters");
+    if (error) throw new Error(error.message);
+    
+    // Check if session exists (Supabase might require email confirmation)
+    if (!data.session && data.user) {
+        throw new Error("Account created! Please check your email to confirm registration.");
+    }
+    
+    if (!data.user || !data.session) throw new Error("Registration failed");
 
-    const session: AuthSession = {
-      userId: 'user_' + Math.random().toString(36).substring(2, 9),
-      email: email.toLowerCase(),
-      name: name.trim(),
-      issuedAt: Date.now(),
-    };
-
-    SessionStorage.save(session);
-    return session;
+    return this._mapSession(data.user);
   },
 
   async signOut(): Promise<void> {
-    // Simulate network
-    await new Promise(resolve => setTimeout(resolve, 200));
-    SessionStorage.clear();
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
   },
 
-  // Synchronous restoration from storage (for fast app boot)
-  restoreSession(): AuthSession | null {
-    return SessionStorage.load();
+  async restoreSession(): Promise<AuthSession | null> {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error || !session || !session.user) return null;
+    return this._mapSession(session.user);
+  },
+
+  // Helper to map Supabase User to our App's AuthSession
+  _mapSession(user: any): AuthSession {
+    return {
+      userId: user.id,
+      email: user.email || '',
+      name: user.user_metadata?.name || user.email?.split('@')[0],
+      issuedAt: Date.now(),
+    };
   }
 };

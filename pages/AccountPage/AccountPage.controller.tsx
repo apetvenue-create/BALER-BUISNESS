@@ -7,7 +7,7 @@ import { PDFGenerator } from '../../services/pdfGenerator';
 
 interface AccountPageControllerProps {
   transactions: Transaction[];
-  stockMovements?: StockMovement[]; // Optional to keep existing usage valid if not passed everywhere yet
+  stockMovements?: StockMovement[]; 
   t: Translation;
   accounts: StoredAccount[];
   onAddAccount: (name: string, type: AccountType, rate?: number) => void;
@@ -15,18 +15,31 @@ interface AccountPageControllerProps {
   onOpenTransactionModal: (mode: TransactionType, defaults?: { category?: string, accountName?: string }) => void;
   initialTab?: AccountTab;
   getTranslated: (text?: string) => string;
+  
+  // Specific Handlers
+  onToggleAttendance?: (accountName: string, date: string, isPresent: boolean) => void;
+  onToggleHisaab?: (accountName: string, date: string, isHisaab: boolean) => void;
+  onAddAdjustment?: (accountName: string, adj: {date: string, amount: number, note: string}) => void;
+  onUpdateAdjustment?: (adj: ManualAdjustment) => void;
+  onDeleteAdjustment?: (id: number) => void;
 }
 
 export const AccountPageController: React.FC<AccountPageControllerProps> = ({ 
   transactions, 
-  stockMovements = [], // Default to empty if not passed
+  stockMovements = [], 
   t, 
   accounts,
   onAddAccount,
   onUpdateAccount,
   onOpenTransactionModal,
   initialTab = 'labour',
-  getTranslated
+  getTranslated,
+  
+  onToggleAttendance,
+  onToggleHisaab,
+  onAddAdjustment,
+  onUpdateAdjustment,
+  onDeleteAdjustment
 }) => {
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,17 +100,13 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
             if (tr.category === 'labour') map.set(tr.accountName, { type: 'labour', balance: 0 });
             else if (tr.category === 'partner') map.set(tr.accountName, { type: 'partner', balance: 0 });
             else if (tr.category === 'customer') map.set(tr.accountName, { type: 'customer', balance: 0 });
-            else if (tr.category === 'shop' || tr.category === 'oil') {
-                // Ignore general shop/oil expense if it just happens to have a name, unless already in map
-            }
+            else if (tr.category === 'supplier') map.set(tr.accountName, { type: 'supplier', balance: 0 });
         }
 
         if (map.has(tr.accountName)) {
             const current = map.get(tr.accountName)!;
             // Balance Calc:
             // For Customer/Partner: Income is +, Expense is -.
-            // For Supplier: Expense (Money Out) is Debit. Income (Refund) is Credit.
-            // General List View just shows net flow for simplicity, detail view handles specifics.
             if (tr.type === 'income') current.balance += tr.amount;
             else current.balance -= tr.amount;
         }
@@ -122,511 +131,390 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   // 3. Prepare Detailed Data for Selected Account
   const partnerData: PartnerSummary | undefined = useMemo(() => {
-     if (!selectedAccountName || activeTab !== 'partner') return undefined;
-
-     const related = transactions.filter(tr => tr.accountName === selectedAccountName);
+     if (activeTab !== 'partner' || !selectedAccountName) return undefined;
      
-     // Separate In/Out
-     const transactionsIn = related.filter(tr => tr.type === 'income');
-     const transactionsOut = related.filter(tr => tr.type === 'expense');
-
-     const totalIn = transactionsIn.reduce((sum, t) => sum + t.amount, 0);
-     const totalOut = transactionsOut.reduce((sum, t) => sum + t.amount, 0);
-
+     const txsIn = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'income');
+     const txsOut = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'expense');
+     
+     const totalIn = txsIn.reduce((sum, t) => sum + t.amount, 0);
+     const totalOut = txsOut.reduce((sum, t) => sum + t.amount, 0);
+     
      return {
-        name: selectedAccountName,
-        totalIn,
-        totalOut,
-        netBalance: totalIn - totalOut,
-        transactionsIn,
-        transactionsOut
+         name: selectedAccountName,
+         totalIn,
+         totalOut,
+         netBalance: totalIn - totalOut, // Postive = Net Invested/Profit share remaining
+         transactionsIn: txsIn.sort((a, b) => b.timestamp - a.timestamp),
+         transactionsOut: txsOut.sort((a, b) => b.timestamp - a.timestamp)
      };
-  }, [selectedAccountName, activeTab, transactions]);
-
-  // SUPPLIER DATA LOGIC (STRICT ISOLATION)
-  const supplierData: SupplierSummary | undefined = useMemo(() => {
-    if (!selectedAccountName || activeTab !== 'supplier') return undefined;
-
-    // Strict Rule 1: Money Paid to Supplier (Expense) = DEBIT
-    // Must be category 'supplier' to enforce isolation from general expenses
-    const debits = transactions.filter(t => 
-        t.accountName === selectedAccountName && 
-        t.type === 'expense' && 
-        t.category === 'supplier'
-    );
-    
-    // Strict Rule 2: Money Received from Supplier (Income) = CREDIT
-    // Must be category 'supplier'
-    const credits = transactions.filter(t => 
-        t.accountName === selectedAccountName && 
-        t.type === 'income' && 
-        t.category === 'supplier'
-    );
-
-    // Create Ledger Items
-    const ledger: SupplierLedgerItem[] = [];
-
-    debits.forEach(t => {
-        ledger.push({
-            id: `dr-${t.id}`,
-            date: t.date,
-            description: t.details || 'Payment Made',
-            debitAmount: t.amount,
-            creditAmount: 0,
-            runningBalance: 0, // calc later
-            originalTransaction: t
-        });
-    });
-
-    credits.forEach(t => {
-        ledger.push({
-            id: `cr-${t.id}`,
-            date: t.date,
-            description: t.details || 'Refund/Advance Received',
-            debitAmount: 0,
-            creditAmount: t.amount,
-            runningBalance: 0, // calc later
-            originalTransaction: t
-        });
-    });
-
-    // Sort Chronologically
-    ledger.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.id.localeCompare(b.id));
-
-    // Calculate Running Balance
-    // Balance Rule: Debit (Paid) - Credit (Received)
-    let running = 0;
-    const computedLedger = ledger.map(item => {
-        running = running + item.debitAmount - item.creditAmount;
-        return { ...item, runningBalance: running };
-    });
-
-    // Reverse for Display (Newest First)
-    const displayLedger = [...computedLedger].reverse();
-
-    const totalPaid = debits.reduce((sum, t) => sum + t.amount, 0);
-    const totalReceived = credits.reduce((sum, t) => sum + t.amount, 0);
-
-    return {
-        name: selectedAccountName,
-        totalPaid,
-        totalReceived,
-        netBalance: running, // Final balance
-        ledger: displayLedger
-    };
-
   }, [selectedAccountName, activeTab, transactions]);
 
   const customerData: CustomerSummary | undefined = useMemo(() => {
-     if (!selectedAccountName || activeTab !== 'customer') return undefined;
+     if (activeTab !== 'customer' || !selectedAccountName) return undefined;
 
+     // 1. Get Stock Dispatches (Bill Generated) -> DEBIT (Receivable)
      const stockOut = stockMovements.filter(m => m.accountName === selectedAccountName && m.type === 'out');
-     const payments = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'income');
-     const expenses = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'expense');
+     
+     // 2. Get Income (Payments Received) -> CREDIT (Decreases Receivable)
+     // Also include Expense (Refunds?) -> DEBIT (Increases Receivable) - Edge case, but handled logic below
+     const payments = transactions.filter(t => t.accountName === selectedAccountName);
+     
+     // Combine into Ledger
+     const ledger: CustomerLedgerItem[] = [];
+     let runningBalance = 0; // +ve means Receivable
+
+     // Combine and sort
+     const combined = [
+         ...stockOut.map(m => ({ 
+             date: m.date, 
+             id: `stock-${m.id}`, 
+             raw: m, 
+             type: 'stock' as const, 
+             ts: new Date(m.date).getTime() 
+         })),
+         ...payments.map(p => ({ 
+             date: p.date, 
+             id: `pay-${p.id}`, 
+             raw: p, 
+             type: 'payment' as const, 
+             ts: p.timestamp 
+         }))
+     ].sort((a, b) => a.ts - b.ts);
+
+     combined.forEach(item => {
+         if (item.type === 'stock') {
+             const m = item.raw as StockMovement;
+             const amount = m.totalAmount || 0;
+             runningBalance += amount;
+             ledger.push({
+                 id: item.id,
+                 date: item.date,
+                 type: 'stock',
+                 description: `${t.dispatchTypeLabel} - ${m.quantityKg/100} Q`,
+                 vehicleNumber: m.vehicleNumber,
+                 quantityKg: m.quantityKg,
+                 rate: m.ratePerQuintal,
+                 billedAmount: amount,
+                 receivedAmount: 0,
+                 runningBalance
+             });
+         } else {
+             const p = item.raw as Transaction;
+             // Income = Payment Received = Credit = Reduces Balance
+             // Expense = Refund Given = Debit = Increases Balance
+             if (p.type === 'income') {
+                 runningBalance -= p.amount;
+                 ledger.push({
+                     id: item.id,
+                     date: item.date,
+                     type: 'payment',
+                     description: `${t.paidPrefix} (${p.paymentType}) ${p.details || ''}`,
+                     billedAmount: 0,
+                     receivedAmount: p.amount,
+                     runningBalance
+                 });
+             } else {
+                 runningBalance += p.amount;
+                 ledger.push({
+                     id: item.id,
+                     date: item.date,
+                     type: 'payment',
+                     description: `Refund/Exp: ${p.details || ''}`,
+                     billedAmount: p.amount,
+                     receivedAmount: 0,
+                     runningBalance
+                 });
+             }
+         }
+     });
+
+     // Reverse Ledger for Display (Newest First)
+     const displayLedger = [...ledger].reverse();
 
      const totalStockKg = stockOut.reduce((sum, m) => sum + m.quantityKg, 0);
-     
-     // Total Billed/Debit
-     const totalBilled = stockOut.reduce((sum, m) => sum + (m.totalAmount || 0), 0) 
-                       + expenses.reduce((sum, t) => sum + t.amount, 0);
-                       
-     // Total Received/Credit
-     const totalReceived = payments.reduce((sum, t) => sum + t.amount, 0);
-
-     // Merge lists for Ledger
-     const rawLedger: CustomerLedgerItem[] = [];
-     
-     // A. Stock Dispatches -> DEBIT (Bill)
-     stockOut.forEach(m => {
-         rawLedger.push({
-             id: `stock-${m.id}`,
-             date: m.date,
-             type: 'stock',
-             description: `Bill/Dispatch: ${(m.quantityKg/100).toFixed(2)} Q`,
-             vehicleNumber: m.vehicleNumber,
-             quantityKg: m.quantityKg,
-             rate: m.ratePerQuintal,
-             billedAmount: m.totalAmount || 0, // DEBIT
-             receivedAmount: 0,
-             runningBalance: 0
-         });
-     });
-
-     // B. Payments Received -> CREDIT
-     payments.forEach(t => {
-         rawLedger.push({
-             id: `trans-${t.id}`,
-             date: t.date,
-             type: 'payment',
-             description: t.details || 'Payment Received',
-             billedAmount: 0,
-             receivedAmount: t.amount, // CREDIT
-             runningBalance: 0
-         });
-     });
-
-     // C. Expenses / Cash Given -> DEBIT
-     expenses.forEach(t => {
-         rawLedger.push({
-             id: `trans-${t.id}`,
-             date: t.date,
-             type: 'payment',
-             description: t.details || 'Cash Advance / Expense',
-             billedAmount: t.amount, // DEBIT
-             receivedAmount: 0,
-             runningBalance: 0
-         });
-     });
-
-     // Sort Chronologically (Oldest First) to calculate running balance correctly
-     rawLedger.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.id.localeCompare(b.id));
-
-     let currentBalance = 0; // Positive = Receivable (Dr)
-     const calculatedLedger = rawLedger.map(item => {
-         // Debit adds to Receivable. Credit subtracts.
-         currentBalance = currentBalance + item.billedAmount - item.receivedAmount;
-         return { ...item, runningBalance: currentBalance };
-     });
-
-     // For Display: Sort Newest First (Descending)
-     const displayLedger = [...calculatedLedger].reverse();
+     const totalBilled = ledger.reduce((sum, i) => sum + i.billedAmount, 0);
+     const totalReceived = ledger.reduce((sum, i) => sum + i.receivedAmount, 0);
 
      return {
-        name: selectedAccountName,
-        totalStockKg,
-        totalBilled,
-        totalReceived,
-        balance: currentBalance, // Final Balance
-        ledger: displayLedger
+         name: selectedAccountName,
+         totalStockKg,
+         totalBilled,
+         totalReceived,
+         balance: runningBalance,
+         ledger: displayLedger
      };
-  }, [selectedAccountName, activeTab, stockMovements, transactions]);
+  }, [selectedAccountName, activeTab, stockMovements, transactions, t]);
 
+  const supplierData: SupplierSummary | undefined = useMemo(() => {
+      if (activeTab !== 'supplier' || !selectedAccountName) return undefined;
 
+      // Logic:
+      // Payments Made (Expense) -> Debit (Increases "Paid To Supplier")
+      // Refunds/Advances (Income) -> Credit (Decreases "Paid To Supplier")
+      // Net Balance = Total Paid - Total Received. 
+      // Positive Balance = We have paid more (Advanced). 
+      // Negative Balance = We have received more (Debt).
+
+      const relevantTxs = transactions.filter(t => t.accountName === selectedAccountName);
+      
+      const ledger: SupplierLedgerItem[] = [];
+      let runningBalance = 0; // Net Paid
+
+      // Sort Chronological
+      const sortedTxs = [...relevantTxs].sort((a,b) => a.timestamp - b.timestamp);
+
+      sortedTxs.forEach(tx => {
+          if (tx.type === 'expense') {
+              // We Paid
+              runningBalance += tx.amount;
+              ledger.push({
+                  id: `tx-${tx.id}`,
+                  date: tx.date,
+                  description: tx.details || 'Payment Made',
+                  debitAmount: tx.amount,
+                  creditAmount: 0,
+                  runningBalance,
+                  originalTransaction: tx
+              });
+          } else {
+              // We Received (Refund/Advance)
+              runningBalance -= tx.amount;
+              ledger.push({
+                  id: `tx-${tx.id}`,
+                  date: tx.date,
+                  description: tx.details || 'Refund/Advance Received',
+                  debitAmount: 0,
+                  creditAmount: tx.amount,
+                  runningBalance,
+                  originalTransaction: tx
+              });
+          }
+      });
+
+      const displayLedger = [...ledger].reverse();
+      const totalPaid = ledger.reduce((sum, i) => sum + i.debitAmount, 0);
+      const totalReceived = ledger.reduce((sum, i) => sum + i.creditAmount, 0);
+
+      return {
+          name: selectedAccountName,
+          totalPaid,
+          totalReceived,
+          netBalance: runningBalance,
+          ledger: displayLedger
+      };
+
+  }, [selectedAccountName, activeTab, transactions]);
+
+  // LABOUR LOGIC
   const labourData: LabourSummary | undefined = useMemo(() => {
-     if (!selectedAccountName || activeTab !== 'labour') return undefined;
-     
-     const account = accounts.find(a => a.name === selectedAccountName);
-     const rate = account?.rate || 400;
-     const attendance = account?.attendance || {};
-     const hisaabDays = account?.hisaabDays || {};
-     const adjustments = account?.manualAdjustments || [];
+    if (activeTab !== 'labour' || !selectedAccountName) return undefined;
 
-     // Lifetime calculations
-     const allPayments = transactions.filter(tr => tr.accountName === selectedAccountName && tr.type === 'expense');
-     const lifetimePaid = allPayments.reduce((sum, t) => sum + t.amount, 0);
-     const allAttendanceDates = Object.keys(attendance);
-     
-     // Payable = (Days * Rate) + Adjustments
-     const totalAdjustments = adjustments.reduce((sum, a) => sum + a.amount, 0);
-     const lifetimePayable = (allAttendanceDates.length * rate) + totalAdjustments;
-     const lifetimeBalance = lifetimePayable - lifetimePaid;
+    // 1. Get Account Details
+    const account = accounts.find(a => a.name === selectedAccountName);
+    const rate = account?.rate || 0;
+    const attendance = account?.attendance || {};
+    const hisaabDays = account?.hisaabDays || {};
+    const adjustments = account?.manualAdjustments || [];
 
-     // View Range Logic
-     const timeline: LabourTimelineRow[] = [];
-     let monthAttendanceDays = 0;
-     let monthPaid = 0;
-     let monthPayableRaw = 0;
-     let monthAdjustments = 0;
-     
-     // Generate all dates in current selected range
-     const dates = getDatesInRange(labourStartDate, labourEndDate);
-     
-     dates.forEach(dateStr => {
-         const isPresent = !!attendance[dateStr];
-         if (isPresent) monthAttendanceDays++;
-         
-         const isHisaabDay = !!hisaabDays[dateStr];
-         
-         const dayPayments = allPayments.filter(p => p.date === dateStr);
-         monthPaid += dayPayments.reduce((s, p) => s + p.amount, 0);
-         
-         const dayAdjustments = adjustments.filter(a => a.date === dateStr);
-         const dayAdjTotal = dayAdjustments.reduce((s, a) => s + a.amount, 0);
-         monthAdjustments += dayAdjTotal;
+    // 2. Get Payments (Expenses)
+    const payments = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'expense');
+    const totalPaidLifetime = payments.reduce((sum, t) => sum + t.amount, 0);
 
-         if (isPresent) monthPayableRaw += rate;
+    // 3. Calculate Lifetime Earnings
+    // Iterate all attendance entries
+    const presentDates = Object.keys(attendance).filter(d => attendance[d]);
+    const totalWorkDaysLifetime = presentDates.length;
+    const baseEarningsLifetime = totalWorkDaysLifetime * rate;
+    const totalAdjustmentsLifetime = adjustments.reduce((sum, a) => sum + a.amount, 0);
+    
+    const totalPayableLifetime = baseEarningsLifetime + totalAdjustmentsLifetime;
+    const lifetimeBalance = totalPayableLifetime - totalPaidLifetime;
 
-         timeline.push({
-             date: dateStr,
-             isPresent,
-             isHisaabDay,
-             dailyWage: isPresent ? rate : 0,
-             adjustments: dayAdjustments,
-             transactions: dayPayments
-         });
-     });
+    // 4. Build Timeline for Selected Month/Range
+    const dates = getDatesInRange(labourStartDate, labourEndDate);
+    const timeline: LabourTimelineRow[] = dates.map(date => {
+        const isPresent = !!attendance[date];
+        const isHisaabDay = !!hisaabDays[date];
+        const dayTxs = payments.filter(t => t.date === date);
+        const dayAdjs = adjustments.filter(a => a.date === date);
 
-     return {
+        return {
+            date,
+            isPresent,
+            isHisaabDay,
+            dailyWage: isPresent ? rate : 0,
+            transactions: dayTxs,
+            adjustments: dayAdjs
+        };
+    });
+
+    // 5. Month Stats
+    const monthAttendanceDays = timeline.filter(r => r.isPresent).length;
+    const monthWage = monthAttendanceDays * rate;
+    const monthAdjustments = timeline.reduce((sum, r) => sum + r.adjustments.reduce((s, a) => s + a.amount, 0), 0);
+    const monthPayable = monthWage + monthAdjustments;
+    const monthPaid = timeline.reduce((sum, r) => sum + r.transactions.reduce((s, t) => s + t.amount, 0), 0);
+
+    return {
         name: selectedAccountName,
         rate,
         lifetimeBalance,
-        viewMonthName: "Custom Range", 
+        viewMonthName: `${formatMonthYear(new Date(labourStartDate))}`,
         monthAttendanceDays,
-        monthPayable: monthPayableRaw + monthAdjustments,
+        monthPayable,
         monthPaid,
-        timeline
-     };
+        timeline: timeline.reverse() // Newest first for view
+    };
   }, [selectedAccountName, activeTab, transactions, accounts, labourStartDate, labourEndDate]);
 
-  
-  // --- Handlers ---
 
-  const handleOpenAddModal = () => {
-      setNewAccountName('');
-      setNewAccountRate('400'); // Reset to default
-      setIsAddModalOpen(true);
+  // --- Actions ---
+
+  const handleBack = () => {
+      setSelectedAccountName(null);
   };
 
-  const handleCloseAddModal = () => {
-      setIsAddModalOpen(false);
-      setNewAccountName('');
+  const handleAccountSelect = (name: string) => {
+      setSelectedAccountName(name);
   };
 
-  const handleConfirmAddAccount = () => {
-      if (newAccountName && newAccountName.trim()) {
-          const rate = activeTab === 'labour' ? (parseInt(newAccountRate) || 400) : undefined;
-          onAddAccount(newAccountName.trim(), activeTab, rate);
-          handleCloseAddModal();
-      } 
-      // Validation handled in View component now
+  const handleCreateAccount = () => {
+      if (newAccountName) {
+          onAddAccount(newAccountName.trim(), activeTab, parseFloat(newAccountRate) || 0);
+          setIsAddModalOpen(false);
+          setNewAccountName('');
+          setNewAccountRate('400');
+      }
   };
 
+  // Nav Handlers
+  const handlePrevMonth = () => {
+      const start = new Date(labourStartDate);
+      start.setMonth(start.getMonth() - 1);
+      const startStr = new Date(start.getFullYear(), start.getMonth(), 1).toISOString().split('T')[0];
+      const endStr = new Date(start.getFullYear(), start.getMonth() + 1, 0).toISOString().split('T')[0];
+      setLabourStartDate(startStr);
+      setLabourEndDate(endStr);
+  };
+
+  const handleNextMonth = () => {
+      const start = new Date(labourStartDate);
+      start.setMonth(start.getMonth() + 1);
+      const startStr = new Date(start.getFullYear(), start.getMonth(), 1).toISOString().split('T')[0];
+      const endStr = new Date(start.getFullYear(), start.getMonth() + 1, 0).toISOString().split('T')[0];
+      setLabourStartDate(startStr);
+      setLabourEndDate(endStr);
+  };
+
+  // Specific Actions calling props
   const handleToggleAttendance = (date: string) => {
-      if (!selectedAccountName) return;
-      const account = accounts.find(a => a.name === selectedAccountName);
-      if (!account) return;
-      
-      const newAttendance = { ...(account.attendance || {}) };
-      if (newAttendance[date]) delete newAttendance[date];
-      else newAttendance[date] = true;
-
-      onUpdateAccount({
-          ...account,
-          attendance: newAttendance
-      });
+      if (selectedAccountName && onToggleAttendance && labourData) {
+          // Find current state
+          const current = accounts.find(a => a.name === selectedAccountName)?.attendance?.[date] || false;
+          onToggleAttendance(selectedAccountName, date, !current);
+      }
   };
 
   const handleToggleHisaab = (date: string) => {
-      if (!selectedAccountName) return;
-      const account = accounts.find(a => a.name === selectedAccountName);
-      if (!account) return;
-      
-      const newHisaab = { ...(account.hisaabDays || {}) };
-      if (newHisaab[date]) delete newHisaab[date];
-      else newHisaab[date] = true;
-
-      onUpdateAccount({
-          ...account,
-          hisaabDays: newHisaab
-      });
+      if (selectedAccountName && onToggleHisaab) {
+          const current = accounts.find(a => a.name === selectedAccountName)?.hisaabDays?.[date] || false;
+          onToggleHisaab(selectedAccountName, date, !current);
+      }
   };
 
-  const handleAddAdjustment = (adj: { date: string, amount: number, note: string }) => {
-      if (!selectedAccountName) return;
-      const account = accounts.find(a => a.name === selectedAccountName);
-      if (!account) return;
-
-      const newAdj: ManualAdjustment = {
-          id: Date.now() + Math.random(),
-          ...adj
-      };
-
-      onUpdateAccount({
-          ...account,
-          manualAdjustments: [...(account.manualAdjustments || []), newAdj]
-      });
-  };
-
-  const handleUpdateAdjustment = (updatedAdj: ManualAdjustment) => {
-      if (!selectedAccountName) return;
-      const account = accounts.find(a => a.name === selectedAccountName);
-      if (!account) return;
-
-      const newAdjustments = account.manualAdjustments?.map(a => 
-          a.id === updatedAdj.id ? updatedAdj : a
-      ) || [];
-
-      onUpdateAccount({
-          ...account,
-          manualAdjustments: newAdjustments
-      });
-  };
-
-  const handleDeleteAdjustment = (id: number) => {
-      if (!selectedAccountName) return;
-      const account = accounts.find(a => a.name === selectedAccountName);
-      if (!account) return;
-
-      const newAdjustments = account.manualAdjustments?.filter(a => a.id !== id) || [];
-
-      onUpdateAccount({
-          ...account,
-          manualAdjustments: newAdjustments
-      });
-  };
-
-  const handleReceiveRefund = () => {
-      if (selectedAccountName) {
-          onOpenTransactionModal('income', {
-              category: 'supplier',
-              accountName: selectedAccountName
-          });
+  const handleAddAdjustmentLocal = (adj: { date: string, amount: number, note: string }) => {
+      if (selectedAccountName && onAddAdjustment) {
+          onAddAdjustment(selectedAccountName, adj);
       }
   };
 
   const handlePayLabour = () => {
       if (selectedAccountName) {
-          onOpenTransactionModal('expense', {
-              category: 'labour',
-              accountName: selectedAccountName
-          });
+          onOpenTransactionModal('expense', { category: 'labour', accountName: selectedAccountName });
       }
   };
 
-  // Labour Date Navigation Helpers
-  const handlePrevMonth = () => {
-      const current = new Date(labourStartDate);
-      current.setMonth(current.getMonth() - 1);
-      const start = new Date(current.getFullYear(), current.getMonth(), 1).toISOString().split('T')[0];
-      const end = new Date(current.getFullYear(), current.getMonth() + 1, 0).toISOString().split('T')[0];
-      setLabourStartDate(start);
-      setLabourEndDate(end);
+  const handleReceiveRefund = () => {
+      if (selectedAccountName) {
+          onOpenTransactionModal('income', { category: 'supplier', accountName: selectedAccountName });
+      }
   };
 
-  const handleNextMonth = () => {
-      const current = new Date(labourStartDate);
-      current.setMonth(current.getMonth() + 1);
-      const start = new Date(current.getFullYear(), current.getMonth(), 1).toISOString().split('T')[0];
-      const end = new Date(current.getFullYear(), current.getMonth() + 1, 0).toISOString().split('T')[0];
-      setLabourStartDate(start);
-      setLabourEndDate(end);
-  };
-
+  // PDF
   const handleDownloadPdf = async () => {
       if (!selectedAccountName) return;
 
-      const dateRange = { start: reportStartDate, end: reportEndDate };
-
-      if (activeTab === 'customer' && customerData) {
-          const chronoLedger = [...customerData.ledger].reverse();
-          let openingBalance = 0;
-          const filteredLedger: CustomerLedgerItem[] = [];
-
-          chronoLedger.forEach(item => {
-              if (item.date < reportStartDate) {
-                  openingBalance = openingBalance + item.billedAmount - item.receivedAmount;
-              } else if (item.date <= reportEndDate) {
-                  filteredLedger.push(item);
-              }
-          });
-
-          const filteredSummary = { ...customerData, ledger: filteredLedger };
-          await PDFGenerator.generateCustomerLedger(filteredSummary, dateRange, openingBalance, pdfLanguage);
-
-      } else if (activeTab === 'supplier' && supplierData) {
-          const chronoLedger = [...supplierData.ledger].reverse();
-          let openingBalance = 0;
-          const filteredLedger: SupplierLedgerItem[] = [];
-
-          chronoLedger.forEach(item => {
-              if (item.date < reportStartDate) {
-                  openingBalance = openingBalance + item.debitAmount - item.creditAmount;
-              } else if (item.date <= reportEndDate) {
-                  filteredLedger.push(item);
-              }
-          });
-
-          const filteredSummary = { ...supplierData, ledger: filteredLedger };
-          await PDFGenerator.generateSupplierLedger(filteredSummary, dateRange, openingBalance, pdfLanguage);
-
-      } else if (activeTab === 'partner' && partnerData) {
-          const allTrans = [
-              ...partnerData.transactionsIn.map(t => ({...t, debit: 0, credit: t.amount})),
-              ...partnerData.transactionsOut.map(t => ({...t, debit: t.amount, credit: 0}))
-          ].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-          let openingBalance = 0;
-          const filteredIn: Transaction[] = [];
-          const filteredOut: Transaction[] = [];
-
-          allTrans.forEach(t => {
-              if (t.date < reportStartDate) {
-                  openingBalance = openingBalance + t.credit - t.debit;
-              } else if (t.date <= reportEndDate) {
-                  if (t.credit > 0) filteredIn.push(t);
-                  else filteredOut.push(t);
-              }
-          });
-
-          const filteredSummary = { 
-              ...partnerData, 
-              transactionsIn: filteredIn, 
-              transactionsOut: filteredOut 
-          };
-          await PDFGenerator.generatePartnerLedger(filteredSummary, dateRange, openingBalance, pdfLanguage);
-
-      } else if (activeTab === 'labour' && labourData) {
+      if (activeTab === 'labour' && labourData) {
           await PDFGenerator.generateLabourLedger(labourData, pdfLanguage);
+      } else if (activeTab === 'partner' && partnerData) {
+          // Generate partner ledger for report date range or default full
+          const range = { start: reportStartDate, end: reportEndDate };
+          await PDFGenerator.generatePartnerLedger(partnerData, range, 0, pdfLanguage);
+      } else if (activeTab === 'customer' && customerData) {
+          const range = { start: reportStartDate, end: reportEndDate };
+          await PDFGenerator.generateCustomerLedger(customerData, range, 0, pdfLanguage);
+      } else if (activeTab === 'supplier' && supplierData) {
+          const range = { start: reportStartDate, end: reportEndDate };
+          await PDFGenerator.generateSupplierLedger(supplierData, range, 0, pdfLanguage);
       }
   };
 
   return (
     <AccountPageView 
-       t={t}
-       activeTab={activeTab}
-       onTabChange={(tab) => {
-           setActiveTab(tab);
-           setSelectedAccountName(null);
-       }}
-       searchQuery={searchQuery}
-       onSearchChange={setSearchQuery}
-       accountList={accountList}
-       onAccountSelect={setSelectedAccountName}
-       selectedAccountName={selectedAccountName}
-       onBack={() => setSelectedAccountName(null)}
-       partnerData={partnerData}
-       labourData={labourData}
-       customerData={customerData}
-       supplierData={supplierData}
-       
-       onOpenAddAccount={handleOpenAddModal}
-       isAddModalOpen={isAddModalOpen}
-       newAccountName={newAccountName}
-       onNewAccountNameChange={setNewAccountName}
-       onConfirmAddAccount={handleConfirmAddAccount}
-       onCancelAddAccount={handleCloseAddModal}
-       
-       newAccountRate={newAccountRate}
-       onNewAccountRateChange={setNewAccountRate}
+      t={t}
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
+      
+      accountList={accountList}
+      onAccountSelect={handleAccountSelect}
+      
+      selectedAccountName={selectedAccountName}
+      onBack={handleBack}
+      
+      partnerData={partnerData}
+      labourData={labourData}
+      customerData={customerData}
+      supplierData={supplierData}
 
-       onToggleAttendance={handleToggleAttendance}
-       
-       onPrevMonth={handlePrevMonth}
-       onNextMonth={handleNextMonth}
-       
-       // Labour specific props
-       labourStartDate={labourStartDate}
-       setLabourStartDate={setLabourStartDate}
-       labourEndDate={labourEndDate}
-       setLabourEndDate={setLabourEndDate}
-       onToggleHisaab={handleToggleHisaab}
-       onAddAdjustment={handleAddAdjustment}
-       onUpdateAdjustment={handleUpdateAdjustment}
-       onDeleteAdjustment={handleDeleteAdjustment}
-       
-       onReceiveRefund={handleReceiveRefund}
-       onPayLabour={handlePayLabour}
-       onDownloadPdf={handleDownloadPdf}
-       
-       reportStartDate={reportStartDate}
-       setReportStartDate={setReportStartDate}
-       reportEndDate={reportEndDate}
-       setReportEndDate={setReportEndDate}
-       
-       pdfLanguage={pdfLanguage}
-       setPdfLanguage={setPdfLanguage}
+      onOpenAddAccount={() => setIsAddModalOpen(true)}
+      isAddModalOpen={isAddModalOpen}
+      newAccountName={newAccountName}
+      onNewAccountNameChange={setNewAccountName}
+      onConfirmAddAccount={handleCreateAccount}
+      onCancelAddAccount={() => setIsAddModalOpen(false)}
+      
+      newAccountRate={newAccountRate}
+      onNewAccountRateChange={setNewAccountRate}
+      
+      onToggleAttendance={handleToggleAttendance}
+      onToggleHisaab={handleToggleHisaab}
+      onAddAdjustment={handleAddAdjustmentLocal}
+      onUpdateAdjustment={onUpdateAdjustment}
+      onDeleteAdjustment={onDeleteAdjustment}
 
-       getTranslated={getTranslated}
+      labourStartDate={labourStartDate}
+      setLabourStartDate={setLabourStartDate}
+      labourEndDate={labourEndDate}
+      setLabourEndDate={setLabourEndDate}
+      
+      onPrevMonth={handlePrevMonth}
+      onNextMonth={handleNextMonth}
+      
+      onPayLabour={handlePayLabour}
+      onReceiveRefund={handleReceiveRefund}
+
+      onDownloadPdf={handleDownloadPdf}
+      pdfLanguage={pdfLanguage}
+      setPdfLanguage={setPdfLanguage}
+
+      reportStartDate={reportStartDate}
+      setReportStartDate={setReportStartDate}
+      reportEndDate={reportEndDate}
+      setReportEndDate={setReportEndDate}
+      
+      getTranslated={getTranslated}
     />
   );
 };
