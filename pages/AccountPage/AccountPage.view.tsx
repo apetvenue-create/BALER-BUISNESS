@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { Translation, PartnerSummary, LabourSummary, AccountTab, CustomerSummary, SupplierSummary, Transaction, Language, ManualAdjustment } from '../../types';
 import { formatIndianCurrency, formatDisplayDate } from '../../utils';
@@ -66,6 +65,8 @@ interface AccountPageViewProps {
   setReportStartDate: (d: string) => void;
   reportEndDate: string;
   setReportEndDate: (d: string) => void;
+
+  getTranslated: (text?: string) => string;
 }
 
 export const AccountPageView: React.FC<AccountPageViewProps> = ({
@@ -113,7 +114,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   reportStartDate,
   setReportStartDate,
   reportEndDate,
-  setReportEndDate
+  setReportEndDate,
+  getTranslated
 }) => {
   // State for Customer View Toggle
   const [customerViewMode, setCustomerViewMode] = useState<'statement' | 'details'>('statement');
@@ -232,7 +234,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         </div>
                    </div>
 
-                   <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4">{customerData.name}</h2>
+                   <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4">{getTranslated(customerData.name)}</h2>
 
                    {/* --- SIMPLE STATEMENT VIEW --- */}
                    {customerViewMode === 'statement' && (
@@ -276,7 +278,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                             <tr key={row.id}>
                                                 <td className="px-4 py-3 align-top">
                                                     <div className="font-medium text-gray-800">{formatDisplayDate(row.date)}</div>
-                                                    <div className="text-xs text-gray-400 truncate max-w-[120px]">{row.description}</div>
+                                                    <div className="text-xs text-gray-400 truncate max-w-[120px]">{getTranslated(row.description)}</div>
                                                 </td>
                                                 <td className="px-4 py-3 text-right bg-red-50/50 align-top">
                                                     {row.billedAmount > 0 && (
@@ -360,7 +362,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                                 <td className="p-3 text-gray-600 font-medium">{formatDisplayDate(row.date)}</td>
                                                 <td className="p-3">
                                                     {row.vehicleNumber && <span className="inline-block bg-gray-100 px-2 py-0.5 rounded text-xs font-bold mr-2 uppercase">{row.vehicleNumber}</span>}
-                                                    <span className="text-gray-500">{row.description}</span>
+                                                    <span className="text-gray-500">{getTranslated(row.description)}</span>
                                                 </td>
                                                 <td className="p-3 text-right font-mono text-gray-700">
                                                     {row.quantityKg ? (
@@ -413,7 +415,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                   {/* SUPPLIER SUMMARY CARD */}
                   <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-600">
                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                           <h2 className="text-2xl font-bold text-gray-800 mb-2 md:mb-0">{supplierData.name}</h2>
+                           <h2 className="text-2xl font-bold text-gray-800 mb-2 md:mb-0">{getTranslated(supplierData.name)}</h2>
                            <div className="text-right">
                                <p className="text-xs uppercase font-bold text-gray-500">{t.netPaidBalance}</p>
                                <div className="text-3xl font-bold text-gray-800">
@@ -456,7 +458,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                            {formatDisplayDate(row.date)}
                                        </td>
                                        <td className="px-4 py-3 text-gray-600">
-                                           {row.description}
+                                           {getTranslated(row.description)}
                                            <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">
                                                {row.debitAmount > 0 ? t.sourceExpense : t.sourceManual}
                                            </div>
@@ -496,7 +498,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             <div className="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-500">
               <div className="flex justify-between items-start">
                  <div>
-                    <h2 className="text-3xl font-bold text-gray-800">{partnerData.name}</h2>
+                    <h2 className="text-3xl font-bold text-gray-800">{getTranslated(partnerData.name)}</h2>
                     <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded mt-2 inline-block">{t.partnerAccountLabel}</span>
                  </div>
                  <div className="text-right">
@@ -555,7 +557,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                               <p className="text-xs text-gray-500">{formatDisplayDate(tr.date)}</p>
                            </div>
                            <div className="text-right">
-                              <p className="text-xs text-gray-600 truncate max-w-[100px]">{tr.details}</p>
+                              <p className="text-xs text-gray-600 truncate max-w-[100px]">{getTranslated(tr.details)}</p>
                               <span className="text-xs bg-white border px-1 rounded text-gray-600">{tr.paymentType}</span>
                            </div>
                         </div>
@@ -609,7 +611,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
                   <div className="flex justify-between items-start">
                       <div>
-                          <h2 className="text-3xl font-bold text-gray-900">{labourData.name}</h2>
+                          <h2 className="text-3xl font-bold text-gray-900">{getTranslated(labourData.name)}</h2>
                           <span className="text-xs font-bold bg-gray-900 text-white px-2 py-1 rounded mt-1 inline-block uppercase tracking-wider">{t.labourCardLabel}</span>
                       </div>
                       <div className="text-right">
@@ -739,7 +741,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                                className="text-xs text-green-600 font-bold cursor-pointer hover:underline text-right"
                                                onClick={() => handleOpenBonusModal(adj)}
                                            >
-                                               + ₹{adj.amount} <span className="text-[9px] text-gray-400 font-normal block">({adj.note})</span>
+                                               + ₹{adj.amount} <span className="text-[9px] text-gray-400 font-normal block">({getTranslated(adj.note)})</span>
                                            </span>
                                            <button 
                                                type="button"
@@ -768,7 +770,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                                <div key={tr.id} className="flex items-center bg-red-50 border border-red-100 px-3 py-1 rounded text-sm shadow-sm whitespace-nowrap">
                                                    <span className="font-bold text-red-600 mr-2">{t.paidPrefix} ₹{formatIndianCurrency(tr.amount)}</span>
                                                    <span className="text-xs text-gray-500">({tr.paymentType})</span>
-                                                   {tr.details && <span className="text-xs text-gray-400 ml-2 truncate max-w-[100px] border-l border-red-200 pl-2">{tr.details}</span>}
+                                                   {tr.details && <span className="text-xs text-gray-400 ml-2 truncate max-w-[100px] border-l border-red-200 pl-2">{getTranslated(tr.details)}</span>}
                                                </div>
                                            ))}
                                        </div>
@@ -922,7 +924,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                   className="border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col justify-between h-32 group"
                >
                   <div className="flex justify-between items-start">
-                     <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-600 transition-colors">{acc.name}</h3>
+                     <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-600 transition-colors">{getTranslated(acc.name)}</h3>
                      <span className="text-gray-300">➔</span>
                   </div>
                   <div>

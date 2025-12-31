@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment } from '../../types';
 import { AccountPageView } from './AccountPage.view';
@@ -14,7 +13,8 @@ interface AccountPageControllerProps {
   onAddAccount: (name: string, type: AccountType, rate?: number) => void;
   onUpdateAccount: (account: StoredAccount) => void;
   onOpenTransactionModal: (mode: TransactionType, defaults?: { category?: string, accountName?: string }) => void;
-  initialTab?: AccountTab; 
+  initialTab?: AccountTab;
+  getTranslated: (text?: string) => string;
 }
 
 export const AccountPageController: React.FC<AccountPageControllerProps> = ({ 
@@ -25,7 +25,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   onAddAccount,
   onUpdateAccount,
   onOpenTransactionModal,
-  initialTab = 'labour'
+  initialTab = 'labour',
+  getTranslated
 }) => {
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -111,12 +112,12 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
      return Array.from(accountMap.entries())
         .filter(([name, data]) => {
            const matchesType = data.type === activeTab;
-           const matchesSearch = name.toLowerCase().includes(searchQuery.toLowerCase());
+           const matchesSearch = getTranslated(name).toLowerCase().includes(searchQuery.toLowerCase()) || name.toLowerCase().includes(searchQuery.toLowerCase());
            return matchesType && matchesSearch;
         })
         .map(([name, data]) => ({ name, balance: data.balance }))
         .sort((a, b) => a.name.localeCompare(b.name));
-  }, [accountMap, activeTab, searchQuery]);
+  }, [accountMap, activeTab, searchQuery, getTranslated]);
 
 
   // 3. Prepare Detailed Data for Selected Account
@@ -625,6 +626,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
        
        pdfLanguage={pdfLanguage}
        setPdfLanguage={setPdfLanguage}
+
+       getTranslated={getTranslated}
     />
   );
 };

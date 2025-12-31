@@ -18,6 +18,7 @@ import { AccountPageController } from './pages/AccountPage/AccountPage.controlle
 import { StockPageController } from './pages/StockPage/StockPage.controller';
 import { ReportsPageController } from './pages/ReportsPage/ReportsPage.controller';
 import { DateInput } from './components/DateInput';
+import { translateBatch } from './services/ai';
 
 const App: React.FC = () => {
   // State
@@ -29,6 +30,14 @@ const App: React.FC = () => {
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   
   const [activeTab, setActiveTab] = useState<'transactions' | 'accounts' | 'stock' | 'reports'>('transactions');
+  
+  // Translation State
+  const [isTranslating, setIsTranslating] = useState(false);
+  // Cache structure: { 'hi': { 'Hello': 'नमस्ते' }, 'pa': { ... } }
+  const [translationCache, setTranslationCache] = useState<Record<string, Record<string, string>>>({
+      hi: {},
+      pa: {}
+  });
   
   // Cashbook State
   const [dateFilter, setDateFilter] = useState<DateFilter>({
@@ -71,6 +80,9 @@ const App: React.FC = () => {
 
     const savedOB = localStorage.getItem('openingBalanceData');
     if (savedOB) try { setInitialOpeningBalance(JSON.parse(savedOB)); } catch (e) {}
+
+    const savedTrans = localStorage.getItem('translationCache');
+    if (savedTrans) try { setTranslationCache(JSON.parse(savedTrans)); } catch (e) {}
   }, []);
 
   useEffect(() => {
@@ -88,6 +100,90 @@ const App: React.FC = () => {
   useEffect(() => {
     localStorage.setItem('openingBalanceData', JSON.stringify(initialOpeningBalance));
   }, [initialOpeningBalance]);
+
+  useEffect(() => {
+    localStorage.setItem('translationCache', JSON.stringify(translationCache));
+  }, [translationCache]);
+
+  // --- Translation Logic ---
+
+  const handleTranslateData = async () => {
+      if (language === 'en') return;
+      
+      setIsTranslating(true);
+      
+      // 1. Collect all translatable strings
+      const stringsToTranslate = new Set<string>();
+      
+      // Transactions
+      transactions.forEach(t => {
+          if (t.accountName) stringsToTranslate.add(t.accountName);
+          if (t.details) stringsToTranslate.add(t.details);
+          if (t.category && t.category === 'custom') stringsToTranslate.add(t.category);
+      });
+
+      // Accounts
+      accounts.forEach(a => {
+          stringsToTranslate.add(a.name);
+      });
+
+      // Stock
+      stockMovements.forEach(s => {
+          if (s.accountName) stringsToTranslate.add(s.accountName);
+          if (s.note) stringsToTranslate.add(s.note);
+      });
+
+      // Filter out what we already have in cache
+      const needed: string[] = [];
+      const currentCache = translationCache[language] || {};
+      
+      stringsToTranslate.forEach(str => {
+          if (!currentCache[str]) {
+              needed.push(str);
+          }
+      });
+
+      if (needed.length === 0) {
+          setIsTranslating(false);
+          return; // Already have everything
+      }
+
+      // 2. Call AI Service
+      try {
+          // Batch in chunks of 50 to avoid token limits if data is huge
+          const chunkSize = 50;
+          for (let i = 0; i < needed.length; i += chunkSize) {
+              const chunk = needed.slice(i, i + chunkSize);
+              const result = await translateBatch(chunk, language as 'hi' | 'pa');
+              
+              // Update Cache
+              setTranslationCache(prev => ({
+                  ...prev,
+                  [language]: {
+                      ...(prev[language] || {}),
+                      ...result
+                  }
+              }));
+          }
+      } catch (e) {
+          console.error("Translation Error", e);
+          alert("Translation failed. Please check your connection.");
+      } finally {
+          setIsTranslating(false);
+      }
+  };
+
+  // Helper passed to children to get text in current language
+  const getTranslated = (text?: string): string => {
+      if (!text) return "";
+      if (language === 'en') return text;
+      
+      const cache = translationCache[language];
+      if (cache && cache[text]) {
+          return cache[text];
+      }
+      return text; // Fallback to original
+  };
 
   // --- Handlers ---
 
@@ -284,9 +380,7 @@ const App: React.FC = () => {
     return { expense, labour, oil, electricity, partnerIn, dispatchedQuintal, labourPerQuintal };
   }, [transactions, stockMovements, statsStartDate, statsEndDate]);
 
-  // Helpers
-  const getTranslated = (text?: string) => text || "";
-  
+  // Helpers (Legacy local helper, now we prefer getTranslated for data)
   const getCategoryLabel = (cat: string) => {
       if (cat === 'customer') return t.customerOption;
       if (cat === 'partner') return t.partnerOption;
@@ -302,7 +396,7 @@ const App: React.FC = () => {
       <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
           {/* Header */}
           <header className="bg-white shadow z-10">
-              <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+              <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
                   <h1 className="text-xl font-bold text-gray-800">{t.pageTitle}</h1>
                   <div className="flex items-center gap-2">
                       <label className="text-sm font-semibold text-gray-600">{t.langLabel}</label>
@@ -315,6 +409,29 @@ const App: React.FC = () => {
                           <option value="hi">हिंदी</option>
                           <option value="pa">ਪੰਜਾਬੀ</option>
                       </select>
+
+                      {language !== 'en' && (
+                          <button 
+                             onClick={handleTranslateData}
+                             disabled={isTranslating}
+                             className={`ml-2 px-3 py-1 rounded text-sm font-bold shadow-sm flex items-center gap-2 transition ${isTranslating ? 'bg-gray-200 text-gray-500' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
+                             title="Translate all names and notes using AI"
+                          >
+                             {isTranslating ? (
+                                 <>
+                                   <svg className="animate-spin h-4 w-4 text-indigo-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                   </svg>
+                                   {t.translating}
+                                 </>
+                             ) : (
+                                 <>
+                                    <span>🌐</span> {t.translateBtn}
+                                 </>
+                             )}
+                          </button>
+                      )}
                   </div>
               </div>
               {/* Tabs */}
@@ -658,6 +775,7 @@ const App: React.FC = () => {
                       onAddAccount={handleCreateAccount}
                       onUpdateAccount={handleUpdateAccount}
                       onOpenTransactionModal={openTransactionModal}
+                      getTranslated={getTranslated}
                   />
               )}
 
@@ -674,6 +792,7 @@ const App: React.FC = () => {
                       onAddTransaction={handleAddTransaction}
                       onAddAccount={handleCreateAccount}
                       onUpdateAccount={handleUpdateAccount}
+                      getTranslated={getTranslated}
                   />
               )}
 
