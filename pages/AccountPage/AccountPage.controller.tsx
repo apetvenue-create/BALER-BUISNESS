@@ -363,7 +363,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
         monthAttendanceDays,
         monthPayable,
         monthPaid,
-        timeline: timeline.reverse() // Newest first for view
+        timeline: timeline // Normal calendar order (1 -> 30)
     };
   }, [selectedAccountName, activeTab, transactions, accounts, labourStartDate, labourEndDate]);
 
