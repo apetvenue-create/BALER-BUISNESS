@@ -1,9 +1,8 @@
-
 import React from 'react';
 import { useAuth } from './auth.store';
 import { AuthPage } from './AuthPage';
 
-export const AuthGuard = ({ children }: { children: React.ReactNode }) => {
+export const AuthGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { session, loading } = useAuth();
 
   if (loading) {

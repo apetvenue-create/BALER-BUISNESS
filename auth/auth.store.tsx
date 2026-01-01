@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AuthState, AuthContextType } from './auth.contract';
 import { AuthService } from './auth.service';
@@ -6,7 +5,7 @@ import { supabase } from '../services/supabase';
 
 const initialContext: AuthContextType = {
   session: null,
-  loading: true,
+  loading: true, // Initial load is true
   error: null,
   signIn: async () => {},
   signUp: async () => {},
@@ -15,7 +14,7 @@ const initialContext: AuthContextType = {
 
 const AuthContext = createContext<AuthContextType>(initialContext);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AuthState>({
     session: null,
     loading: true,
@@ -23,28 +22,37 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   });
 
   useEffect(() => {
+    let mounted = true;
+
     // App Bootstrap: Restore session
     const initAuth = async () => {
       try {
         const session = await AuthService.restoreSession();
-        setState(prev => ({ ...prev, session, loading: false }));
+        if (mounted) setState(prev => ({ ...prev, session, loading: false }));
       } catch (e) {
-        setState(prev => ({ ...prev, session: null, loading: false }));
+        if (mounted) setState(prev => ({ ...prev, session: null, loading: false }));
       }
     };
     initAuth();
 
-    // Listen for Supabase auth changes (e.g. token refresh, logout from other tab)
+    // Listen for Supabase auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
       if (event === 'SIGNED_OUT') {
         setState({ session: null, loading: false, error: null });
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        const mappedSession = await AuthService.restoreSession();
-        setState({ session: mappedSession, loading: false, error: null });
+        // Optimization: Use the session object from the event if compatible, 
+        // otherwise verify with service.
+        if (session && session.user) {
+             const mappedSession = AuthService._mapSession(session.user);
+             setState({ session: mappedSession, loading: false, error: null });
+        }
       }
     });
 
     return () => {
+      mounted = false;
       subscription.unsubscribe();
     };
   }, []);
@@ -80,13 +88,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signOut = async () => {
-    setState(prev => ({ ...prev, loading: true }));
+    // 1. Instant UI Update
+    setState({ session: null, loading: false, error: null });
+    
+    // 2. Background cleanup
     try {
       await AuthService.signOut();
-      setState({ session: null, loading: false, error: null });
     } catch (e) {
-        // Force logout on error
-        setState({ session: null, loading: false, error: null });
+      console.error("Background logout error", e);
     }
   };
 

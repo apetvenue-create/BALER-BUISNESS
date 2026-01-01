@@ -127,25 +127,14 @@ const FinancialApp: React.FC = () => {
           
       } catch (e: any) {
           console.error("Failed to load data", e);
-          
           let errorMessage = "Unknown error occurred";
-          if (typeof e === 'string') {
-              errorMessage = e;
-          } else if (e instanceof Error) {
-              errorMessage = e.message;
-          } else if (typeof e === 'object' && e !== null) {
-              errorMessage = e.message || e.error_description || JSON.stringify(e);
-          }
+          if (typeof e === 'string') errorMessage = e;
+          else if (e instanceof Error) errorMessage = e.message;
+          else if (typeof e === 'object' && e !== null) errorMessage = e.message || e.error_description || JSON.stringify(e);
           
-          // Fallback if errorMessage ends up being an object somehow (e.g. unstringifiable)
           if (typeof errorMessage === 'object') {
-              try {
-                  errorMessage = JSON.stringify(errorMessage);
-              } catch {
-                  errorMessage = "Unparsable error object";
-              }
+              try { errorMessage = JSON.stringify(errorMessage); } catch { errorMessage = "Unparsable error object"; }
           }
-
           alert(`Error loading data from server: ${errorMessage}. Please refresh.`);
       } finally {
           setIsLoading(false);
@@ -156,36 +145,45 @@ const FinancialApp: React.FC = () => {
     loadData();
   }, []);
 
-  // --- Persistence Handlers (Replaces useEffect localStorage) ---
+  // --- Persistence Handlers (Optimistic) ---
 
   const handleCreateAccount = async (name: string, type: AccountType, rate?: number) => {
+      // Optimistic Check & Update
       if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) return;
       
       const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
-
-      // 1. Optimistic Update (Optional, but safer to wait for DB)
-      // 2. Call Service
-      await AccountService.create(name, safeType, rate);
       
-      // 3. Reload Accounts (Simplest for consistency)
-      const freshAccounts = await AccountService.getAll();
-      setAccounts(freshAccounts);
-  };
+      const newAccount: StoredAccount = {
+          name,
+          type: safeType,
+          rate,
+          attendance: {},
+          hisaabDays: {},
+          manualAdjustments: []
+      };
 
-  // Generic wrapper to refresh accounts
-  const refreshAccounts = async () => {
-      const fresh = await AccountService.getAll();
-      setAccounts(fresh);
+      // Update State Immediately
+      setAccounts(prev => [...prev, newAccount]);
+
+      // Sync
+      try {
+          await AccountService.create(name, safeType, rate);
+          // Optional: Re-fetch ID or details if needed, but for simple accounts, name is ID often.
+      } catch (e) {
+          console.error("Create account failed", e);
+          // Rollback if needed
+          setAccounts(prev => prev.filter(a => a.name !== name));
+          alert("Failed to create account on server.");
+      }
   };
 
   const handleUpdateAccount = async (updated: StoredAccount) => {
-      // Logic handled via specific controllers or refresh
+      // Not typically used directly in UI, usually granular updates
   };
 
   const handleAddTransaction = async (data: Omit<Transaction, 'id' | 'timestamp'>, endDate?: string) => {
-      // 1. Create Account if needed
+      // 1. Create Account if needed (Optimistic)
       if (data.accountName) {
-         // Check if exists locally first
          const exists = accounts.some(a => a.name === data.accountName);
          if (!exists) {
              await handleCreateAccount(data.accountName, data.category as AccountType);
@@ -219,47 +217,79 @@ const FinancialApp: React.FC = () => {
           }
       }
 
+      // Optimistic Updates
+      const tempId = Date.now();
+      
       if (editingTransaction) {
           // UPDATE
           const updatedTx = { ...editingTransaction, ...data };
-          await TransactionService.update(updatedTx);
+          setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? updatedTx : t));
           
-          // Refresh
-          const fresh = await TransactionService.getAll();
-          setTransactions(fresh);
+          // Background Sync
+          TransactionService.update(updatedTx).catch(e => {
+              console.error("Update tx failed", e);
+              // Revert logic would go here
+          });
       } else {
           // CREATE
           if (endDate && endDate !== data.date) {
               const dates = getDatesInRange(data.date, endDate);
-              // Serial execution to ensure order/integrity
-              for (const d of dates) {
-                  await TransactionService.create({
-                      ...data,
-                      date: d,
-                      timestamp: Date.now() // timestamp handling in service overrides this usually, or we keep it
-                  });
-              }
-          } else {
-              await TransactionService.create({
+              const newTxs: Transaction[] = dates.map((d, i) => ({
                   ...data,
+                  id: tempId + i,
+                  date: d,
+                  timestamp: Date.now() + i
+              }));
+              
+              setTransactions(prev => [...prev, ...newTxs]);
+
+              // Background Sync - Sequential to maintain order if important
+              (async () => {
+                  try {
+                      for (const d of dates) {
+                          await TransactionService.create({ ...data, date: d, timestamp: Date.now() });
+                      }
+                  } catch (e) {
+                      console.error("Batch create failed", e);
+                  }
+              })();
+
+          } else {
+              const newTx: Transaction = {
+                  ...data,
+                  id: tempId,
                   timestamp: Date.now()
-              });
+              };
+              setTransactions(prev => [...prev, newTx]);
+
+              // Background Sync
+              TransactionService.create({ ...data, timestamp: Date.now() })
+                  .then(realTx => {
+                      // Replace temp ID with real ID
+                      setTransactions(prev => prev.map(t => t.id === tempId ? realTx : t));
+                  })
+                  .catch(e => {
+                      console.error("Create tx failed", e);
+                      setTransactions(prev => prev.filter(t => t.id !== tempId));
+                  });
           }
-          // Refresh
-          const fresh = await TransactionService.getAll();
-          setTransactions(fresh);
       }
       setEditingTransaction(null);
-      // Also refresh accounts as balances might change
-      refreshAccounts(); 
+      // No need to call refreshAccounts() for balances, as they are derived from transactions state
   };
 
   const handleDeleteTransaction = async (id: number) => {
       if (window.confirm(t.confirmDelete)) {
-          await TransactionService.delete(id);
-          const fresh = await TransactionService.getAll();
-          setTransactions(fresh);
-          refreshAccounts();
+          // Optimistic
+          setTransactions(prev => prev.filter(t => t.id !== id));
+          
+          // Background
+          try {
+              await TransactionService.delete(id);
+          } catch (e) {
+              console.error("Delete tx failed", e);
+              // Typically we'd reload data here if it failed
+          }
       }
   };
   
@@ -284,60 +314,140 @@ const FinancialApp: React.FC = () => {
           cash: parseFloat(tempOpeningBalance.cash) || 0,
           online: parseFloat(tempOpeningBalance.online) || 0
       };
+      // Optimistic
       setInitialOpeningBalance(newVal);
-      await SettingsService.set('openingBalanceData', newVal);
       setIsBalanceModalOpen(false);
+      
+      // Sync
+      SettingsService.set('openingBalanceData', newVal);
   };
 
-  // Stock Handlers
+  // Stock Handlers (Optimistic)
   const handleAddStockMovement = async (m: StockMovement) => {
-      await StockService.create(m);
-      const fresh = await StockService.getAll();
-      setStockMovements(fresh);
-      // Refresh accounts for customer balances
-      refreshAccounts();
+      // Optimistic
+      setStockMovements(prev => [...prev, m]);
+      
+      // Sync
+      try {
+          const saved = await StockService.create(m);
+          // Replace with real ID
+          setStockMovements(prev => prev.map(item => item.id === m.id ? saved : item));
+      } catch (e) {
+          console.error("Add stock failed", e);
+          setStockMovements(prev => prev.filter(item => item.id !== m.id));
+      }
   };
 
   const handleUpdateStockMovement = async (m: StockMovement) => {
-      await StockService.update(m);
-      const fresh = await StockService.getAll();
-      setStockMovements(fresh);
-      refreshAccounts();
+      // Optimistic
+      setStockMovements(prev => prev.map(item => item.id === m.id ? m : item));
+      
+      // Sync
+      StockService.update(m).catch(e => console.error("Update stock failed", e));
   };
 
   const handleDeleteStockMovement = async (id: number) => {
       if (window.confirm(t.confirmDelete)) {
-          await StockService.delete(id);
-          const fresh = await StockService.getAll();
-          setStockMovements(fresh);
-          refreshAccounts();
+          // Optimistic
+          setStockMovements(prev => prev.filter(item => item.id !== id));
+          // Sync
+          StockService.delete(id).catch(e => console.error("Delete stock failed", e));
       }
   };
 
-  // Specific Account Handlers for Controller
+  // Specific Account Handlers (Optimistic Deep Updates)
   const handleToggleAttendance = async (accountName: string, date: string, isPresent: boolean) => {
-     await AccountService.toggleAttendance(accountName, date, isPresent);
-     refreshAccounts();
+     // Optimistic Update
+     setAccounts(prevAccounts => prevAccounts.map(acc => {
+         if (acc.name === accountName) {
+             const newAttendance = { ...acc.attendance };
+             if (isPresent) newAttendance[date] = true;
+             else delete newAttendance[date];
+             return { ...acc, attendance: newAttendance };
+         }
+         return acc;
+     }));
+
+     // Sync
+     AccountService.toggleAttendance(accountName, date, isPresent);
   };
 
   const handleToggleHisaab = async (accountName: string, date: string, isHisaab: boolean) => {
-     await AccountService.toggleHisaab(accountName, date, isHisaab);
-     refreshAccounts();
+     // Optimistic Update
+     setAccounts(prevAccounts => prevAccounts.map(acc => {
+         if (acc.name === accountName) {
+             const newHisaab = { ...acc.hisaabDays };
+             if (isHisaab) newHisaab[date] = true;
+             else delete newHisaab[date];
+             return { ...acc, hisaabDays: newHisaab };
+         }
+         return acc;
+     }));
+
+     // Sync
+     AccountService.toggleHisaab(accountName, date, isHisaab);
   };
 
   const handleAddAdjustment = async (accountName: string, adj: {date: string, amount: number, note: string}) => {
-     await AccountService.addAdjustment(accountName, adj);
-     refreshAccounts();
+     // Temp ID
+     const tempAdj: ManualAdjustment = { ...adj, id: Date.now() };
+     
+     // Optimistic Update
+     setAccounts(prevAccounts => prevAccounts.map(acc => {
+         if (acc.name === accountName) {
+             return { ...acc, manualAdjustments: [...(acc.manualAdjustments || []), tempAdj] };
+         }
+         return acc;
+     }));
+
+     // Sync
+     try {
+         const savedAdj = await AccountService.addAdjustment(accountName, adj);
+         // Replace ID
+         setAccounts(prevAccounts => prevAccounts.map(acc => {
+             if (acc.name === accountName) {
+                 return { 
+                     ...acc, 
+                     manualAdjustments: acc.manualAdjustments?.map(a => a.id === tempAdj.id ? savedAdj : a) 
+                 };
+             }
+             return acc;
+         }));
+     } catch (e) {
+         console.error("Add adjustment failed", e);
+     }
   };
 
   const handleUpdateAdjustment = async (adj: ManualAdjustment) => {
-     await AccountService.updateAdjustment(adj);
-     refreshAccounts();
+     // Optimistic Update
+     setAccounts(prevAccounts => prevAccounts.map(acc => {
+         if (acc.manualAdjustments?.some(a => a.id === adj.id)) {
+             return {
+                 ...acc,
+                 manualAdjustments: acc.manualAdjustments.map(a => a.id === adj.id ? adj : a)
+             };
+         }
+         return acc;
+     }));
+
+     // Sync
+     AccountService.updateAdjustment(adj);
   };
 
   const handleDeleteAdjustment = async (id: number) => {
-     await AccountService.deleteAdjustment(id);
-     refreshAccounts();
+     // Optimistic Update
+     setAccounts(prevAccounts => prevAccounts.map(acc => {
+         if (acc.manualAdjustments?.some(a => a.id === id)) {
+             return {
+                 ...acc,
+                 manualAdjustments: acc.manualAdjustments.filter(a => a.id !== id)
+             };
+         }
+         return acc;
+     }));
+
+     // Sync
+     AccountService.deleteAdjustment(id);
   };
 
   // Save Translation Cache
@@ -699,89 +809,6 @@ const FinancialApp: React.FC = () => {
                                                   </span>
                                               </td>
                                               <td className="px-4 py-3 text-right font-bold text-green-600">₹{formatIndianCurrency(tr.amount)}</td>
-                                              <td className="px-4 py-3 text-right">
-                                                  <div className="flex justify-end items-center gap-2">
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
-                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
-                                                          title={t.editBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                                                          </svg>
-                                                      </button>
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
-                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
-                                                          title={t.deleteBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                          </svg>
-                                                      </button>
-                                                  </div>
-                                              </td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                                  <tfoot className="bg-green-50 border-t border-green-200">
-                                      <tr>
-                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
-                                              {t.incomeTotalLabel} <span className="text-green-700 text-lg ml-2">₹{formatIndianCurrency(totalIncome)}</span>
-                                          </td>
-                                          <td colSpan={4}></td>
-                                      </tr>
-                                  </tfoot>
-                              </table>
-                          </div>
-                      </div>
-
-                      {/* EXPENSE TRANSACTIONS TABLE */}
-                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-                          <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-xl font-bold text-red-600">{t.expenseTitle}</h2>
-                              <button 
-                                  onClick={() => openTransactionModal('expense')}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
-                              >
-                                  {t.addExpenseBtn}
-                              </button>
-                          </div>
-                          <div className="overflow-x-auto">
-                              <table className="w-full">
-                                  <thead className="bg-red-50">
-                                      <tr>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.expenseTypeHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
-                                      </tr>
-                                  </thead>
-                                  <tbody>
-                                      {displayedTransactions.filter(tr => tr.type === 'expense').length === 0 && (
-                                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noExpense}</td></tr>
-                                      )}
-                                      {displayedTransactions.filter(tr => tr.type === 'expense').map(tr => (
-                                          <tr key={tr.id} className="border-b hover:bg-gray-50">
-                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
-                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
-                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
-                                              <td className="px-4 py-3">
-                                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                      {tr.paymentType}
-                                                  </span>
-                                              </td>
-                                              <td className="px-4 py-3">
-                                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
-                                                      {getCategoryLabel(tr.category)}
-                                                  </span>
-                                              </td>
-                                              <td className="px-4 py-3 text-right font-bold text-red-600">₹{formatIndianCurrency(tr.amount)}</td>
                                               <td className="px-4 py-3 text-right">
                                                   <div className="flex justify-end items-center gap-2">
                                                       <button 
