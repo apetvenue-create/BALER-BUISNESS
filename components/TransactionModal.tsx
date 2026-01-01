@@ -45,9 +45,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   // Validation State
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Flag for Cash Conversion
+  const isCashConversion = category === 'cash_conversion';
+
   // Derived: Filter accounts based on selected category
   const filteredAccounts = useMemo(() => {
-    if (!category) return [];
+    if (!category || isCashConversion) return [];
     
     // Map Category to Account Type logic
     let targetType: string | null = null;
@@ -63,7 +66,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     
     // Fallback: If it's a generic category that implies an account might be used
     return availableAccounts;
-  }, [category, availableAccounts]);
+  }, [category, availableAccounts, isCashConversion]);
 
   useEffect(() => {
     if (isOpen) {
@@ -99,6 +102,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   }, [isOpen, initialData, mode, defaultCategory, defaultAccountName]);
 
+  // Effect to handle Cash Conversion Logic
+  useEffect(() => {
+    if (isCashConversion) {
+      setPaymentType('online'); // Default source is Online for conversion
+      setAccountName(''); // No specific account
+    }
+  }, [isCashConversion]);
+
   if (!isOpen) return null;
 
   const validate = () => {
@@ -110,7 +121,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
 
       // Account Name Validation for specific categories
-      const requiresAccount = category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier';
+      const requiresAccount = !isCashConversion && (category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier');
       
       if (requiresAccount) {
           if (!accountName || !accountName.trim()) {
@@ -168,8 +179,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // Determine if the account selector should be visible
   const showAccountSelect = 
-    mode === 'income' || 
-    ['labour', 'partner', 'customer', 'supplier'].includes(category);
+    !isCashConversion && (
+      mode === 'income' || 
+      ['labour', 'partner', 'customer', 'supplier'].includes(category)
+    );
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -260,6 +273,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <option value="customer">{t.customerOption}</option>
                   <option value="supplier">{t.supplierOption}</option>
                   <option value="custom">{t.customOption}</option>
+                  {/* Cash Conversion Option - Only available in Expense mode */}
+                  <option value="cash_conversion" className="font-bold text-blue-600">{t.cashConversionOption}</option>
                 </>
               )}
             </select>
@@ -327,7 +342,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             </div>
           )}
 
-          {/* Details Field - Now Available for Both Income & Expense */}
+          {/* Details Field */}
           <div className="mb-4">
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 {t.detailsLabel} <span className="text-gray-400 font-normal text-xs">(Optional)</span>
@@ -357,11 +372,22 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             <select 
               value={paymentType}
               onChange={e => setPaymentType(e.target.value)}
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+              disabled={isCashConversion} // Lock selection if conversion
+              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} ${isCashConversion ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             >
-              <option value="cash">{t.cashOption}</option>
-              <option value="online">{t.onlineOption}</option>
-              <option value="bank">{t.bankOption}</option>
+              {/* If conversion, only show Online/Bank as source options */}
+              {isCashConversion ? (
+                 <>
+                    <option value="online">{t.onlineOption}</option>
+                    <option value="bank">{t.bankOption}</option>
+                 </>
+              ) : (
+                 <>
+                    <option value="cash">{t.cashOption}</option>
+                    <option value="online">{t.onlineOption}</option>
+                    <option value="bank">{t.bankOption}</option>
+                 </>
+              )}
             </select>
           </div>
 

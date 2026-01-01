@@ -7,7 +7,7 @@ export type PaymentType = 'cash' | 'online' | 'bank';
 export interface Transaction {
   id: number;
   type: TransactionType;
-  category: string; // 'customer', 'partner', 'shop', 'labour', 'custom', 'oil', etc.
+  category: string; // 'customer', 'partner', 'shop', 'labour', 'custom', 'oil', 'cash_conversion', etc.
   accountName?: string; // For income or linked expenses
   details?: string;
   amount: number;
@@ -389,6 +389,9 @@ export interface Translation {
   supplierPaymentsLabel: string;
   sourceExpense: string;
   sourceManual: string;
+
+  // Conversion
+  cashConversionOption: string;
 
   // PDF
   downloadPdfBtn: string;

@@ -494,6 +494,7 @@ const FinancialApp: React.FC = () => {
       if (cat === 'oil') return t.oilOption;
       if (cat === 'electricity') return t.electricityOption;
       if (cat === 'supplier') return t.supplierOption;
+      if (cat === 'cash_conversion') return "Internal Transfer";
       return cat;
   };
 

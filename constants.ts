@@ -236,6 +236,9 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     sourceExpense: "Source: Expense",
     sourceManual: "Source: Manual",
 
+    // Conversion
+    cashConversionOption: "Online -> Cash (Transfer)",
+
     downloadPdfBtn: "Download PDF",
     
     hisaabHelp: "Double click date to mark Hisaab",
@@ -472,6 +475,10 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierPaymentsLabel: "सप्लायर भुगतान",
     sourceExpense: "स्रोत: खर्च",
     sourceManual: "स्रोत: मैनुअल",
+    
+    // Conversion
+    cashConversionOption: "ऑनलाइन -> कैश (निकासी)",
+    
     downloadPdfBtn: "PDF डाउनलोड करें",
     
     hisaabHelp: "हिसाब के लिए तारीख पर डबल क्लिक करें",
@@ -708,6 +715,10 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierPaymentsLabel: "ਸਪਲਾਇਰ ਭੁਗਤਾਨ",
     sourceExpense: "ਸਰੋਤ: ਖਰਚਾ",
     sourceManual: "ਸਰੋਤ: ਮੈਨੁਅਲ",
+    
+    // Conversion
+    cashConversionOption: "ਔਨਲਾਈਨ -> ਨਕਦ (ਕਢਵਾਉਣਾ)",
+
     downloadPdfBtn: "PDF ਡਾਊਨਲੋਡ ਕਰੋ",
 
     hisaabHelp: "ਹਿਸਾਬ ਲਈ ਤਾਰੀਖ 'ਤੇ ਡਬਲ ਕਲਿੱਕ ਕਰੋ",
