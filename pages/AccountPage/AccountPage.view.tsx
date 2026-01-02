@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Translation, PartnerSummary, LabourSummary, AccountTab, CustomerSummary, SupplierSummary, Transaction, Language, ManualAdjustment } from '../../types';
 import { formatIndianCurrency, formatDisplayDate } from '../../utils';
@@ -714,6 +715,26 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                        <div className="p-10 text-center text-gray-400 italic">{t.noDaysInView}</div>
                    )}
                    {labourData.timeline.map((row, idx) => {
+                       // SPECIAL OPENING BALANCE ROW
+                       if (row.isOpeningBalance) {
+                           return (
+                               <div key="opening-bal" className="flex items-stretch border-b border-gray-200 min-h-[3rem] bg-gray-100 hover:bg-gray-200 transition-colors">
+                                   <div className="w-48 flex items-center justify-center border-r border-gray-200 text-sm font-bold text-gray-700">
+                                       Opening Balance
+                                   </div>
+                                   <div className="w-24 border-r border-gray-200 flex items-center justify-center text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                                       B/F
+                                   </div>
+                                   <div className={`w-32 flex items-center justify-end pr-4 border-r border-gray-200 font-bold ${row.balance && row.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                       ₹{formatIndianCurrency(Math.abs(row.balance || 0))}
+                                   </div>
+                                   <div className="flex-1 px-4 flex items-center text-sm text-gray-500 italic">
+                                       Balance Carried Forward
+                                   </div>
+                               </div>
+                           );
+                       }
+
                        const isSunday = new Date(row.date).getDay() === 0;
                        
                        return (

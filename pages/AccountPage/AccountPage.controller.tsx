@@ -84,7 +84,17 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
      accounts.forEach(acc => {
          const type = acc.type.toLowerCase();
          // Map stored types to tabs
-         if (type === 'labour') map.set(acc.name, { type: 'labour', balance: 0 });
+         if (type === 'labour') {
+             // For Labour: Initialize with Total Earnings (Wages + Adjustments)
+             // Balance = (Days * Rate) + Adjustments - Payments
+             // Here we set the positive component (Payable)
+             const rate = acc.rate || 0;
+             const presentDays = acc.attendance ? Object.values(acc.attendance).filter(Boolean).length : 0;
+             const totalWages = presentDays * rate;
+             const totalAdjustments = acc.manualAdjustments ? acc.manualAdjustments.reduce((sum, a) => sum + a.amount, 0) : 0;
+             
+             map.set(acc.name, { type: 'labour', balance: totalWages + totalAdjustments });
+         }
          else if (type === 'partner') map.set(acc.name, { type: 'partner', balance: 0 });
          else if (type === 'customer') map.set(acc.name, { type: 'customer', balance: 0 });
          else if (type === 'supplier') map.set(acc.name, { type: 'supplier', balance: 0 });
@@ -330,9 +340,24 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
     const totalPayableLifetime = baseEarningsLifetime + totalAdjustmentsLifetime;
     const lifetimeBalance = totalPayableLifetime - totalPaidLifetime;
 
-    // 4. Build Timeline for Selected Month/Range
+    // 4. Calculate Opening Balance (Prior to selected Range)
+    const startOfRange = labourStartDate;
+    
+    // Attendance before start date
+    const daysBefore = Object.keys(attendance).filter(d => d < startOfRange && attendance[d]).length;
+    const wagesBefore = daysBefore * rate;
+
+    // Adjustments before start date
+    const adjsBefore = adjustments.filter(a => a.date < startOfRange).reduce((sum, a) => sum + a.amount, 0);
+
+    // Payments before start date
+    const paidBefore = payments.filter(t => t.date < startOfRange).reduce((sum, t) => sum + t.amount, 0);
+
+    const openingBalance = (wagesBefore + adjsBefore) - paidBefore;
+
+    // 5. Build Timeline for Selected Month/Range
     const dates = getDatesInRange(labourStartDate, labourEndDate);
-    const timeline: LabourTimelineRow[] = dates.map(date => {
+    const dateRows: LabourTimelineRow[] = dates.map(date => {
         const isPresent = !!attendance[date];
         const isHisaabDay = !!hisaabDays[date];
         const dayTxs = payments.filter(t => t.date === date);
@@ -348,12 +373,27 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
         };
     });
 
-    // 5. Month Stats
-    const monthAttendanceDays = timeline.filter(r => r.isPresent).length;
+    // 6. Month Stats (Derived only from the visible range rows)
+    const monthAttendanceDays = dateRows.filter(r => r.isPresent).length;
     const monthWage = monthAttendanceDays * rate;
-    const monthAdjustments = timeline.reduce((sum, r) => sum + r.adjustments.reduce((s, a) => s + a.amount, 0), 0);
+    const monthAdjustments = dateRows.reduce((sum, r) => sum + r.adjustments.reduce((s, a) => s + a.amount, 0), 0);
     const monthPayable = monthWage + monthAdjustments;
-    const monthPaid = timeline.reduce((sum, r) => sum + r.transactions.reduce((s, t) => s + t.amount, 0), 0);
+    const monthPaid = dateRows.reduce((sum, r) => sum + r.transactions.reduce((s, t) => s + t.amount, 0), 0);
+
+    // 7. Inject Opening Balance Row at the Top
+    const timeline: LabourTimelineRow[] = [
+        {
+            date: 'Opening Balance', // Special marker
+            isPresent: false,
+            isHisaabDay: false,
+            dailyWage: 0,
+            adjustments: [],
+            transactions: [],
+            isOpeningBalance: true,
+            balance: openingBalance
+        },
+        ...dateRows
+    ];
 
     return {
         name: selectedAccountName,
@@ -363,7 +403,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
         monthAttendanceDays,
         monthPayable,
         monthPaid,
-        timeline: timeline // Normal calendar order (1 -> 30)
+        timeline: timeline // Opening Balance + Normal Calendar Order
     };
   }, [selectedAccountName, activeTab, transactions, accounts, labourStartDate, labourEndDate]);
 

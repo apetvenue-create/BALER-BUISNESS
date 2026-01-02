@@ -1,4 +1,5 @@
 
+
 export type Language = 'en' | 'hi' | 'pa';
 
 export type TransactionType = 'income' | 'expense';
@@ -82,6 +83,9 @@ export interface LabourTimelineRow {
   dailyWage: number; // 0 or rate
   adjustments: ManualAdjustment[]; // Extra payables on this day
   transactions: Transaction[];
+  // Opening Balance Row Support
+  isOpeningBalance?: boolean;
+  balance?: number;
 }
 
 export interface LabourSummary {
