@@ -80,50 +80,107 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const accountMap = useMemo(() => {
      const map = new Map<string, { type: AccountTab; balance: number }>();
 
-     // 1. Initialize with all registered accounts that match our Tabs
+     // 1. Initialize with all registered accounts
      accounts.forEach(acc => {
          const type = acc.type.toLowerCase();
-         // Map stored types to tabs
+         let tabType: AccountTab = 'customer'; // default fallback
+         let initialBalance = 0;
+
          if (type === 'labour') {
-             // For Labour: Initialize with Total Earnings (Wages + Adjustments)
-             // Balance = (Days * Rate) + Adjustments - Payments
-             // Here we set the positive component (Payable)
+             tabType = 'labour';
+             // For Labour: Balance = Total Wages + Adjustments (We subtract payments later)
              const rate = acc.rate || 0;
              const presentDays = acc.attendance ? Object.values(acc.attendance).filter(Boolean).length : 0;
              const totalWages = presentDays * rate;
              const totalAdjustments = acc.manualAdjustments ? acc.manualAdjustments.reduce((sum, a) => sum + a.amount, 0) : 0;
-             
-             map.set(acc.name, { type: 'labour', balance: totalWages + totalAdjustments });
+             initialBalance = totalWages + totalAdjustments;
          }
-         else if (type === 'partner') map.set(acc.name, { type: 'partner', balance: 0 });
-         else if (type === 'customer') map.set(acc.name, { type: 'customer', balance: 0 });
-         else if (type === 'supplier') map.set(acc.name, { type: 'supplier', balance: 0 });
+         else if (type === 'partner') {
+             tabType = 'partner';
+             initialBalance = 0;
+         }
+         else if (type === 'supplier') {
+             tabType = 'supplier';
+             initialBalance = 0;
+         }
+         else {
+             // Customer or others
+             tabType = 'customer';
+             initialBalance = 0;
+         }
+         
+         map.set(acc.name, { type: tabType, balance: initialBalance });
      });
 
      // 2. Compute balances from transactions (General view)
      transactions.forEach(tr => {
         if (!tr.accountName) return;
 
-        // Self-Healing
+        // Self-Healing: Create entry if missing
         if (!map.has(tr.accountName)) {
-            // Infer type
-            if (tr.category === 'labour') map.set(tr.accountName, { type: 'labour', balance: 0 });
-            else if (tr.category === 'partner') map.set(tr.accountName, { type: 'partner', balance: 0 });
-            else if (tr.category === 'customer') map.set(tr.accountName, { type: 'customer', balance: 0 });
-            else if (tr.category === 'supplier') map.set(tr.accountName, { type: 'supplier', balance: 0 });
+            let inferredType: AccountTab = 'customer';
+            if (tr.category === 'labour') inferredType = 'labour';
+            else if (tr.category === 'partner') inferredType = 'partner';
+            else if (tr.category === 'supplier') inferredType = 'supplier';
+            
+            map.set(tr.accountName, { type: inferredType, balance: 0 });
         }
 
-        if (map.has(tr.accountName)) {
-            const current = map.get(tr.accountName)!;
-            // Balance Calc:
-            // For Customer/Partner: Income is +, Expense is -.
-            if (tr.type === 'income') current.balance += tr.amount;
-            else current.balance -= tr.amount;
+        const current = map.get(tr.accountName)!;
+
+        // Apply Logic Based on Account Type
+        if (current.type === 'labour') {
+            // Labour Balance = Payable Amount
+            // Expense (Payment) REDUCES Payable
+            // Income INCREASES Payable (Recovery/Return) - Rare but mathematically consistent with Ledger
+            if (tr.type === 'expense') current.balance -= tr.amount;
+            else if (tr.type === 'income') current.balance += tr.amount;
+        } 
+        else if (current.type === 'partner') {
+             // Partner Balance = Net Investment
+             // Income (Invest) INCREASES Balance
+             // Expense (Withdraw) DECREASES Balance
+             if (tr.type === 'income') current.balance += tr.amount;
+             else if (tr.type === 'expense') current.balance -= tr.amount;
+        }
+        else if (current.type === 'customer') {
+             // Customer Balance = Net Receivable (Debtors)
+             // Income (Payment Received) REDUCES Receivable
+             // Expense (Refund) INCREASES Receivable
+             if (tr.type === 'income') current.balance -= tr.amount;
+             else if (tr.type === 'expense') current.balance += tr.amount;
+        }
+        else if (current.type === 'supplier') {
+             // Supplier Balance = Net Paid (Advance/Paid)
+             // Expense (Payment Made) INCREASES Net Paid
+             // Income (Refund) DECREASES Net Paid
+             // Note: Detailed View shows "Net Paid Balance".
+             if (tr.type === 'expense') current.balance += tr.amount;
+             else if (tr.type === 'income') current.balance -= tr.amount;
+        }
+     });
+
+     // 3. Process Stock Movements (Critical for Customers)
+     stockMovements.forEach(m => {
+        if (!m.accountName) return;
+
+        // Self-Healing
+        if (!map.has(m.accountName)) {
+             map.set(m.accountName, { type: 'customer', balance: 0 });
+        }
+
+        const current = map.get(m.accountName)!;
+
+        // Only Customer accounts use Stock Out for billing (Receivable)
+        if (current.type === 'customer' && m.type === 'out') {
+             // Stock Out (Bill) INCREASES Receivable
+             const amount = m.totalAmount || 0;
+             current.balance += amount;
         }
      });
 
      return map;
-  }, [transactions, accounts]);
+  }, [transactions, accounts, stockMovements]);
 
 
   // 2. Prepare List Data for the active tab
