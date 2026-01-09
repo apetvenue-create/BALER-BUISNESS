@@ -369,7 +369,10 @@ export interface Translation {
   receiveRefundBtn: string;
   supplierCreditModalTitle: string;
   supplierCreditHelp: string;
-  supplierOption: string; 
+  supplierOption: string;
+  
+  // Other Income
+  otherIncomeOption: string;
 
   // --- NEW KEYS ---
   unitKg: string;

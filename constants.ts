@@ -1,4 +1,5 @@
 
+
 import { Translation, Language } from './types';
 
 export const TRANSLATIONS: Record<Language, Translation> = {
@@ -212,6 +213,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditModalTitle: "Receive Money from Supplier",
     supplierCreditHelp: "This will be recorded as Income/Credit",
     supplierOption: "Supplier (Payment/Refund)",
+    
+    otherIncomeOption: "Other Income",
 
     // New Keys
     unitKg: "KG",
@@ -452,6 +455,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditModalTitle: "सप्लायर से पैसा प्राप्त",
     supplierCreditHelp: "यह आय/क्रेडिट के रूप में दर्ज होगा",
     supplierOption: "सप्लायर (भुगतान/वापसी)",
+    
+    otherIncomeOption: "अन्य आय",
 
     // New Keys
     unitKg: "KG",
@@ -692,6 +697,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditModalTitle: "ਸਪਲਾਇਰ ਤੋਂ ਪੈਸੇ ਪ੍ਰਾਪਤ",
     supplierCreditHelp: "ਇਹ ਆਮਦਨ/ਕ੍ਰੈਡਿਟ ਵਜੋਂ ਦਰਜ ਹੋਵੇਗਾ",
     supplierOption: "ਸਪਲਾਇਰ (ਭੁਗਤਾਨ/ਵਾਪਸੀ)",
+    
+    otherIncomeOption: "ਹੋਰ ਆਮਦਨ",
 
     // New Keys
     unitKg: "ਕਿਲੋ",

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, Translation, StoredAccount } from '../types';
 import { formatInputCurrency, parseCurrency } from '../utils';
@@ -181,7 +182,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const showAccountSelect = 
     !isCashConversion && (
       mode === 'income' || 
-      ['labour', 'partner', 'customer', 'supplier'].includes(category)
+      ['labour', 'partner', 'customer', 'supplier', 'other_income'].includes(category)
     );
 
   return (
@@ -262,6 +263,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   {(category === 'supplier' || defaultCategory === 'supplier') && (
                       <option value="supplier">{t.supplierOption}</option>
                   )}
+                  <option value="other_income">{t.otherIncomeOption}</option>
                 </>
               ) : (
                 <>

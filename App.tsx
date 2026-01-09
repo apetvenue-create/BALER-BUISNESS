@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Transaction, 
@@ -605,6 +606,7 @@ const FinancialApp: React.FC = () => {
       if (cat === 'electricity') return t.electricityOption;
       if (cat === 'supplier') return t.supplierOption;
       if (cat === 'cash_conversion') return "Internal Transfer";
+      if (cat === 'other_income') return t.otherIncomeOption;
       return cat;
   };
 
