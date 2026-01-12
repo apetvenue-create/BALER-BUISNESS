@@ -257,11 +257,15 @@ export interface Translation {
   createBtn: string;
   payLabourBtn: string; 
   
-  // Extra Payable
-  addBonusBtn: string;
+  // Extra Payable / Internal Adjustment
+  addBonusBtn: string; // Renamed concept in UI, but key kept for compatibility
+  addAdjustmentBtn: string;
   adjustmentTitle: string;
   adjustmentAmount: string;
   adjustmentNote: string;
+  adjustmentTypeLabel: string;
+  moneyGivenLabel: string;
+  moneyTakenLabel: string;
 
   // Stats Section
   statsTitle: string;

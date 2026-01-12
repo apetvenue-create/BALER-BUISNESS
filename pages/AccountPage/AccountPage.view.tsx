@@ -121,10 +121,11 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   // State for Customer View Toggle
   const [customerViewMode, setCustomerViewMode] = useState<'statement' | 'details'>('statement');
   
-  // State for Bonus Modal
+  // State for Adjustment/Bonus Modal
   const [isBonusModalOpen, setIsBonusModalOpen] = useState(false);
   const [bonusForm, setBonusForm] = useState({ date: new Date().toISOString().split('T')[0], amount: '', note: '' });
   const [editingAdjustmentId, setEditingAdjustmentId] = useState<number | null>(null);
+  const [adjustmentType, setAdjustmentType] = useState<'given' | 'taken'>('taken');
 
   // Validation States
   const [accountErrors, setAccountErrors] = useState<string>('');
@@ -133,9 +134,16 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   const handleOpenBonusModal = (adj?: ManualAdjustment) => {
       if (adj) {
           setEditingAdjustmentId(adj.id);
-          setBonusForm({ date: adj.date, amount: adj.amount.toString(), note: adj.note });
+          // Detect type based on sign. Negative = Given (Reduces Payable), Positive = Taken (Increases Payable)
+          setAdjustmentType(adj.amount < 0 ? 'given' : 'taken');
+          setBonusForm({ 
+              date: adj.date, 
+              amount: Math.abs(adj.amount).toString(), 
+              note: adj.note 
+          });
       } else {
           setEditingAdjustmentId(null);
+          setAdjustmentType('taken'); // Default to adding positive value (Work done / Bonus)
           setBonusForm({ date: new Date().toISOString().split('T')[0], amount: '', note: '' });
       }
       setBonusErrors({});
@@ -144,30 +152,33 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
   const handleBonusSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      const amt = parseFloat(bonusForm.amount);
+      const rawAmt = parseFloat(bonusForm.amount);
       const errors: Record<string, string> = {};
       
-      if (!amt || amt === 0) errors.amount = t.errPositiveAmount;
-      // Note is optional but good to check if truly required by business logic. 
-      // Assuming optional based on prompt "small local errors" for critical inputs.
+      if (!rawAmt || rawAmt === 0) errors.amount = t.errPositiveAmount;
       
       if (Object.keys(errors).length > 0) {
           setBonusErrors(errors);
           return;
       }
 
+      // Apply sign based on type
+      // Given: Reduces Payable -> Negative adjustment
+      // Taken: Increases Payable -> Positive adjustment
+      const finalAmount = adjustmentType === 'given' ? -Math.abs(rawAmt) : Math.abs(rawAmt);
+
       if (editingAdjustmentId && onUpdateAdjustment) {
           onUpdateAdjustment({
               id: editingAdjustmentId,
               date: bonusForm.date,
-              amount: amt,
-              note: bonusForm.note || 'Bonus'
+              amount: finalAmount,
+              note: bonusForm.note || 'Adjustment'
           });
       } else if (onAddAdjustment) {
           onAddAdjustment({
               date: bonusForm.date,
-              amount: amt,
-              note: bonusForm.note || 'Bonus'
+              amount: finalAmount,
+              note: bonusForm.note || 'Adjustment'
           });
       }
       setIsBonusModalOpen(false);
@@ -598,12 +609,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
                 <button onClick={onBack} className="text-blue-600 hover:underline font-medium">{t.backToAccounts}</button>
                 <div className="flex items-center gap-2 flex-wrap">
-                    {/* ADD BONUS BUTTON */}
+                    {/* ADD ADJUSTMENT / BONUS BUTTON */}
                     <button 
                          onClick={() => handleOpenBonusModal()}
                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-bold shadow transition text-sm"
                     >
-                         {t.addBonusBtn}
+                         {t.addAdjustmentBtn}
                     </button>
 
                     {/* PAY BUTTON */}
@@ -778,28 +789,31 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                        <span className="font-bold text-gray-800">₹{row.dailyWage}</span>
                                    ) : null}
                                    
-                                   {/* Extra Payables */}
-                                   {row.adjustments && row.adjustments.map(adj => (
-                                       <div key={adj.id} className="flex items-center gap-1 group w-full justify-end">
-                                           <span 
-                                               className="text-xs text-green-600 font-bold cursor-pointer hover:underline text-right"
-                                               onClick={() => handleOpenBonusModal(adj)}
-                                           >
-                                               + ₹{adj.amount} <span className="text-[9px] text-gray-400 font-normal block">({getTranslated(adj.note)})</span>
-                                           </span>
-                                           <button 
-                                               type="button"
-                                               onClick={(e) => { 
-                                                   e.stopPropagation(); 
-                                                   if(window.confirm(t.confirmDelete) && onDeleteAdjustment) onDeleteAdjustment(adj.id); 
-                                               }} 
-                                               className="text-red-400 hover:text-red-600 font-bold p-1.5 rounded hover:bg-red-50 transition ml-2"
-                                               title={t.deleteBtn}
-                                           >
-                                               ✕
-                                           </button>
-                                       </div>
-                                   ))}
+                                   {/* Extra Payables / Adjustments */}
+                                   {row.adjustments && row.adjustments.map(adj => {
+                                       const isNegative = adj.amount < 0;
+                                       return (
+                                           <div key={adj.id} className="flex items-center gap-1 group w-full justify-end">
+                                               <span 
+                                                   className={`text-xs font-bold cursor-pointer hover:underline text-right ${isNegative ? 'text-red-600' : 'text-green-600'}`}
+                                                   onClick={() => handleOpenBonusModal(adj)}
+                                               >
+                                                   {isNegative ? '-' : '+'} ₹{Math.abs(adj.amount)} <span className="text-[9px] text-gray-400 font-normal block">({getTranslated(adj.note)})</span>
+                                               </span>
+                                               <button 
+                                                   type="button"
+                                                   onClick={(e) => { 
+                                                       e.stopPropagation(); 
+                                                       if(window.confirm(t.confirmDelete) && onDeleteAdjustment) onDeleteAdjustment(adj.id); 
+                                                   }} 
+                                                   className="text-red-400 hover:text-red-600 font-bold p-1.5 rounded hover:bg-red-50 transition ml-2"
+                                                   title={t.deleteBtn}
+                                               >
+                                                   ✕
+                                               </button>
+                                           </div>
+                                       );
+                                   })}
                                    
                                    {!row.isPresent && (!row.adjustments || row.adjustments.length === 0) && (
                                        <span className="text-gray-300">-</span>
@@ -828,10 +842,10 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                </div>
             </div>
 
-            {/* BONUS / EXTRA PAYABLE MODAL */}
+            {/* ADJUSTMENT / BONUS MODAL */}
             {isBonusModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl animate-fade-in">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in">
                         <h3 className="text-xl font-bold mb-4 text-gray-800">
                             {editingAdjustmentId ? t.editBtn : t.adjustmentTitle}
                         </h3>
@@ -843,12 +857,46 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                     onChange={(d) => setBonusForm({...bonusForm, date: d})}
                                 />
                             </div>
+
+                            {/* Adjustment Type Selector */}
+                            <div className="mb-4">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">{t.adjustmentTypeLabel}</label>
+                                <div className="space-y-2">
+                                    <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition ${adjustmentType === 'taken' ? 'bg-green-50 border-green-500 ring-1 ring-green-500' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                        <input 
+                                            type="radio" 
+                                            name="adjType" 
+                                            value="taken"
+                                            checked={adjustmentType === 'taken'}
+                                            onChange={() => setAdjustmentType('taken')}
+                                            className="w-4 h-4 text-green-600"
+                                        />
+                                        <span className="ml-2 text-sm font-medium text-gray-800">
+                                            {t.moneyTakenLabel}
+                                        </span>
+                                    </label>
+                                    <label className={`flex items-center p-3 border rounded-lg cursor-pointer transition ${adjustmentType === 'given' ? 'bg-red-50 border-red-500 ring-1 ring-red-500' : 'hover:bg-gray-50 border-gray-200'}`}>
+                                        <input 
+                                            type="radio" 
+                                            name="adjType" 
+                                            value="given"
+                                            checked={adjustmentType === 'given'}
+                                            onChange={() => setAdjustmentType('given')}
+                                            className="w-4 h-4 text-red-600"
+                                        />
+                                        <span className="ml-2 text-sm font-medium text-gray-800">
+                                            {t.moneyGivenLabel}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="mb-4">
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">{t.adjustmentAmount}</label>
                                 <input 
                                     type="number"
                                     required
-                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none ${bonusErrors.amount ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-green-500 border-gray-300'}`}
+                                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none ${bonusErrors.amount ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500 border-gray-300'}`}
                                     value={bonusForm.amount}
                                     onChange={e => { setBonusForm({...bonusForm, amount: e.target.value}); setBonusErrors({}); }}
                                     placeholder="0"
@@ -859,14 +907,14 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">{t.adjustmentNote}</label>
                                 <input 
                                     type="text"
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:outline-none border-gray-300"
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none border-gray-300"
                                     value={bonusForm.note}
                                     onChange={e => setBonusForm({...bonusForm, note: e.target.value})}
-                                    placeholder="Bonus / Overtime"
+                                    placeholder="e.g. Bonus, Advance, Previous Balance"
                                 />
                             </div>
                             <div className="flex gap-3">
-                                <button type="submit" className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-bold transition">
+                                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition">
                                     {editingAdjustmentId ? t.updateBtn : t.submitBtn}
                                 </button>
                                 <button 
