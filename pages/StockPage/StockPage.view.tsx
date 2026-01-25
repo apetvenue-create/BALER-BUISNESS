@@ -17,6 +17,10 @@ interface StockPageViewProps {
   onAddStock: () => void;
   onSubtractStock: () => void;
   
+  // New props for Total Sales
+  totalSalesAmount: number;
+  totalSalesKg: number;
+
   // Dispatch Form State
   dispatchDate: string;
   setDispatchDate: (d: string) => void;
@@ -60,6 +64,9 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
   onAddStock,
   onSubtractStock,
   
+  totalSalesAmount,
+  totalSalesKg,
+
   dispatchDate,
   setDispatchDate,
   selectedCustomer,
@@ -215,68 +222,76 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
        {/* DASHBOARD CONTENT */}
        <div className="animate-fade-in space-y-6">
             
-            {/* SECTION 1: CURRENT STOCK */}
+            {/* SECTION 1: CURRENT STOCK DASHBOARD */}
             <div className={`rounded-lg shadow-md p-6 border-l-8 ${isLowStock ? 'bg-red-50 border-red-500' : 'bg-white border-blue-500'}`}>
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
                     <div>
                         <h2 className="text-gray-500 font-bold uppercase tracking-wider text-sm mb-1">{t.currentStockTitle}</h2>
                         <div className="flex items-baseline gap-2">
-                             <span className="text-5xl font-extrabold text-gray-900">
-                                 {displayStock.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                             </span>
-                             <span className="text-xl font-bold text-gray-500">{unit === 'KG' ? t.unitKg : t.unitQuintal}</span>
+                            <span className="text-5xl font-extrabold text-gray-900">
+                                {displayStock.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="text-xl font-bold text-gray-500">{unit === 'KG' ? t.unitKg : t.unitQuintal}</span>
                         </div>
                         {unit === 'QUINTAL' && (
-                             <p className="text-sm text-gray-400 mt-1">= {currentStockKg.toLocaleString()} {t.unitKg}</p>
+                            <p className="text-sm text-gray-400 mt-1">= {currentStockKg.toLocaleString()} {t.unitKg}</p>
                         )}
                         <div className="mt-3">
-                             <button 
+                            <button 
                                 onClick={() => setShowHistoryModal(true)}
                                 className="text-sm font-bold text-blue-600 hover:bg-blue-50 px-2 py-1 rounded border border-blue-200 shadow-sm transition flex items-center gap-1"
-                             >
-                                 {t.viewHistoryBtn}
-                             </button>
+                            >
+                                {t.viewHistoryBtn}
+                            </button>
+                        </div>
+
+                        {/* TOTAL SALES SMALL SECTION */}
+                        <div className="mt-4 pt-2 border-t border-dashed border-gray-200 inline-block min-w-[120px]">
+                             <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">{t.totalSalesValue}</p>
+                             <p className="text-base font-bold text-green-600">
+                                ₹{formatIndianCurrency(totalSalesAmount)}
+                             </p>
                         </div>
                     </div>
 
                     <div className="flex flex-col items-end gap-4 mt-4 md:mt-0">
-                         {/* Unit Toggle */}
-                         <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                             <span className="text-xs font-bold text-gray-500 px-2">{t.unitToggleLabel}</span>
-                             <button 
+                        {/* Unit Toggle */}
+                        <div className="flex items-center bg-gray-100 rounded-lg p-1">
+                            <span className="text-xs font-bold text-gray-500 px-2">{t.unitToggleLabel}</span>
+                            <button 
                                 onClick={onToggleUnit}
                                 className={`px-3 py-1 rounded text-sm font-bold transition ${unit === 'KG' ? 'bg-white shadow text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                             >
+                            >
                                 {t.unitKg}
-                             </button>
-                             <button 
+                            </button>
+                            <button 
                                 onClick={onToggleUnit}
                                 className={`px-3 py-1 rounded text-sm font-bold transition ${unit === 'QUINTAL' ? 'bg-white shadow text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                             >
+                            >
                                 {t.unitQuintal}
-                             </button>
-                         </div>
+                            </button>
+                        </div>
 
-                         {/* Actions Area */}
-                         <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mt-2">
-                             <p className="text-xs font-bold text-gray-500 mb-2 uppercase">{t.adjustStockTitle}</p>
-                             <div className="flex gap-2 items-center">
-                                 <input 
+                        {/* Actions Area */}
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mt-2">
+                            <p className="text-xs font-bold text-gray-500 mb-2 uppercase">{t.adjustStockTitle}</p>
+                            <div className="flex gap-2 items-center">
+                                <input 
                                     type="number" 
                                     placeholder="0" 
                                     className={`w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 ${adjustErrors ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500'}`}
                                     value={adjustQty}
                                     onChange={(e) => { setAdjustQty(e.target.value); setAdjustErrors(''); }}
-                                 />
-                                 <button onClick={() => handleAdjustClick('add')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
-                                     {t.addStockBtn}
-                                 </button>
-                                 <button onClick={() => handleAdjustClick('sub')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
-                                     {t.subtractStockBtn}
-                                 </button>
-                             </div>
-                             {adjustErrors && <p className="text-red-500 text-xs mt-1 text-center font-semibold">{adjustErrors}</p>}
-                         </div>
+                                />
+                                <button onClick={() => handleAdjustClick('add')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
+                                    {t.addStockBtn}
+                                </button>
+                                <button onClick={() => handleAdjustClick('sub')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
+                                    {t.subtractStockBtn}
+                                </button>
+                            </div>
+                            {adjustErrors && <p className="text-red-500 text-xs mt-1 text-center font-semibold">{adjustErrors}</p>}
+                        </div>
                     </div>
                 </div>
             </div>

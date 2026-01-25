@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Translation, StockMovement, StoredAccount, Transaction, AccountType, AccountTab, Language } from '../../types';
 import { StockPageView } from './StockPage.view';
@@ -46,6 +47,19 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
   const currentStockKg = useMemo(() => {
       if (stockMovements.length === 0) return 0;
       return stockMovements[stockMovements.length - 1].remainingStockKg;
+  }, [stockMovements]);
+
+  // Derived Sales Stats
+  const { totalSalesAmount, totalSalesKg } = useMemo(() => {
+      let amount = 0;
+      let kg = 0;
+      stockMovements.forEach(m => {
+          if (m.type === 'out') {
+              amount += (m.totalAmount || 0);
+              kg += m.quantityKg;
+          }
+      });
+      return { totalSalesAmount: amount, totalSalesKg: kg };
   }, [stockMovements]);
 
   // Dispatch Form State
@@ -186,6 +200,9 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
        onAddStock={handleAddStock}
        onSubtractStock={handleSubtractStock}
        
+       totalSalesAmount={totalSalesAmount}
+       totalSalesKg={totalSalesKg}
+
        dispatchDate={dispatchDate}
        setDispatchDate={setDispatchDate}
        selectedCustomer={selectedCustomer}

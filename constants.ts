@@ -170,6 +170,9 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     colPrevStock: "Prev Stock",
     colChange: "Change (+/-)",
     colNewStock: "Remaining",
+    totalSalesValue: "Total Sales Value",
+    totalSoldQty: "Total Quantity Sold",
+
     // Opening Balance
     editOpeningBalanceTitle: "Opening Balance",
     initialCashLabel: "Cash:",
@@ -419,6 +422,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     colPrevStock: "पिछला स्टॉक",
     colChange: "बदलाव (+/-)",
     colNewStock: "बचा स्टॉक",
+    totalSalesValue: "कुल बिक्री मूल्य",
+    totalSoldQty: "कुल बेची गई मात्रा",
     editOpeningBalanceTitle: "शुरुआती शेष",
     initialCashLabel: "नकद:",
     initialOnlineLabel: "ऑनलाइन:",
@@ -666,6 +671,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     colPrevStock: "पिछला स्टॉक",
     colChange: "ਤਬਦੀਲੀ",
     colNewStock: "ਬਾਕੀ ਸਟਾਕ",
+    totalSalesValue: "ਕੁੱਲ ਵਿਕਰੀ ਮੁੱਲ",
+    totalSoldQty: "ਕੁੱਲ ਵਿਕਰੀ ਮਾਤਰਾ",
     editOpeningBalanceTitle: "ਸ਼ੁਰੂਆਤੀ ਬਕਾਇਆ",
     initialCashLabel: "ਨਕਦ:",
     initialOnlineLabel: "ਔਨਲਾਈਨ:",

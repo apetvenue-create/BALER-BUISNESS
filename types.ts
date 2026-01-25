@@ -316,6 +316,8 @@ export interface Translation {
   stockAdded: string;
   stockSubtracted: string;
   stockDispatched: string;
+  totalSalesValue: string;
+  totalSoldQty: string;
 
   // Stock History Modal
   viewHistoryBtn: string;
