@@ -69,6 +69,7 @@ interface AccountPageViewProps {
 
   getTranslated: (text?: string) => string;
   onUpdateSerial: (name: string, serial: number) => void;
+  onRenameAccount?: (name: string) => void;
 }
 
 export const AccountPageView: React.FC<AccountPageViewProps> = ({
@@ -118,7 +119,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   reportEndDate,
   setReportEndDate,
   getTranslated,
-  onUpdateSerial
+  onUpdateSerial,
+  onRenameAccount
 }) => {
   // State for Customer View Toggle
   const [customerViewMode, setCustomerViewMode] = useState<'statement' | 'details'>('statement');
@@ -282,7 +284,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         </div>
                    </div>
 
-                   <h2 className="text-2xl font-bold text-gray-800 border-b pb-2 mb-4">{getTranslated(customerData.name)}</h2>
+                   {/* Header with Rename Button */}
+                   <div className="flex items-center gap-3 border-b pb-2 mb-4">
+                       <h2 className="text-2xl font-bold text-gray-800">{getTranslated(customerData.name)}</h2>
+                       <button 
+                           onClick={() => onRenameAccount && onRenameAccount(customerData.name)}
+                           className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
+                           title="Rename Account"
+                       >
+                           ✎
+                       </button>
+                   </div>
 
                    {/* --- SIMPLE STATEMENT VIEW --- */}
                    {customerViewMode === 'statement' && (
@@ -462,8 +474,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
                   {/* SUPPLIER SUMMARY CARD */}
                   <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-600">
-                       <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                           <h2 className="text-2xl font-bold text-gray-800 mb-2 md:mb-0">{getTranslated(supplierData.name)}</h2>
+                       <div className="flex justify-between items-start items-center">
+                           <div className="flex items-center gap-3">
+                               <h2 className="text-2xl font-bold text-gray-800">{getTranslated(supplierData.name)}</h2>
+                               <button 
+                                   onClick={() => onRenameAccount && onRenameAccount(supplierData.name)}
+                                   className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
+                                   title="Rename Account"
+                               >
+                                   ✎
+                               </button>
+                           </div>
                            <div className="text-right">
                                <p className="text-xs uppercase font-bold text-gray-500">{t.netPaidBalance}</p>
                                <div className="text-3xl font-bold text-gray-800">
@@ -545,9 +566,15 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             {/* Partner Summary Card */}
             <div className="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-500">
               <div className="flex justify-between items-start">
-                 <div>
+                 <div className="flex items-center gap-3">
                     <h2 className="text-3xl font-bold text-gray-800">{getTranslated(partnerData.name)}</h2>
-                    <span className="text-sm bg-blue-100 text-blue-800 px-2 py-1 rounded mt-2 inline-block">{t.partnerAccountLabel}</span>
+                    <button 
+                       onClick={() => onRenameAccount && onRenameAccount(partnerData.name)}
+                       className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
+                       title="Rename Account"
+                    >
+                       ✎
+                    </button>
                  </div>
                  <div className="text-right">
                     <p className="text-gray-500 text-sm">{t.netPosition}</p>
@@ -659,7 +686,16 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
                   <div className="flex justify-between items-start">
                       <div>
-                          <h2 className="text-3xl font-bold text-gray-900">{getTranslated(labourData.name)}</h2>
+                          <div className="flex items-center gap-3">
+                              <h2 className="text-3xl font-bold text-gray-900">{getTranslated(labourData.name)}</h2>
+                              <button 
+                                   onClick={() => onRenameAccount && onRenameAccount(labourData.name)}
+                                   className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
+                                   title="Rename Account"
+                               >
+                                   ✎
+                               </button>
+                          </div>
                           <span className="text-xs font-bold bg-gray-900 text-white px-2 py-1 rounded mt-1 inline-block uppercase tracking-wider">{t.labourCardLabel}</span>
                       </div>
                       <div className="text-right">

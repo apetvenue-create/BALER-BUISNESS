@@ -24,6 +24,7 @@ interface AccountPageControllerProps {
   onAddAdjustment?: (accountName: string, adj: {date: string, amount: number, note: string}) => void;
   onUpdateAdjustment?: (adj: ManualAdjustment) => void;
   onDeleteAdjustment?: (id: number) => void;
+  onRenameAccount?: (oldName: string, newName: string) => void;
 }
 
 export const AccountPageController: React.FC<AccountPageControllerProps> = ({ 
@@ -41,7 +42,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   onToggleHisaab,
   onAddAdjustment,
   onUpdateAdjustment,
-  onDeleteAdjustment
+  onDeleteAdjustment,
+  onRenameAccount
 }) => {
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -581,6 +583,17 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       }
   };
 
+  const handleRenameLocal = (name: string) => {
+      if (onRenameAccount) {
+          const newName = prompt("Enter new name for account:", name);
+          if (newName && newName !== name) {
+              onRenameAccount(name, newName.trim());
+              // Update selected name locally so UI doesn't break
+              setSelectedAccountName(newName.trim());
+          }
+      }
+  };
+
   // PDF
   const handleDownloadPdf = async () => {
       if (!selectedAccountName) return;
@@ -657,6 +670,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       
       getTranslated={getTranslated}
       onUpdateSerial={handleUpdateSerial}
+      onRenameAccount={handleRenameLocal}
     />
   );
 };

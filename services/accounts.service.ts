@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabase';
 import { StoredAccount, AccountType, ManualAdjustment } from '../types';
 
@@ -72,6 +73,39 @@ export const AccountService = {
       });
     
     if (error) throw error;
+  },
+
+  async rename(oldName: string, newName: string): Promise<void> {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error("Not authenticated");
+
+    // We update the accounts table first. 
+    // Ideally this should be a database transaction or use CASCADE, 
+    // but assuming simple string linking, we update all references manually.
+    
+    // 1. Accounts Table
+    const { error } = await supabase
+        .from('accounts')
+        .update({ name: newName })
+        .eq('name', oldName)
+        .eq('user_id', user.id);
+        
+    if (error) throw error;
+
+    // 2. Transactions
+    await supabase.from('transactions').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
+
+    // 3. Stock
+    await supabase.from('stock').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
+
+    // 4. Attendance
+    await supabase.from('attendance').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
+
+    // 5. Hisaab Days
+    await supabase.from('hisaab_days').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
+
+    // 6. Adjustments
+    await supabase.from('adjustments').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
   },
 
   // Attendance Operations

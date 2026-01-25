@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Transaction, 
@@ -175,6 +173,32 @@ const FinancialApp: React.FC = () => {
           // Rollback if needed
           setAccounts(prev => prev.filter(a => a.name !== name));
           alert("Failed to create account on server.");
+      }
+  };
+
+  const handleRenameAccount = async (oldName: string, newName: string) => {
+      if (oldName === newName) return;
+      if (accounts.some(a => a.name.toLowerCase() === newName.toLowerCase())) {
+          alert(t.accountExists);
+          return;
+      }
+
+      // 1. Update Accounts State
+      setAccounts(prev => prev.map(a => a.name === oldName ? { ...a, name: newName } : a));
+
+      // 2. Update Transactions State
+      setTransactions(prev => prev.map(t => t.accountName === oldName ? { ...t, accountName: newName } : t));
+
+      // 3. Update Stock State
+      setStockMovements(prev => prev.map(m => m.accountName === oldName ? { ...m, accountName: newName } : m));
+
+      // 4. Sync with Backend
+      try {
+          await AccountService.rename(oldName, newName);
+      } catch (e) {
+          console.error("Rename failed", e);
+          alert("Failed to update name on server. Please refresh.");
+          // In a real app, revert state here
       }
   };
 
@@ -1047,6 +1071,7 @@ const FinancialApp: React.FC = () => {
                       onAddAdjustment={handleAddAdjustment}
                       onUpdateAdjustment={handleUpdateAdjustment}
                       onDeleteAdjustment={handleDeleteAdjustment}
+                      onRenameAccount={handleRenameAccount}
                   />
               )}
 
@@ -1134,7 +1159,6 @@ const FinancialApp: React.FC = () => {
   );
 };
 
-// ... (App wrapper remains same)
 const App: React.FC = () => {
   return (
     <AuthProvider>
