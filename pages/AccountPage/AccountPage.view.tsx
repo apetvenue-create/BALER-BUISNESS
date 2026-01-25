@@ -13,7 +13,7 @@ interface AccountPageViewProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   // List Mode
-  accountList: { name: string; balance: number }[]; 
+  accountList: { name: string; balance: number; serial?: number }[]; 
   onAccountSelect: (name: string) => void;
   // Detail Mode
   selectedAccountName: string | null;
@@ -68,6 +68,7 @@ interface AccountPageViewProps {
   setReportEndDate: (d: string) => void;
 
   getTranslated: (text?: string) => string;
+  onUpdateSerial: (name: string, serial: number) => void;
 }
 
 export const AccountPageView: React.FC<AccountPageViewProps> = ({
@@ -116,7 +117,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   setReportStartDate,
   reportEndDate,
   setReportEndDate,
-  getTranslated
+  getTranslated,
+  onUpdateSerial
 }) => {
   // State for Customer View Toggle
   const [customerViewMode, setCustomerViewMode] = useState<'statement' | 'details'>('statement');
@@ -191,6 +193,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       }
       setAccountErrors('');
       onConfirmAddAccount();
+  };
+  
+  const handleEditSerial = (e: React.MouseEvent, name: string, currentSerial?: number) => {
+      e.stopPropagation();
+      const input = prompt("Enter Serial Number (to reorder):", currentSerial?.toString() || "");
+      if (input !== null) {
+          const num = parseInt(input, 10);
+          if (!isNaN(num)) {
+              onUpdateSerial(name, num);
+          }
+      }
   };
   
   // -- Helper for Report Controls --
@@ -1010,14 +1023,28 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       {/* List */}
       <div className="flex-1 overflow-y-auto p-4">
          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {accountList.map((acc) => (
+            {accountList.map((acc, index) => (
                <div 
                   key={acc.name} 
                   onClick={() => onAccountSelect(acc.name)}
                   className="border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col justify-between h-32 group"
                >
                   <div className="flex justify-between items-start">
-                     <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-600 transition-colors">{getTranslated(acc.name)}</h3>
+                     <div className="flex items-center gap-2">
+                        {/* Serial Number Badge - CLICKABLE */}
+                        <span 
+                            onClick={(e) => handleEditSerial(e, acc.name, acc.serial)}
+                            title="Click to set custom order"
+                            className={`text-xs font-bold px-1.5 py-0.5 rounded border cursor-pointer hover:scale-110 transition-transform ${
+                                acc.serial !== undefined 
+                                   ? 'bg-blue-100 text-blue-700 border-blue-200 shadow-sm' 
+                                   : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200'
+                            }`}
+                        >
+                            #{acc.serial !== undefined ? acc.serial : index + 1}
+                        </span>
+                        <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-600 transition-colors">{getTranslated(acc.name)}</h3>
+                     </div>
                      <span className="text-gray-300">➔</span>
                   </div>
                   <div>

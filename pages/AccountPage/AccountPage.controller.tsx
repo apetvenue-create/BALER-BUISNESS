@@ -5,6 +5,7 @@ import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, St
 import { AccountPageView } from './AccountPage.view';
 import { formatMonthYear, getDatesInRange } from '../../utils';
 import { PDFGenerator } from '../../services/pdfGenerator';
+import { SettingsService } from '../../services/settings.service';
 
 interface AccountPageControllerProps {
   transactions: Transaction[];
@@ -69,6 +70,22 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountRate, setNewAccountRate] = useState<string>('400'); // Default rate
+
+  // Custom Serial Order State
+  const [accountOrder, setAccountOrder] = useState<Record<string, number>>({});
+
+  // Load Order on Mount
+  useEffect(() => {
+      SettingsService.get('accountOrderMap').then(data => {
+          if (data) setAccountOrder(data);
+      });
+  }, []);
+
+  const handleUpdateSerial = async (name: string, serial: number) => {
+      const newOrder = { ...accountOrder, [name]: serial };
+      setAccountOrder(newOrder);
+      await SettingsService.set('accountOrderMap', newOrder);
+  };
 
   // Effect to sync initialTab if changed from parent
   useEffect(() => {
@@ -184,7 +201,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   }, [transactions, accounts, stockMovements]);
 
 
-  // 2. Prepare List Data for the active tab
+  // 2. Prepare List Data for the active tab (SORTED by Custom Serial)
   const accountList = useMemo(() => {
      return Array.from(accountMap.entries())
         .filter(([name, data]) => {
@@ -192,9 +209,22 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
            const matchesSearch = getTranslated(name).toLowerCase().includes(searchQuery.toLowerCase()) || name.toLowerCase().includes(searchQuery.toLowerCase());
            return matchesType && matchesSearch;
         })
-        .map(([name, data]) => ({ name, balance: data.balance }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-  }, [accountMap, activeTab, searchQuery, getTranslated]);
+        .map(([name, data]) => ({ 
+            name, 
+            balance: data.balance,
+            serial: accountOrder[name] // May be undefined
+        }))
+        .sort((a, b) => {
+            // Sort by Serial if both exist
+            if (a.serial !== undefined && b.serial !== undefined) return a.serial - b.serial;
+            // If only 'a' has serial, it comes first
+            if (a.serial !== undefined) return -1;
+            // If only 'b' has serial, it comes first
+            if (b.serial !== undefined) return 1;
+            // Default alphabetic
+            return a.name.localeCompare(b.name);
+        });
+  }, [accountMap, activeTab, searchQuery, getTranslated, accountOrder]);
 
 
   // 3. Prepare Detailed Data for Selected Account
@@ -626,6 +656,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       setReportEndDate={setReportEndDate}
       
       getTranslated={getTranslated}
+      onUpdateSerial={handleUpdateSerial}
     />
   );
 };
