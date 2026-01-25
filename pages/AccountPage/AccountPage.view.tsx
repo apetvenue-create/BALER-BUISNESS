@@ -820,21 +820,27 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                 </div>
 
                                 {/* ATTENDANCE TOGGLE COLUMN */}
-                                <div className="w-24 flex items-center justify-center border-r border-gray-200 cursor-pointer" onClick={() => onToggleAttendance && onToggleAttendance(row.date)}>
-                                   {row.isPresent ? (
+                                <div className="w-24 flex items-center justify-center border-r border-gray-200 cursor-pointer select-none" onClick={() => onToggleAttendance && onToggleAttendance(row.date)}>
+                                   {row.isPresent === true && (
                                        <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold shadow-sm border border-green-200">
-                                           ✓
+                                           ✅
                                        </div>
-                                   ) : (
-                                       <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-300 font-bold hover:bg-red-50 hover:text-red-300 transition-colors">
-                                           ✗
+                                   )}
+                                   {row.isPresent === false && (
+                                       <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold shadow-sm border border-red-200">
+                                           ❌
+                                       </div>
+                                   )}
+                                   {(row.isPresent === undefined || row.isPresent === null) && (
+                                       <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 font-bold hover:bg-gray-100 transition-colors">
+                                           -
                                        </div>
                                    )}
                                 </div>
 
                                 {/* WORK AMOUNT COLUMN (Includes Wages + Adjustments) */}
                                 <div className="w-32 flex flex-col justify-center items-end pr-4 border-r border-gray-200 font-mono text-sm">
-                                   {row.isPresent ? (
+                                   {row.isPresent === true ? (
                                        <span className="font-bold text-gray-800">₹{row.dailyWage}</span>
                                    ) : null}
                                    
@@ -864,7 +870,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                        );
                                    })}
                                    
-                                   {!row.isPresent && (!row.adjustments || row.adjustments.length === 0) && (
+                                   {row.isPresent !== true && (!row.adjustments || row.adjustments.length === 0) && (
                                        <span className="text-gray-300">-</span>
                                    )}
                                 </div>

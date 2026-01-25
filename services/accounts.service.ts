@@ -12,8 +12,6 @@ export const AccountService = {
     if (accError) throw accError;
 
     // 2. Fetch Related Data (Attendance, Hisaab, Adjustments)
-    // We fetch all and map them in memory to avoid N+1.
-    // Given the scale of a typical small business app, this is acceptable.
     const { data: attendanceData } = await supabase.from('attendance').select('*');
     const { data: hisaabData } = await supabase.from('hisaab_days').select('*');
     const { data: adjustmentsData } = await supabase.from('adjustments').select('*');
@@ -23,14 +21,15 @@ export const AccountService = {
       const accName = acc.name;
       
       // Map Attendance: Record<date, boolean>
+      // We now load explicit false values (Absent) too
       const attendanceMap: Record<string, boolean> = {};
       (attendanceData || [])
-        .filter((a: any) => a.account_name === accName && a.is_present)
+        .filter((a: any) => a.account_name === accName)
         .forEach((a: any) => {
-          attendanceMap[a.date] = true;
+          attendanceMap[a.date] = a.is_present;
         });
 
-      // Map Hisaab Days: Record<date, boolean>
+      // Map Hisaab Days
       const hisaabMap: Record<string, boolean> = {};
       (hisaabData || [])
         .filter((h: any) => h.account_name === accName)
@@ -38,7 +37,7 @@ export const AccountService = {
           hisaabMap[h.date] = true;
         });
 
-      // Map Adjustments: ManualAdjustment[]
+      // Map Adjustments
       const adjustments: ManualAdjustment[] = (adjustmentsData || [])
         .filter((adj: any) => adj.account_name === accName)
         .map((adj: any) => ({
@@ -79,10 +78,6 @@ export const AccountService = {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) throw new Error("Not authenticated");
 
-    // We update the accounts table first. 
-    // Ideally this should be a database transaction or use CASCADE, 
-    // but assuming simple string linking, we update all references manually.
-    
     // 1. Accounts Table
     const { error } = await supabase
         .from('accounts')
@@ -109,24 +104,25 @@ export const AccountService = {
   },
 
   // Attendance Operations
-  async toggleAttendance(accountName: string, date: string, isPresent: boolean): Promise<void> {
+  // Updated to support tri-state: true=Present, false=Absent, null=Delete
+  async toggleAttendance(accountName: string, date: string, isPresent: boolean | null): Promise<void> {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
 
-    if (isPresent) {
-      // Upsert
+    // Always clean up existing record for this date to ensure no duplicates if constraints are missing,
+    // or to handle the update logic simply.
+    await supabase.from('attendance')
+        .delete()
+        .eq('account_name', accountName)
+        .eq('date', date);
+
+    if (isPresent !== null && isPresent !== undefined) {
       await supabase.from('attendance').insert({
         user_id: user.id,
         account_name: accountName,
         date,
-        is_present: true
+        is_present: isPresent
       });
-    } else {
-      // Delete
-      await supabase.from('attendance')
-        .delete()
-        .eq('account_name', accountName)
-        .eq('date', date);
     }
   },
 

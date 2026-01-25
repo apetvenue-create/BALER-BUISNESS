@@ -32,7 +32,7 @@ export interface StoredAccount {
   name: string;
   type: AccountType;
   rate?: number; // Daily rate for labour accounts
-  attendance?: Record<string, boolean>; // Date (YYYY-MM-DD) -> isPresent
+  attendance?: Record<string, boolean>; // Date (YYYY-MM-DD) -> isPresent (true=Present, false=Absent, undefined=Unmarked)
   hisaabDays?: Record<string, boolean>; // Date (YYYY-MM-DD) -> isHisaabDay
   manualAdjustments?: ManualAdjustment[]; // Extra payables (Bonuses, Overtime)
 }
@@ -78,7 +78,7 @@ export interface PartnerSummary {
 
 export interface LabourTimelineRow {
   date: string;
-  isPresent: boolean;
+  isPresent: boolean | undefined; // true = Present, false = Absent, undefined = '-'
   isHisaabDay: boolean; // Visual Marker
   dailyWage: number; // 0 or rate
   adjustments: ManualAdjustment[]; // Extra payables on this day

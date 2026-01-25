@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment } from '../../types';
 import { AccountPageView } from './AccountPage.view';
@@ -19,7 +18,7 @@ interface AccountPageControllerProps {
   getTranslated: (text?: string) => string;
   
   // Specific Handlers
-  onToggleAttendance?: (accountName: string, date: string, isPresent: boolean) => void;
+  onToggleAttendance?: (accountName: string, date: string, isPresent: boolean | null) => void;
   onToggleHisaab?: (accountName: string, date: string, isHisaab: boolean) => void;
   onAddAdjustment?: (accountName: string, adj: {date: string, amount: number, note: string}) => void;
   onUpdateAdjustment?: (adj: ManualAdjustment) => void;
@@ -110,7 +109,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
              tabType = 'labour';
              // For Labour: Balance = Total Wages + Adjustments (We subtract payments later)
              const rate = acc.rate || 0;
-             const presentDays = acc.attendance ? Object.values(acc.attendance).filter(Boolean).length : 0;
+             // Only count explicit presence (true) for wages
+             const presentDays = acc.attendance ? Object.values(acc.attendance).filter(v => v === true).length : 0;
              const totalWages = presentDays * rate;
              const totalAdjustments = acc.manualAdjustments ? acc.manualAdjustments.reduce((sum, a) => sum + a.amount, 0) : 0;
              initialBalance = totalWages + totalAdjustments;
@@ -434,8 +434,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
     const totalPaidLifetime = payments.reduce((sum, t) => sum + t.amount, 0);
 
     // 3. Calculate Lifetime Earnings
-    // Iterate all attendance entries
-    const presentDates = Object.keys(attendance).filter(d => attendance[d]);
+    // Iterate all attendance entries - only count 'true'
+    const presentDates = Object.keys(attendance).filter(d => attendance[d] === true);
     const totalWorkDaysLifetime = presentDates.length;
     const baseEarningsLifetime = totalWorkDaysLifetime * rate;
     const totalAdjustmentsLifetime = adjustments.reduce((sum, a) => sum + a.amount, 0);
@@ -447,7 +447,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
     const startOfRange = labourStartDate;
     
     // Attendance before start date
-    const daysBefore = Object.keys(attendance).filter(d => d < startOfRange && attendance[d]).length;
+    const daysBefore = Object.keys(attendance).filter(d => d < startOfRange && attendance[d] === true).length;
     const wagesBefore = daysBefore * rate;
 
     // Adjustments before start date
@@ -461,7 +461,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
     // 5. Build Timeline for Selected Month/Range
     const dates = getDatesInRange(labourStartDate, labourEndDate);
     const dateRows: LabourTimelineRow[] = dates.map(date => {
-        const isPresent = !!attendance[date];
+        // Explicitly get the boolean or undefined from the map
+        const isPresent = attendance[date]; // true, false, or undefined
         const isHisaabDay = !!hisaabDays[date];
         const dayTxs = payments.filter(t => t.date === date);
         const dayAdjs = adjustments.filter(a => a.date === date);
@@ -470,14 +471,14 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
             date,
             isPresent,
             isHisaabDay,
-            dailyWage: isPresent ? rate : 0,
+            dailyWage: isPresent === true ? rate : 0,
             transactions: dayTxs,
             adjustments: dayAdjs
         };
     });
 
     // 6. Month Stats (Derived only from the visible range rows)
-    const monthAttendanceDays = dateRows.filter(r => r.isPresent).length;
+    const monthAttendanceDays = dateRows.filter(r => r.isPresent === true).length;
     const monthWage = monthAttendanceDays * rate;
     const monthAdjustments = dateRows.reduce((sum, r) => sum + r.adjustments.reduce((s, a) => s + a.amount, 0), 0);
     const monthPayable = monthWage + monthAdjustments;
@@ -487,7 +488,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
     const timeline: LabourTimelineRow[] = [
         {
             date: 'Opening Balance', // Special marker
-            isPresent: false,
+            isPresent: undefined,
             isHisaabDay: false,
             dailyWage: 0,
             adjustments: [],
@@ -551,10 +552,23 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   // Specific Actions calling props
   const handleToggleAttendance = (date: string) => {
-      if (selectedAccountName && onToggleAttendance && labourData) {
+      if (selectedAccountName && onToggleAttendance) {
           // Find current state
-          const current = accounts.find(a => a.name === selectedAccountName)?.attendance?.[date] || false;
-          onToggleAttendance(selectedAccountName, date, !current);
+          const acc = accounts.find(a => a.name === selectedAccountName);
+          const current = acc?.attendance?.[date]; // true, false, or undefined
+          
+          // Cycle: undefined -> false (Absent) -> true (Present) -> undefined (Reset)
+          let nextState: boolean | null = null;
+          
+          if (current === undefined || current === null) {
+              nextState = false; // Mark as Absent (❌)
+          } else if (current === false) {
+              nextState = true;  // Mark as Present (✅)
+          } else {
+              nextState = null;  // Reset to Unmarked (-)
+          }
+
+          onToggleAttendance(selectedAccountName, date, nextState);
       }
   };
 
