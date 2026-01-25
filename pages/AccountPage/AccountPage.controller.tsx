@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment } from '../../types';
 import { AccountPageView } from './AccountPage.view';
@@ -230,23 +231,33 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
      const ledger: CustomerLedgerItem[] = [];
      let runningBalance = 0; // +ve means Receivable
 
-     // Combine and sort
+     // Combine and sort by DATE (Primary) then Creation Time/ID (Secondary)
      const combined = [
          ...stockOut.map(m => ({ 
              date: m.date, 
              id: `stock-${m.id}`, 
              raw: m, 
-             type: 'stock' as const, 
-             ts: new Date(m.date).getTime() 
+             type: 'stock' as const,
+             creationOrder: m.id // Use ID as proxy for creation order
          })),
          ...payments.map(p => ({ 
              date: p.date, 
              id: `pay-${p.id}`, 
              raw: p, 
-             type: 'payment' as const, 
-             ts: p.timestamp 
+             type: 'payment' as const,
+             creationOrder: p.timestamp 
          }))
-     ].sort((a, b) => a.ts - b.ts);
+     ].sort((a, b) => {
+         // 1. Compare Date Strings (YYYY-MM-DD)
+         if (a.date !== b.date) {
+             return a.date.localeCompare(b.date);
+         }
+         // 2. Compare Creation Order (ID/Timestamp)
+         // Note: Stock ID might be smaller than Payment Timestamp if mixing auto-increment and timestamps,
+         // but consistent day-order preference: Stock (Bill) -> Payment (Recv) is preferred.
+         // If stock ID is small int, it comes before large timestamp payment.
+         return a.creationOrder - b.creationOrder;
+     });
 
      combined.forEach(item => {
          if (item.type === 'stock') {
@@ -328,7 +339,10 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       let runningBalance = 0; // Net Paid
 
       // Sort Chronological
-      const sortedTxs = [...relevantTxs].sort((a,b) => a.timestamp - b.timestamp);
+      const sortedTxs = [...relevantTxs].sort((a,b) => {
+          if (a.date !== b.date) return a.date.localeCompare(b.date);
+          return a.timestamp - b.timestamp;
+      });
 
       sortedTxs.forEach(tx => {
           if (tx.type === 'expense') {

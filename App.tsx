@@ -549,12 +549,34 @@ const FinancialApp: React.FC = () => {
       return { cash, online, total: cash + online };
   }, [transactions, dateFilter, initialOpeningBalance]);
 
-  const totalIncome = displayedTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = displayedTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+  // Calculate Breakdown for Current View (Filtered Transactions)
+  const currentViewStats = useMemo(() => {
+      let cashIn = 0;
+      let onlineIn = 0;
+      let cashOut = 0;
+      let onlineOut = 0;
+
+      displayedTransactions.forEach(t => {
+          const isCash = t.paymentType === 'cash';
+          if (t.type === 'income') {
+              if (isCash) cashIn += t.amount;
+              else onlineIn += t.amount;
+          } else { // expense
+              if (isCash) cashOut += t.amount;
+              else onlineOut += t.amount;
+          }
+      });
+
+      return { cashIn, onlineIn, cashOut, onlineOut };
+  }, [displayedTransactions]);
+
+  const totalIncome = currentViewStats.cashIn + currentViewStats.onlineIn;
+  const totalExpense = currentViewStats.cashOut + currentViewStats.onlineOut;
   
-  // Net change in current view
-  const currentNetChange = totalIncome - totalExpense;
-  const finalBalance = previousBalance.total + currentNetChange;
+  // Final Balances: Previous + Current Change
+  const finalCashBalance = previousBalance.cash + currentViewStats.cashIn - currentViewStats.cashOut;
+  const finalOnlineBalance = previousBalance.online + currentViewStats.onlineIn - currentViewStats.onlineOut;
+  const finalTotalBalance = finalCashBalance + finalOnlineBalance;
 
   // Stats Logic
   const stats = useMemo(() => {
@@ -934,9 +956,23 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* FINAL BALANCE CARD */}
-                      <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white text-center">
-                          <h2 className="text-2xl font-bold mb-2">{t.finalBalanceTitle}</h2>
-                          <p className="text-5xl font-bold">₹{formatIndianCurrency(finalBalance)}</p>
+                      <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white text-center md:text-left">
+                          <h2 className="text-2xl font-bold mb-4">{t.finalBalanceTitle}</h2>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+                                  <p className="text-sm opacity-90">{t.cashBalLabel}</p>
+                                  <p className="text-2xl font-bold">₹{formatIndianCurrency(finalCashBalance)}</p>
+                              </div>
+                              <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
+                                  <p className="text-sm opacity-90">{t.onlineBalLabel}</p>
+                                  <p className="text-2xl font-bold">₹{formatIndianCurrency(finalOnlineBalance)}</p>
+                              </div>
+                              <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm border-2 border-white/30">
+                                  <p className="text-sm opacity-90">{t.totalBalLabel}</p>
+                                  <p className="text-2xl font-bold">₹{formatIndianCurrency(finalTotalBalance)}</p>
+                              </div>
+                          </div>
                       </div>
 
                       {/* --- SUMMARY REPORT (STATS) SECTION --- */}
