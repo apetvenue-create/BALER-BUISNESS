@@ -479,10 +479,47 @@ export class PDFGenerator {
           { label: this._t('moneyOut', lang), value: this._c(data.totalOut) }
       ], 50, fontName);
 
-      const allTrans = [
-          ...data.transactionsIn.map(t => ({...t, debit: 0, credit: t.amount})),
-          ...data.transactionsOut.map(t => ({...t, debit: t.amount, credit: 0}))
-      ].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      const prevTag = this._t('ownerPreviousPaymentTypeTag', lang);
+      const merged = [
+          ...data.transactionsIn.map(t => ({
+              date: t.date,
+              details: t.details || '',
+              paymentType: t.paymentType,
+              debit: 0,
+              credit: t.amount,
+              sortTime: t.timestamp
+          })),
+          ...data.transactionsOut.map(t => ({
+              date: t.date,
+              details: t.details || '',
+              paymentType: t.paymentType,
+              debit: t.amount,
+              credit: 0,
+              sortTime: t.timestamp
+          })),
+          ...data.previousReceived.map(e => ({
+              date: e.date,
+              details: e.note ? `${prevTag}: ${this._s(e.note)}` : prevTag,
+              paymentType: '—',
+              debit: 0,
+              credit: e.amount,
+              sortTime: e.id
+          })),
+          ...data.previousPaid.map(e => ({
+              date: e.date,
+              details: e.note ? `${prevTag}: ${this._s(e.note)}` : prevTag,
+              paymentType: '—',
+              debit: e.amount,
+              credit: 0,
+              sortTime: e.id
+          }))
+      ].sort((a, b) => {
+          const c = a.date.localeCompare(b.date);
+          if (c !== 0) return c;
+          return a.sortTime - b.sortTime;
+      });
+
+      const allTrans = merged;
 
       const body: TableRow[] = [];
       let running = openingBalance;
@@ -501,7 +538,7 @@ export class PDFGenerator {
           body.push([
               this._s(formatDisplayDate(t.date)),
               this._s(t.details),
-              t.paymentType.toUpperCase(),
+              String(t.paymentType).toUpperCase(),
               t.credit > 0 ? this._c(t.credit) : "—",
               t.debit > 0 ? this._c(t.debit) : "—",
               this._c(running)

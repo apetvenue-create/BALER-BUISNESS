@@ -1,10 +1,28 @@
 
 
 import React, { useState } from 'react';
-import { Translation, PartnerSummary, LabourSummary, AccountTab, CustomerSummary, SupplierSummary, Transaction, Language, ManualAdjustment } from '../../types';
+import { Translation, PartnerSummary, LabourSummary, AccountTab, CustomerSummary, SupplierSummary, Transaction, Language, ManualAdjustment, OwnerPreviousEntry } from '../../types';
 import { formatIndianCurrency, formatDisplayDate } from '../../utils';
 import { TransactionModal } from '../../components/TransactionModal'; 
 import { DateInput } from '../../components/DateInput';
+
+const LedgerRemoveTrashIcon: React.FC = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={1.75}
+    className="w-5 h-5"
+    aria-hidden
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
+    />
+  </svg>
+);
 
 interface AccountPageViewProps {
   t: Translation;
@@ -70,6 +88,11 @@ interface AccountPageViewProps {
   getTranslated: (text?: string) => string;
   onUpdateSerial: (name: string, serial: number) => void;
   onRenameAccount?: (name: string) => void;
+  onDeleteAccount?: (name: string) => void;
+
+  onAddOwnerPreviousEntry?: (entry: Omit<OwnerPreviousEntry, 'id'>) => void;
+  onUpdateOwnerPreviousEntry?: (entry: OwnerPreviousEntry) => void;
+  onDeleteOwnerPreviousEntry?: (id: number) => void;
 }
 
 export const AccountPageView: React.FC<AccountPageViewProps> = ({
@@ -120,7 +143,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   setReportEndDate,
   getTranslated,
   onUpdateSerial,
-  onRenameAccount
+  onRenameAccount,
+  onDeleteAccount,
+
+  onAddOwnerPreviousEntry,
+  onUpdateOwnerPreviousEntry,
+  onDeleteOwnerPreviousEntry
 }) => {
   // State for Customer View Toggle
   const [customerViewMode, setCustomerViewMode] = useState<'statement' | 'details'>('statement');
@@ -134,6 +162,69 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   // Validation States
   const [accountErrors, setAccountErrors] = useState<string>('');
   const [bonusErrors, setBonusErrors] = useState<Record<string, string>>({});
+
+  const [isOwnerPrevModalOpen, setIsOwnerPrevModalOpen] = useState(false);
+  const [ownerPrevForm, setOwnerPrevForm] = useState<{
+    date: string;
+    amount: string;
+    note: string;
+    kind: 'received' | 'paid';
+  }>({
+    date: new Date().toISOString().split('T')[0],
+    amount: '',
+    note: '',
+    kind: 'received'
+  });
+  const [editingOwnerPrevId, setEditingOwnerPrevId] = useState<number | null>(null);
+  const [ownerPrevErrors, setOwnerPrevErrors] = useState<Record<string, string>>({});
+
+  const handleOpenOwnerPrevModal = (entry?: OwnerPreviousEntry) => {
+    if (entry) {
+      setEditingOwnerPrevId(entry.id);
+      setOwnerPrevForm({
+        date: entry.date,
+        amount: String(entry.amount),
+        note: entry.note || '',
+        kind: entry.kind
+      });
+    } else {
+      setEditingOwnerPrevId(null);
+      setOwnerPrevForm({
+        date: new Date().toISOString().split('T')[0],
+        amount: '',
+        note: '',
+        kind: 'received'
+      });
+    }
+    setOwnerPrevErrors({});
+    setIsOwnerPrevModalOpen(true);
+  };
+
+  const handleOwnerPrevSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const rawAmt = parseFloat(ownerPrevForm.amount);
+    const errors: Record<string, string> = {};
+    if (!rawAmt || rawAmt <= 0) errors.amount = t.errPositiveAmount;
+    if (Object.keys(errors).length > 0) {
+      setOwnerPrevErrors(errors);
+      return;
+    }
+    const payload = {
+      date: ownerPrevForm.date,
+      amount: Math.abs(rawAmt),
+      kind: ownerPrevForm.kind,
+      note: ownerPrevForm.note.trim() || undefined
+    };
+    if (editingOwnerPrevId != null && onUpdateOwnerPreviousEntry) {
+      onUpdateOwnerPreviousEntry({
+        id: editingOwnerPrevId,
+        ...payload
+      });
+    } else if (onAddOwnerPreviousEntry) {
+      onAddOwnerPreviousEntry(payload);
+    }
+    setIsOwnerPrevModalOpen(false);
+  };
 
   const handleOpenBonusModal = (adj?: ManualAdjustment) => {
       if (adj) {
@@ -294,6 +385,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                        >
                            ✎
                        </button>
+                       {onDeleteAccount && (
+                         <button
+                           type="button"
+                           onClick={() => onDeleteAccount(customerData.name)}
+                           className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
+                           title={t.deleteAccountBtn}
+                           aria-label={t.deleteAccountBtn}
+                         >
+                           <LedgerRemoveTrashIcon />
+                         </button>
+                       )}
                    </div>
 
                    {/* --- SIMPLE STATEMENT VIEW --- */}
@@ -484,6 +586,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                >
                                    ✎
                                </button>
+                               {onDeleteAccount && (
+                                 <button
+                                   type="button"
+                                   onClick={() => onDeleteAccount(supplierData.name)}
+                                   className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
+                                   title={t.deleteAccountBtn}
+                                   aria-label={t.deleteAccountBtn}
+                                 >
+                                   <LedgerRemoveTrashIcon />
+                                 </button>
+                               )}
                            </div>
                            <div className="text-right">
                                <p className="text-xs uppercase font-bold text-gray-500">{t.netPaidBalance}</p>
@@ -575,6 +688,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     >
                        ✎
                     </button>
+                    {onDeleteAccount && (
+                      <button
+                        type="button"
+                        onClick={() => onDeleteAccount(partnerData.name)}
+                        className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
+                        title={t.deleteAccountBtn}
+                        aria-label={t.deleteAccountBtn}
+                      >
+                        <LedgerRemoveTrashIcon />
+                      </button>
+                    )}
                  </div>
                  <div className="text-right">
                     <p className="text-gray-500 text-sm">{t.netPosition}</p>
@@ -595,7 +719,118 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
               </div>
             </div>
 
-            {/* Split View */}
+            {/* Owner-only previous amounts */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+              {(onAddOwnerPreviousEntry || onUpdateOwnerPreviousEntry) && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOwnerPrevModal()}
+                    className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg font-bold text-sm shadow transition"
+                  >
+                    {t.addOwnerPreviousEntryBtn}
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-col md:flex-row gap-4 min-h-[220px] md:h-[280px]">
+                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col">
+                  <div className="p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-sm sticky top-0">
+                    {t.ownerPreviousKindReceived}
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-2 space-y-2">
+                    {partnerData.previousReceived.length === 0 && (
+                      <p className="text-gray-400 text-center text-sm py-4">{t.noRecords}</p>
+                    )}
+                    {partnerData.previousReceived.map((row) => (
+                      <div
+                        key={row.id}
+                        className="p-3 bg-green-50/80 rounded border border-green-100 flex justify-between items-start gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-800">₹{formatIndianCurrency(row.amount)}</p>
+                          <p className="text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
+                          {row.note && (
+                            <p className="text-xs text-gray-600 mt-1 truncate">{getTranslated(row.note)}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          {onUpdateOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOwnerPrevModal(row)}
+                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.editBtn}
+                            </button>
+                          )}
+                          {onDeleteOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
+                              }}
+                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.deleteBtn}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col">
+                  <div className="p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-sm sticky top-0">
+                    {t.ownerPreviousKindPaid}
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-2 space-y-2">
+                    {partnerData.previousPaid.length === 0 && (
+                      <p className="text-gray-400 text-center text-sm py-4">{t.noRecords}</p>
+                    )}
+                    {partnerData.previousPaid.map((row) => (
+                      <div
+                        key={row.id}
+                        className="p-3 bg-red-50/80 rounded border border-red-100 flex justify-between items-start gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-gray-800">₹{formatIndianCurrency(row.amount)}</p>
+                          <p className="text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
+                          {row.note && (
+                            <p className="text-xs text-gray-600 mt-1 truncate">{getTranslated(row.note)}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          {onUpdateOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOwnerPrevModal(row)}
+                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.editBtn}
+                            </button>
+                          )}
+                          {onDeleteOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
+                              }}
+                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.deleteBtn}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <h3 className="text-sm font-bold text-gray-700 pt-1">{t.ownerLinkedBookTitle}</h3>
+
+            {/* Split View — cashbook-linked transactions only */}
             <div className="flex flex-col md:flex-row gap-4 h-[600px]">
                {/* LEFT: IN */}
                <div className="flex-1 bg-white rounded-lg shadow border border-gray-200 flex flex-col">
@@ -640,6 +875,111 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                   </div>
                </div>
             </div>
+
+            {isOwnerPrevModalOpen && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+                <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in">
+                  <h3 className="text-xl font-bold mb-4 text-gray-800">
+                    {editingOwnerPrevId ? t.ownerPreviousModalEdit : t.ownerPreviousModalAdd}
+                  </h3>
+                  <form onSubmit={handleOwnerPrevSubmit}>
+                    <div className="mb-4">
+                      <DateInput
+                        label={t.dateHeader}
+                        value={ownerPrevForm.date}
+                        onChange={(d) => setOwnerPrevForm({ ...ownerPrevForm, date: d })}
+                      />
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">{t.adjustmentTypeLabel}</label>
+                      <div className="space-y-2">
+                        <label
+                          className={`flex items-center p-3 border rounded-lg cursor-pointer transition ${ownerPrevForm.kind === 'received' ? 'bg-green-50 border-green-500 ring-1 ring-green-500' : 'hover:bg-gray-50 border-gray-200'}`}
+                        >
+                          <input
+                            type="radio"
+                            name="ownerPrevKind"
+                            checked={ownerPrevForm.kind === 'received'}
+                            onChange={() => setOwnerPrevForm({ ...ownerPrevForm, kind: 'received' })}
+                            className="w-4 h-4 text-green-600"
+                          />
+                          <span className="ml-2 text-sm font-medium text-gray-800">{t.ownerPreviousKindReceived}</span>
+                        </label>
+                        <label
+                          className={`flex items-center p-3 border rounded-lg cursor-pointer transition ${ownerPrevForm.kind === 'paid' ? 'bg-red-50 border-red-500 ring-1 ring-red-500' : 'hover:bg-gray-50 border-gray-200'}`}
+                        >
+                          <input
+                            type="radio"
+                            name="ownerPrevKind"
+                            checked={ownerPrevForm.kind === 'paid'}
+                            onChange={() => setOwnerPrevForm({ ...ownerPrevForm, kind: 'paid' })}
+                            className="w-4 h-4 text-red-600"
+                          />
+                          <span className="ml-2 text-sm font-medium text-gray-800">{t.ownerPreviousKindPaid}</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">{t.adjustmentAmount}</label>
+                      <input
+                        type="number"
+                        required
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none ${ownerPrevErrors.amount ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500 border-gray-300'}`}
+                        value={ownerPrevForm.amount}
+                        onChange={(e) => {
+                          setOwnerPrevForm({ ...ownerPrevForm, amount: e.target.value });
+                          setOwnerPrevErrors({});
+                        }}
+                        placeholder="0"
+                      />
+                      {ownerPrevErrors.amount && (
+                        <p className="text-red-500 text-xs mt-1">{ownerPrevErrors.amount}</p>
+                      )}
+                    </div>
+                    <div className="mb-6">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">{t.detailsLabel}</label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none border-gray-300"
+                        value={ownerPrevForm.note}
+                        onChange={(e) => setOwnerPrevForm({ ...ownerPrevForm, note: e.target.value })}
+                        placeholder={t.adjustmentNote}
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        type="submit"
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
+                      >
+                        {editingOwnerPrevId ? t.updateBtn : t.submitBtn}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsOwnerPrevModalOpen(false)}
+                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-bold transition"
+                      >
+                        {t.cancelBtn}
+                      </button>
+                      {editingOwnerPrevId != null && onDeleteOwnerPreviousEntry && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (window.confirm(t.confirmDelete)) {
+                              onDeleteOwnerPreviousEntry(editingOwnerPrevId);
+                              setIsOwnerPrevModalOpen(false);
+                            }
+                          }}
+                          className="bg-red-100 hover:bg-red-200 text-red-700 px-4 rounded-lg font-bold transition"
+                          title={t.deleteBtn}
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         );
       } else if (activeTab === 'labour' && labourData) {
@@ -695,6 +1035,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                >
                                    ✎
                                </button>
+                              {onDeleteAccount && (
+                                <button
+                                  type="button"
+                                  onClick={() => onDeleteAccount(labourData.name)}
+                                  className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
+                                  title={t.deleteAccountBtn}
+                                  aria-label={t.deleteAccountBtn}
+                                >
+                                  <LedgerRemoveTrashIcon />
+                                </button>
+                              )}
                           </div>
                           <span className="text-xs font-bold bg-gray-900 text-white px-2 py-1 rounded mt-1 inline-block uppercase tracking-wider">{t.labourCardLabel}</span>
                       </div>

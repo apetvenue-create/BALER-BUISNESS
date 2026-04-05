@@ -4,7 +4,7 @@ import { Translation, Language } from './types';
 
 export const TRANSLATIONS: Record<Language, Translation> = {
   en: {
-    pageTitle: "Transaction Management",
+    pageTitle: "VASDEV TRADING",
     langLabel: "Language:",
     prevBalTitle: "Previous Balance",
     cashBalLabel: "Cash Balance",
@@ -31,8 +31,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     selectAccountLabel: "Select Account",
     amountLabel: "Amount (₹)",
     paymentLabel: "Payment Mode",
-    customerOption: "Customer (Received from)",
-    partnerOption: "Owner (Investment)",
+    customerOption: "Customer",
+    partnerOption: "Owner",
     shopOption: "Shop Expense",
     labourOption: "Labour Payment",
     customOption: "Other Expense",
@@ -220,7 +220,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     receiveRefundBtn: "Receive Refund / Advance",
     supplierCreditModalTitle: "Receive Money from Supplier",
     supplierCreditHelp: "This will be recorded as Income/Credit",
-    supplierOption: "Supplier (Payment/Refund)",
+    supplierOption: "Supplier",
     
     otherIncomeOption: "Other Income",
 
@@ -254,13 +254,31 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     
     hisaabHelp: "Double click date to mark Hisaab",
 
+    ownerPreviousSectionTitle: "Previous amounts (not in cashbook)",
+    ownerPreviousHelp:
+      "These entries are stored only on this owner screen. They do not appear in Cashbook, Reports, or Summary totals — but they are included in this owner’s balance and PDF.",
+    ownerLinkedBookTitle: "Cashbook (linked transactions)",
+    addOwnerPreviousEntryBtn: "+ Add previous amount",
+    ownerPreviousModalAdd: "Add previous amount",
+    ownerPreviousModalEdit: "Edit previous amount",
+    ownerPreviousKindReceived: "Received",
+    ownerPreviousKindPaid: "Paid",
+    ownerPreviousPaymentTypeTag: "Previous",
+
+    deleteAccountBtn: "Remove from accounts list",
+    confirmDeleteAccount:
+      "Remove this person from the Ledgers / accounts list only? Cashbook, stock, reports, and all other data will stay in the system.",
+    confirmDeleteAccountSecond:
+      "Confirm again: you are only hiding this name from the accounts page. No transactions or stock records will be deleted.",
+    accountDeleteFailed: "Could not update the server. Your accounts list has been restored.",
+
     // Validation
     errRequired: "Required",
     errAccountRequired: "Please select an account",
     errPositiveAmount: "Must be > 0"
   },
   hi: {
-    pageTitle: "लेनदेन प्रबंधन",
+    pageTitle: "VASDEV TRADING",
     langLabel: "भाषा:",
     prevBalTitle: "पिछला शेष",
     cashBalLabel: "नकद शेष",
@@ -287,8 +305,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     selectAccountLabel: "खाता चुनें",
     amountLabel: "राशि (₹)",
     paymentLabel: "भुगतान माध्यम",
-    customerOption: "ग्राहक (प्राप्त हुआ)",
-    partnerOption: "मालिक (निवेश)",
+    customerOption: "ग्राहक",
+    partnerOption: "मालिक",
     shopOption: "दुकान खर्च",
     labourOption: "मजदूरी भुगतान",
     customOption: "अन्य खर्च",
@@ -469,7 +487,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     receiveRefundBtn: "वापसी / एडवांस प्राप्त करें",
     supplierCreditModalTitle: "सप्लायर से पैसा प्राप्त",
     supplierCreditHelp: "यह आय/क्रेडिट के रूप में दर्ज होगा",
-    supplierOption: "सप्लायर (भुगतान/वापसी)",
+    supplierOption: "सप्लायर",
     
     otherIncomeOption: "अन्य आय",
 
@@ -503,13 +521,31 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     
     hisaabHelp: "हिसाब के लिए तारीख पर डबल क्लिक करें",
 
+    ownerPreviousSectionTitle: "पिछली राशि (कैशबुक में नहीं)",
+    ownerPreviousHelp:
+      "ये एंट्री केवल इस मालिक स्क्रीन पर रहती हैं। कैशबुक, रिपोर्ट या सारांश में नहीं दिखतीं — पर मालिक का बैलेंस और PDF में शामिल होती हैं।",
+    ownerLinkedBookTitle: "कैशबुक (लिंक लेनदेन)",
+    addOwnerPreviousEntryBtn: "+ पिछली राशि जोड़ें",
+    ownerPreviousModalAdd: "पिछली राशि जोड़ें",
+    ownerPreviousModalEdit: "पिछली राशि संपादित करें",
+    ownerPreviousKindReceived: "प्राप्त",
+    ownerPreviousKindPaid: "भुगतान",
+    ownerPreviousPaymentTypeTag: "पिछला",
+
+    deleteAccountBtn: "सूची से हटाएं",
+    confirmDeleteAccount:
+      "केवल खाता सूची से हटाएं? रोकड़, स्टॉक, रिपोर्ट और बाकी डेटा सिस्टम में रहेंगे।",
+    confirmDeleteAccountSecond:
+      "दोबारा पुष्टि करें: केवल खाता पेज से नाम हटेगा; कोई लेनदेन या स्टॉक नहीं मिटेगा।",
+    accountDeleteFailed: "सर्वर अपडेट नहीं हुआ। खाता सूची वापस कर दी गई है।",
+
     // Validation
     errRequired: "अनिवार्य",
     errAccountRequired: "खाता चुनें",
     errPositiveAmount: "राशि > 0 होनी चाहिए"
   },
   pa: {
-    pageTitle: "ਲੈਣ-ਦੇਣ ਪ੍ਰਬੰਧਨ",
+    pageTitle: "VASDEV TRADING",
     langLabel: "ਭਾਸ਼ਾ:",
     prevBalTitle: "ਪਿਛਲਾ ਬਕਾਇਆ",
     cashBalLabel: "ਨਕਦ ਬਕਾਇਆ",
@@ -536,8 +572,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     selectAccountLabel: "ਖਾਤਾ ਚੁਣੋ",
     amountLabel: "ਰਕਮ (₹)",
     paymentLabel: "ਭੁਗਤਾਨ ਕਿਸਮ",
-    customerOption: "ਗਾਹਕ (ਪ੍ਰਾਪਤ ਹੋਇਆ)",
-    partnerOption: "ਮਾਲਕ (ਨਿਵੇਸ਼)",
+    customerOption: "ਗਾਹਕ",
+    partnerOption: "ਮਾਲਕ",
     shopOption: "ਦੁਕਾਨ ਖਰਚਾ",
     labourOption: "ਮਜ਼ਦੂਰੀ ਭੁਗਤਾਨ",
     customOption: "ਹੋਰ ਖਰਚਾ",
@@ -718,7 +754,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     receiveRefundBtn: "ਵਾਪਸੀ / ਐਡਵਾਂਸ ਪ੍ਰਾਪਤ ਕਰੋ",
     supplierCreditModalTitle: "ਸਪਲਾਇਰ ਤੋਂ ਪੈਸੇ ਪ੍ਰਾਪਤ",
     supplierCreditHelp: "ਇਹ ਆਮਦਨ/ਕ੍ਰੈਡਿਟ ਵਜੋਂ ਦਰਜ ਹੋਵੇਗਾ",
-    supplierOption: "ਸਪਲਾਇਰ (ਭੁਗਤਾਨ/ਵਾਪਸੀ)",
+    supplierOption: "ਸਪਲਾਇਰ",
     
     otherIncomeOption: "ਹੋਰ ਆਮਦਨ",
 
@@ -751,6 +787,24 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     downloadPdfBtn: "PDF ਡਾਊਨਲੋਡ ਕਰੋ",
 
     hisaabHelp: "ਹਿਸਾਬ ਲਈ ਤਾਰੀਖ 'ਤੇ ਡਬਲ ਕਲਿੱਕ ਕਰੋ",
+
+    ownerPreviousSectionTitle: "ਪਿਛਲੀ ਰਕਮ (ਕੈਸ਼ਬੁੱਕ ਵਿੱਚ ਨਹੀਂ)",
+    ownerPreviousHelp:
+      "ਇਹ ਐਂਟਰੀਆਂ ਸਿਰਫ਼ ਇਸ ਮਾਲਕ ਸਕ੍ਰੀਨ ਉੱਤੇ ਰਹਿੰਦੀਆਂ ਹਨ। ਕੈਸ਼ਬੁੱਕ, ਰਿਪੋਰਟ ਜਾਂ ਸਾਰ ਵਿੱਚ ਨਹੀਂ ਦਿਖਦੀਆਂ — ਪਰ ਮਾਲਕ ਦਾ ਬਕਾਇਆ ਅਤੇ PDF ਵਿੱਚ ਸ਼ਾਮਲ ਹੁੰਦੀਆਂ ਹਨ।",
+    ownerLinkedBookTitle: "ਕੈਸ਼ਬੁੱਕ (ਲਿੰਕ ਲੈਣ-ਦੇਣ)",
+    addOwnerPreviousEntryBtn: "+ ਪਿਛਲੀ ਰਕਮ ਜੋੜੋ",
+    ownerPreviousModalAdd: "ਪਿਛਲੀ ਰਕਮ ਜੋੜੋ",
+    ownerPreviousModalEdit: "ਪਿਛਲੀ ਰਕਮ ਸੋਧੋ",
+    ownerPreviousKindReceived: "ਪ੍ਰਾਪਤ",
+    ownerPreviousKindPaid: "ਭੁਗਤਾਨ",
+    ownerPreviousPaymentTypeTag: "ਪਿਛਲਾ",
+
+    deleteAccountBtn: "ਸੂਚੀ ਤੋਂ ਹਟਾਓ",
+    confirmDeleteAccount:
+      "ਸਿਰਫ਼ ਖਾਤਾ ਸੂਚੀ ਤੋਂ ਹਟਾਓ? ਰੋਕੜ, ਸਟਾਕ, ਰਿਪੋਰਟ ਅਤੇ ਬਾਕੀ ਡਾਟਾ ਸਿਸਟਮ ਵਿੱਚ ਰਹੇਗਾ।",
+    confirmDeleteAccountSecond:
+      "ਦੁਬਾਰਾ ਪੁਸ਼ਟੀ: ਸਿਰਫ਼ ਖਾਤਾ ਪੇਜ ਤੋਂ ਨਾਮ ਹਟੇਗਾ; ਕੋਈ ਲੈਣ-ਦੇਣ ਜਾਂ ਸਟਾਕ ਨਹੀਂ ਮਿਟੇਗਾ।",
+    accountDeleteFailed: "ਸਰਵਰ ਅਪਡੇਟ ਨਹੀਂ ਹੋਇਆ। ਖਾਤਾ ਸੂਚੀ ਮੁੜ ਲੋਡ ਕੀਤੀ ਗਈ ਹੈ।",
 
     // Validation
     errRequired: "ਲੋੜੀਂਦਾ",

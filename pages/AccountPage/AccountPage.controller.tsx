@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment } from '../../types';
+import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry } from '../../types';
 import { AccountPageView } from './AccountPage.view';
 import { formatMonthYear, getDatesInRange } from '../../utils';
 import { PDFGenerator } from '../../services/pdfGenerator';
@@ -11,6 +11,8 @@ interface AccountPageControllerProps {
   stockMovements?: StockMovement[]; 
   t: Translation;
   accounts: StoredAccount[];
+  /** Hidden from Ledgers list only; does not delete underlying data. */
+  hiddenLedgerAccountNames?: string[];
   onAddAccount: (name: string, type: AccountType, rate?: number) => void;
   onUpdateAccount: (account: StoredAccount) => void;
   onOpenTransactionModal: (mode: TransactionType, defaults?: { category?: string, accountName?: string }) => void;
@@ -24,6 +26,11 @@ interface AccountPageControllerProps {
   onUpdateAdjustment?: (adj: ManualAdjustment) => void;
   onDeleteAdjustment?: (id: number) => void;
   onRenameAccount?: (oldName: string, newName: string) => void;
+  onDeleteAccount?: (accountName: string) => void;
+
+  onAddOwnerPreviousEntry?: (accountName: string, entry: Omit<OwnerPreviousEntry, 'id'>) => void;
+  onUpdateOwnerPreviousEntry?: (accountName: string, entry: OwnerPreviousEntry) => void;
+  onDeleteOwnerPreviousEntry?: (accountName: string, id: number) => void;
 }
 
 export const AccountPageController: React.FC<AccountPageControllerProps> = ({ 
@@ -31,6 +38,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   stockMovements = [], 
   t, 
   accounts,
+  hiddenLedgerAccountNames = [],
   onAddAccount,
   onUpdateAccount,
   onOpenTransactionModal,
@@ -42,7 +50,12 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   onAddAdjustment,
   onUpdateAdjustment,
   onDeleteAdjustment,
-  onRenameAccount
+  onRenameAccount,
+  onDeleteAccount,
+
+  onAddOwnerPreviousEntry,
+  onUpdateOwnerPreviousEntry,
+  onDeleteOwnerPreviousEntry
 }) => {
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
@@ -117,7 +130,10 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
          }
          else if (type === 'partner') {
              tabType = 'partner';
-             initialBalance = 0;
+             const prev = acc.ownerPreviousEntries || [];
+             const prevIn = prev.filter(e => e.kind === 'received').reduce((s, e) => s + e.amount, 0);
+             const prevOut = prev.filter(e => e.kind === 'paid').reduce((s, e) => s + e.amount, 0);
+             initialBalance = prevIn - prevOut;
          }
          else if (type === 'supplier') {
              tabType = 'supplier';
@@ -204,12 +220,18 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
 
   // 2. Prepare List Data for the active tab (SORTED by Custom Serial)
+  const hiddenSet = useMemo(
+    () => new Set(hiddenLedgerAccountNames),
+    [hiddenLedgerAccountNames]
+  );
+
   const accountList = useMemo(() => {
      return Array.from(accountMap.entries())
         .filter(([name, data]) => {
            const matchesType = data.type === activeTab;
            const matchesSearch = getTranslated(name).toLowerCase().includes(searchQuery.toLowerCase()) || name.toLowerCase().includes(searchQuery.toLowerCase());
-           return matchesType && matchesSearch;
+           const notHidden = !hiddenSet.has(name);
+           return matchesType && matchesSearch && notHidden;
         })
         .map(([name, data]) => ({ 
             name, 
@@ -226,28 +248,45 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
             // Default alphabetic
             return a.name.localeCompare(b.name);
         });
-  }, [accountMap, activeTab, searchQuery, getTranslated, accountOrder]);
+  }, [accountMap, activeTab, searchQuery, getTranslated, accountOrder, hiddenSet]);
 
 
   // 3. Prepare Detailed Data for Selected Account
   const partnerData: PartnerSummary | undefined = useMemo(() => {
      if (activeTab !== 'partner' || !selectedAccountName) return undefined;
-     
+
      const txsIn = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'income');
      const txsOut = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'expense');
-     
-     const totalIn = txsIn.reduce((sum, t) => sum + t.amount, 0);
-     const totalOut = txsOut.reduce((sum, t) => sum + t.amount, 0);
-     
+
+     const bookTotalIn = txsIn.reduce((sum, t) => sum + t.amount, 0);
+     const bookTotalOut = txsOut.reduce((sum, t) => sum + t.amount, 0);
+
+     const acc = accounts.find(a => a.name === selectedAccountName && a.type === 'partner');
+     const allPrev = acc?.ownerPreviousEntries || [];
+     const previousReceived = allPrev.filter(e => e.kind === 'received');
+     const previousPaid = allPrev.filter(e => e.kind === 'paid');
+     const prevIn = previousReceived.reduce((s, e) => s + e.amount, 0);
+     const prevOut = previousPaid.reduce((s, e) => s + e.amount, 0);
+
+     const totalIn = bookTotalIn + prevIn;
+     const totalOut = bookTotalOut + prevOut;
+
+     const byDateDesc = (a: OwnerPreviousEntry, b: OwnerPreviousEntry) =>
+        b.date.localeCompare(a.date) || b.id - a.id;
+
      return {
          name: selectedAccountName,
+         bookTotalIn,
+         bookTotalOut,
          totalIn,
          totalOut,
-         netBalance: totalIn - totalOut, // Postive = Net Invested/Profit share remaining
+         netBalance: totalIn - totalOut,
          transactionsIn: txsIn.sort((a, b) => b.timestamp - a.timestamp),
-         transactionsOut: txsOut.sort((a, b) => b.timestamp - a.timestamp)
+         transactionsOut: txsOut.sort((a, b) => b.timestamp - a.timestamp),
+         previousReceived: [...previousReceived].sort(byDateDesc),
+         previousPaid: [...previousPaid].sort(byDateDesc)
      };
-  }, [selectedAccountName, activeTab, transactions]);
+  }, [selectedAccountName, activeTab, transactions, accounts]);
 
   const customerData: CustomerSummary | undefined = useMemo(() => {
      if (activeTab !== 'customer' || !selectedAccountName) return undefined;
@@ -608,6 +647,32 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       }
   };
 
+  const handleDeleteAccountClick = (name: string) => {
+      if (!onDeleteAccount) return;
+      if (!window.confirm(t.confirmDeleteAccount)) return;
+      if (!window.confirm(t.confirmDeleteAccountSecond)) return;
+      onDeleteAccount(name);
+      setSelectedAccountName(null);
+  };
+
+  const handleAddOwnerPreviousLocal = (entry: Omit<OwnerPreviousEntry, 'id'>) => {
+      if (selectedAccountName && onAddOwnerPreviousEntry) {
+          onAddOwnerPreviousEntry(selectedAccountName, entry);
+      }
+  };
+
+  const handleUpdateOwnerPreviousLocal = (entry: OwnerPreviousEntry) => {
+      if (selectedAccountName && onUpdateOwnerPreviousEntry) {
+          onUpdateOwnerPreviousEntry(selectedAccountName, entry);
+      }
+  };
+
+  const handleDeleteOwnerPreviousLocal = (id: number) => {
+      if (selectedAccountName && onDeleteOwnerPreviousEntry) {
+          onDeleteOwnerPreviousEntry(selectedAccountName, id);
+      }
+  };
+
   // PDF
   const handleDownloadPdf = async () => {
       if (!selectedAccountName) return;
@@ -685,6 +750,11 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       getTranslated={getTranslated}
       onUpdateSerial={handleUpdateSerial}
       onRenameAccount={handleRenameLocal}
+      onDeleteAccount={handleDeleteAccountClick}
+
+      onAddOwnerPreviousEntry={handleAddOwnerPreviousLocal}
+      onUpdateOwnerPreviousEntry={handleUpdateOwnerPreviousLocal}
+      onDeleteOwnerPreviousEntry={handleDeleteOwnerPreviousLocal}
     />
   );
 };

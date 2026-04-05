@@ -1,7 +1,7 @@
 
 
 import { supabase } from './supabase';
-import { StoredAccount, AccountType, ManualAdjustment } from '../types';
+import { StoredAccount, AccountType, ManualAdjustment, OwnerPreviousEntry } from '../types';
 
 export const AccountService = {
   async getAll(): Promise<StoredAccount[]> {
@@ -15,6 +15,11 @@ export const AccountService = {
     const { data: attendanceData } = await supabase.from('attendance').select('*');
     const { data: hisaabData } = await supabase.from('hisaab_days').select('*');
     const { data: adjustmentsData } = await supabase.from('adjustments').select('*');
+    const ownerPrevRes = await supabase.from('owner_previous_entries').select('*');
+    const ownerPrevData = ownerPrevRes.error ? [] : ownerPrevRes.data || [];
+    if (ownerPrevRes.error) {
+      console.warn('owner_previous_entries:', ownerPrevRes.error.message);
+    }
 
     // 3. Map to Frontend Structure
     return (accountsData || []).map(acc => {
@@ -47,13 +52,27 @@ export const AccountService = {
           note: adj.note
         }));
 
+      const ownerPreviousEntries: OwnerPreviousEntry[] =
+        acc.type === 'partner'
+          ? (ownerPrevData || [])
+              .filter((row: any) => row.account_name === accName)
+              .map((row: any) => ({
+                id: Number(row.id),
+                date: row.date,
+                amount: Number(row.amount),
+                kind: row.kind as 'received' | 'paid',
+                note: row.note || undefined
+              }))
+          : [];
+
       return {
         name: acc.name,
         type: acc.type as AccountType,
         rate: acc.rate ? Number(acc.rate) : undefined,
         attendance: attendanceMap,
         hisaabDays: hisaabMap,
-        manualAdjustments: adjustments
+        manualAdjustments: adjustments,
+        ...(acc.type === 'partner' ? { ownerPreviousEntries } : {})
       };
     });
   },
@@ -101,6 +120,23 @@ export const AccountService = {
 
     // 6. Adjustments
     await supabase.from('adjustments').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
+
+    // 7. Owner previous amounts
+    await supabase.from('owner_previous_entries').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
+  },
+
+  /** Removes only the `accounts` row so the name disappears from Ledgers; transactions, stock, etc. stay. */
+  async removeAccountFromLedger(accountName: string): Promise<void> {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('accounts')
+      .delete()
+      .eq('name', accountName)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
   },
 
   // Attendance Operations
@@ -184,5 +220,67 @@ export const AccountService = {
 
   async deleteAdjustment(id: number): Promise<void> {
     await supabase.from('adjustments').delete().eq('id', id);
+  },
+
+  async addOwnerPreviousEntry(
+    accountName: string,
+    entry: Omit<OwnerPreviousEntry, 'id'>
+  ): Promise<OwnerPreviousEntry> {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('owner_previous_entries')
+      .insert({
+        user_id: user.id,
+        account_name: accountName,
+        date: entry.date,
+        amount: entry.amount,
+        kind: entry.kind,
+        note: entry.note ?? null
+      })
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: Number(data.id),
+      date: data.date,
+      amount: Number(data.amount),
+      kind: data.kind as 'received' | 'paid',
+      note: data.note || undefined
+    };
+  },
+
+  async updateOwnerPreviousEntry(entry: OwnerPreviousEntry): Promise<void> {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('owner_previous_entries')
+      .update({
+        date: entry.date,
+        amount: entry.amount,
+        kind: entry.kind,
+        note: entry.note ?? null
+      })
+      .eq('id', entry.id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+  },
+
+  async deleteOwnerPreviousEntry(id: number): Promise<void> {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('owner_previous_entries')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
   }
 };

@@ -9,10 +9,17 @@ import {
   AccountType,
   DateFilter,
   StockMovement,
-  ManualAdjustment
+  ManualAdjustment,
+  OwnerPreviousEntry
 } from './types';
 import { TRANSLATIONS } from './constants';
 import { getDatesInRange, formatIndianCurrency, formatDisplayDate } from './utils';
+import {
+  loadOwnerPreviousLocal,
+  mergeOwnerPreviousEntries,
+  persistOwnerPreviousForAccount,
+  renameOwnerPreviousLocalKey
+} from './utils/ownerPreviousLocal';
 import { TransactionModal } from './components/TransactionModal';
 import { AccountPageController } from './pages/AccountPage/AccountPage.controller';
 import { StockPageController } from './pages/StockPage/StockPage.controller';
@@ -106,21 +113,73 @@ const FinancialApp: React.FC = () => {
   const [modalDefaults, setModalDefaults] = useState<{ category?: string, accountName?: string }>({});
 
   const [isLoading, setIsLoading] = useState(true);
+  /** Names hidden from Ledgers list only (transactions / stock unchanged). */
+  const [hiddenLedgerAccounts, setHiddenLedgerAccounts] = useState<string[]>([]);
+
+  /** Upload entries that only exist locally (negative id) after failed DB insert. */
+  const syncPendingOwnerPreviousToSupabase = async (merged: StoredAccount[]) => {
+    for (const acc of merged) {
+      if (acc.type !== 'partner') continue;
+      const list = acc.ownerPreviousEntries || [];
+      for (const e of list) {
+        if (e.id >= 0) continue;
+        try {
+          const saved = await AccountService.addOwnerPreviousEntry(acc.name, {
+            date: e.date,
+            amount: e.amount,
+            kind: e.kind,
+            note: e.note
+          });
+          setAccounts(prev => {
+            const next = prev.map(a =>
+              a.name === acc.name && a.type === 'partner'
+                ? {
+                      ...a,
+                      ownerPreviousEntries: (a.ownerPreviousEntries || []).map(x =>
+                        x.id === e.id ? saved : x
+                      )
+                    }
+                : a
+            );
+            const p = next.find(x => x.name === acc.name && x.type === 'partner');
+            persistOwnerPreviousForAccount(acc.name, p?.ownerPreviousEntries || []);
+            return next;
+          });
+        } catch (err) {
+          console.warn('Could not sync owner previous entry to Supabase:', err);
+        }
+      }
+    }
+  };
 
   // --- Initial Data Load (Migration from LocalStorage to Supabase) ---
   const loadData = async () => {
       setIsLoading(true);
       try {
-          const [txs, accs, stocks, ob, transCache] = await Promise.all([
+          const [txs, accs, stocks, ob, transCache, hiddenLedger] = await Promise.all([
               TransactionService.getAll(),
               AccountService.getAll(),
               StockService.getAll(),
               SettingsService.get('openingBalanceData'),
-              SettingsService.get('translationCache')
+              SettingsService.get('translationCache'),
+              SettingsService.get('hiddenLedgerAccounts')
           ]);
 
           setTransactions(txs);
-          setAccounts(accs);
+          setHiddenLedgerAccounts(Array.isArray(hiddenLedger) ? hiddenLedger : []);
+          const localOwnerPrev = loadOwnerPreviousLocal();
+          const accsMerged = accs.map(acc => {
+            if (acc.type !== 'partner') return acc;
+            return {
+              ...acc,
+              ownerPreviousEntries: mergeOwnerPreviousEntries(
+                acc.ownerPreviousEntries || [],
+                localOwnerPrev[acc.name] || []
+              )
+            };
+          });
+          setAccounts(accsMerged);
+          void syncPendingOwnerPreviousToSupabase(accsMerged);
           setStockMovements(stocks);
           if (ob) setInitialOpeningBalance(ob);
           if (transCache) setTranslationCache(transCache);
@@ -150,7 +209,15 @@ const FinancialApp: React.FC = () => {
   const handleCreateAccount = async (name: string, type: AccountType, rate?: number) => {
       // Optimistic Check & Update
       if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) return;
-      
+
+      const nextHiddenCreate = hiddenLedgerAccounts.filter(
+          n => n.toLowerCase() !== name.toLowerCase()
+      );
+      if (nextHiddenCreate.length < hiddenLedgerAccounts.length) {
+          setHiddenLedgerAccounts(nextHiddenCreate);
+          void SettingsService.set('hiddenLedgerAccounts', nextHiddenCreate);
+      }
+
       const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
       
       const newAccount: StoredAccount = {
@@ -159,7 +226,8 @@ const FinancialApp: React.FC = () => {
           rate,
           attendance: {},
           hisaabDays: {},
-          manualAdjustments: []
+          manualAdjustments: [],
+          ...(safeType === 'partner' ? { ownerPreviousEntries: [] as OwnerPreviousEntry[] } : {})
       };
 
       // Update State Immediately
@@ -187,6 +255,13 @@ const FinancialApp: React.FC = () => {
       // 1. Update Accounts State
       setAccounts(prev => prev.map(a => a.name === oldName ? { ...a, name: newName } : a));
 
+      setHiddenLedgerAccounts(prev => {
+          if (!prev.includes(oldName)) return prev;
+          const next = prev.map(n => (n === oldName ? newName : n));
+          SettingsService.set('hiddenLedgerAccounts', next).catch(() => {});
+          return next;
+      });
+
       // 2. Update Transactions State
       setTransactions(prev => prev.map(t => t.accountName === oldName ? { ...t, accountName: newName } : t));
 
@@ -196,10 +271,46 @@ const FinancialApp: React.FC = () => {
       // 4. Sync with Backend
       try {
           await AccountService.rename(oldName, newName);
+          renameOwnerPreviousLocalKey(oldName, newName);
       } catch (e) {
           console.error("Rename failed", e);
           alert("Failed to update name on server. Please refresh.");
           // In a real app, revert state here
+      }
+  };
+
+  const handleDeleteAccount = async (accountName: string) => {
+      const prevAccounts = accounts;
+      const prevHidden = hiddenLedgerAccounts;
+
+      const nextHidden = [...new Set([...hiddenLedgerAccounts, accountName])];
+      setHiddenLedgerAccounts(nextHidden);
+      setAccounts(prev => prev.filter(a => a.name !== accountName));
+
+      try {
+          await SettingsService.set('hiddenLedgerAccounts', nextHidden);
+      } catch (e) {
+          console.warn('hiddenLedgerAccounts save failed', e);
+      }
+
+      try {
+          const orderMap = await SettingsService.get('accountOrderMap');
+          if (orderMap && typeof orderMap === 'object' && accountName in orderMap) {
+              const { [accountName]: _removed, ...rest } = orderMap as Record<string, number>;
+              await SettingsService.set('accountOrderMap', rest);
+          }
+      } catch (e) {
+          console.warn('accountOrderMap cleanup failed', e);
+      }
+
+      try {
+          await AccountService.removeAccountFromLedger(accountName);
+      } catch (e) {
+          console.error('Remove account from ledger failed', e);
+          setAccounts(prevAccounts);
+          setHiddenLedgerAccounts(prevHidden);
+          await SettingsService.set('hiddenLedgerAccounts', prevHidden).catch(() => {});
+          alert(t.accountDeleteFailed);
       }
   };
 
@@ -478,6 +589,109 @@ const FinancialApp: React.FC = () => {
 
      // Sync
      AccountService.deleteAdjustment(id);
+  };
+
+  const handleAddOwnerPreviousEntry = async (
+      accountName: string,
+      entry: Omit<OwnerPreviousEntry, 'id'>
+  ) => {
+      const tempId = Date.now();
+      const temp: OwnerPreviousEntry = { ...entry, id: tempId };
+
+      setAccounts(prevAccounts =>
+          prevAccounts.map(acc =>
+              acc.name === accountName && acc.type === 'partner'
+                  ? { ...acc, ownerPreviousEntries: [...(acc.ownerPreviousEntries || []), temp] }
+                  : acc
+          )
+      );
+
+      try {
+          const saved = await AccountService.addOwnerPreviousEntry(accountName, entry);
+          setAccounts(prevAccounts => {
+              const next = prevAccounts.map(acc =>
+                  acc.name === accountName && acc.type === 'partner'
+                      ? {
+                            ...acc,
+                            ownerPreviousEntries: acc.ownerPreviousEntries?.map(e =>
+                                e.id === tempId ? saved : e
+                            )
+                        }
+                      : acc
+              );
+              const p = next.find(a => a.name === accountName && a.type === 'partner');
+              persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+              return next;
+          });
+      } catch (e) {
+          console.error('Add owner previous entry failed', e);
+          const localId = -Math.abs(Date.now());
+          setAccounts(prevAccounts => {
+              const next = prevAccounts.map(acc =>
+                  acc.name === accountName && acc.type === 'partner'
+                      ? {
+                            ...acc,
+                            ownerPreviousEntries: acc.ownerPreviousEntries?.map(en =>
+                                en.id === tempId ? { ...en, id: localId } : en
+                            )
+                        }
+                      : acc
+              );
+              const p = next.find(a => a.name === accountName && a.type === 'partner');
+              persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+              return next;
+          });
+      }
+  };
+
+  const handleUpdateOwnerPreviousEntry = async (accountName: string, entry: OwnerPreviousEntry) => {
+      setAccounts(prevAccounts => {
+          const next = prevAccounts.map(acc =>
+              acc.name === accountName && acc.type === 'partner'
+                  ? {
+                        ...acc,
+                        ownerPreviousEntries: acc.ownerPreviousEntries?.map(e =>
+                            e.id === entry.id ? entry : e
+                        )
+                    }
+                  : acc
+          );
+          const p = next.find(a => a.name === accountName && a.type === 'partner');
+          persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+          return next;
+      });
+
+      if (entry.id < 0) return;
+
+      try {
+          await AccountService.updateOwnerPreviousEntry(entry);
+      } catch (e) {
+          console.error('Update owner previous entry failed', e);
+      }
+  };
+
+  const handleDeleteOwnerPreviousEntry = async (accountName: string, id: number) => {
+      setAccounts(prevAccounts => {
+          const next = prevAccounts.map(acc =>
+              acc.name === accountName && acc.type === 'partner'
+                  ? {
+                        ...acc,
+                        ownerPreviousEntries: acc.ownerPreviousEntries?.filter(e => e.id !== id)
+                    }
+                  : acc
+          );
+          const p = next.find(a => a.name === accountName && a.type === 'partner');
+          persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+          return next;
+      });
+
+      if (id < 0) return;
+
+      try {
+          await AccountService.deleteOwnerPreviousEntry(id);
+      } catch (e) {
+          console.error('Delete owner previous entry failed', e);
+      }
   };
 
   // Save Translation Cache
@@ -1084,6 +1298,7 @@ const FinancialApp: React.FC = () => {
                       stockMovements={stockMovements}
                       t={t}
                       accounts={accounts}
+                      hiddenLedgerAccountNames={hiddenLedgerAccounts}
                       onAddAccount={handleCreateAccount}
                       onUpdateAccount={handleUpdateAccount}
                       onOpenTransactionModal={openTransactionModal}
@@ -1095,6 +1310,10 @@ const FinancialApp: React.FC = () => {
                       onUpdateAdjustment={handleUpdateAdjustment}
                       onDeleteAdjustment={handleDeleteAdjustment}
                       onRenameAccount={handleRenameAccount}
+                      onDeleteAccount={handleDeleteAccount}
+                      onAddOwnerPreviousEntry={handleAddOwnerPreviousEntry}
+                      onUpdateOwnerPreviousEntry={handleUpdateOwnerPreviousEntry}
+                      onDeleteOwnerPreviousEntry={handleDeleteOwnerPreviousEntry}
                   />
               )}
 

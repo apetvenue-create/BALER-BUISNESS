@@ -24,6 +24,15 @@ export interface ManualAdjustment {
   note: string;
 }
 
+/** Owner-page only; not stored in main transactions / cashbook / reports. */
+export interface OwnerPreviousEntry {
+  id: number;
+  date: string;
+  amount: number;
+  kind: 'received' | 'paid';
+  note?: string;
+}
+
 // Simple structure for persisting account metadata
 // Expanded to allow 'customer' or other types for the unified store
 export type AccountType = 'labour' | 'partner' | 'customer' | 'supplier' | 'other';
@@ -35,6 +44,8 @@ export interface StoredAccount {
   attendance?: Record<string, boolean>; // Date (YYYY-MM-DD) -> isPresent (true=Present, false=Absent, undefined=Unmarked)
   hisaabDays?: Record<string, boolean>; // Date (YYYY-MM-DD) -> isHisaabDay
   manualAdjustments?: ManualAdjustment[]; // Extra payables (Bonuses, Overtime)
+  /** Partner (owner) accounts only — isolated from global transactions */
+  ownerPreviousEntries?: OwnerPreviousEntry[];
 }
 
 export interface DateFilter {
@@ -69,11 +80,17 @@ export type AccountTab = 'labour' | 'partner' | 'customer' | 'supplier';
 
 export interface PartnerSummary {
   name: string;
+  /** From cashbook-linked transactions only */
+  bookTotalIn: number;
+  bookTotalOut: number;
+  /** Includes book + owner previous amounts */
   totalIn: number;
   totalOut: number;
   netBalance: number;
   transactionsIn: Transaction[];
   transactionsOut: Transaction[];
+  previousReceived: OwnerPreviousEntry[];
+  previousPaid: OwnerPreviousEntry[];
 }
 
 export interface LabourTimelineRow {
@@ -416,4 +433,19 @@ export interface Translation {
   errRequired: string;
   errAccountRequired: string;
   errPositiveAmount: string;
+
+  ownerPreviousSectionTitle: string;
+  ownerPreviousHelp: string;
+  ownerLinkedBookTitle: string;
+  addOwnerPreviousEntryBtn: string;
+  ownerPreviousModalAdd: string;
+  ownerPreviousModalEdit: string;
+  ownerPreviousKindReceived: string;
+  ownerPreviousKindPaid: string;
+  ownerPreviousPaymentTypeTag: string;
+
+  deleteAccountBtn: string;
+  confirmDeleteAccount: string;
+  confirmDeleteAccountSecond: string;
+  accountDeleteFailed: string;
 }
