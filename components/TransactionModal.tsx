@@ -74,6 +74,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       setErrors({}); // Clear errors on open
+      isSubmittingRef.current = false; // Reset submit lock each open
       if (initialData) {
         setCategory(initialData.category);
         setAccountName(initialData.accountName || '');
@@ -113,11 +114,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   }, [isCashConversion]);
 
-  if (!isOpen) return null;
-
   // Enter should save reliably every time while modal is open.
   // Using a window listener avoids edge cases where the focused element swallows Enter.
   useEffect(() => {
+    if (!isOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Enter') return;
       if (e.repeat) return;
@@ -133,13 +133,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     };
 
     window.addEventListener('keydown', onKeyDown, { capture: true });
-    return () => window.removeEventListener('keydown', onKeyDown, { capture: true } as any);
-  }, []);
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const validate = () => {
       const newErrors: Record<string, string> = {};
       const amount = parseCurrency(amountStr);
       
+      if (!category || !category.trim()) {
+          newErrors.category = t.errRequired;
+      }
+
       if (!amount || amount <= 0) {
           newErrors.amount = t.alertAmountRequired;
       }
