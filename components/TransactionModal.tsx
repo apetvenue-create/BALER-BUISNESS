@@ -30,6 +30,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   defaultAccountName
 }) => {
   const formRef = useRef<HTMLFormElement | null>(null);
+  const isSubmittingRef = useRef(false);
   const [category, setCategory] = useState<string>('');
   const [accountName, setAccountName] = useState<string>('');
   const [details, setDetails] = useState<string>('');
@@ -114,6 +115,27 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   if (!isOpen) return null;
 
+  // Enter should save reliably every time while modal is open.
+  // Using a window listener avoids edge cases where the focused element swallows Enter.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter') return;
+      if (e.repeat) return;
+      if (isSubmittingRef.current) return;
+
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'textarea' || tag === 'select') return;
+      if ((target as any)?.isContentEditable) return;
+
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+    };
+
+    window.addEventListener('keydown', onKeyDown, { capture: true });
+    return () => window.removeEventListener('keydown', onKeyDown, { capture: true } as any);
+  }, []);
+
   const validate = () => {
       const newErrors: Record<string, string> = {};
       const amount = parseCurrency(amountStr);
@@ -143,9 +165,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     
     if (!validate()) {
         // Shake logic or focus could go here
+        isSubmittingRef.current = false;
         return;
     }
 
@@ -211,18 +237,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           <form
             ref={formRef}
             onSubmit={handleSubmit}
-            onKeyDown={(e) => {
-              // Enter should save (submit) for both income and expense.
-              // Use requestSubmit to keep native validation + submit flow.
-              if (e.key !== 'Enter') return;
-              const target = e.target as HTMLElement | null;
-              const tag = target?.tagName?.toLowerCase();
-              if (tag === 'textarea') return;
-              // Avoid interfering with select dropdown behavior; Enter there is not always "submit intent".
-              if (tag === 'select') return;
-              e.preventDefault();
-              formRef.current?.requestSubmit();
-            }}
           >
             
             {/* Date & Range Selection */}
