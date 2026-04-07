@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, Translation, StoredAccount } from '../types';
 import { formatInputCurrency, parseCurrency } from '../utils';
 import { DateInput } from './DateInput';
@@ -29,6 +29,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   defaultCategory,
   defaultAccountName
 }) => {
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [category, setCategory] = useState<string>('');
   const [accountName, setAccountName] = useState<string>('');
   const [details, setDetails] = useState<string>('');
@@ -207,7 +208,22 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             }
           </h3>
           
-          <form onSubmit={handleSubmit}>
+          <form
+            ref={formRef}
+            onSubmit={handleSubmit}
+            onKeyDown={(e) => {
+              // Enter should save (submit) for both income and expense.
+              // Use requestSubmit to keep native validation + submit flow.
+              if (e.key !== 'Enter') return;
+              const target = e.target as HTMLElement | null;
+              const tag = target?.tagName?.toLowerCase();
+              if (tag === 'textarea') return;
+              // Avoid interfering with select dropdown behavior; Enter there is not always "submit intent".
+              if (tag === 'select') return;
+              e.preventDefault();
+              formRef.current?.requestSubmit();
+            }}
+          >
             
             {/* Date & Range Selection */}
             <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">

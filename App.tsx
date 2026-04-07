@@ -552,6 +552,34 @@ const FinancialApp: React.FC = () => {
       setIsModalOpen(true);
   };
 
+  // Shortcuts (Transactions tab only): F1 = Add Income, F2 = Add Expense
+  useEffect(() => {
+      const handler = (e: KeyboardEvent) => {
+          if (activeTab !== 'transactions') return;
+          if (isModalOpen) return;
+
+          const target = e.target as HTMLElement | null;
+          const tag = target?.tagName?.toLowerCase();
+          const isTypingTarget =
+              tag === 'input' ||
+              tag === 'textarea' ||
+              (target as any)?.isContentEditable;
+          if (isTypingTarget) return;
+
+          // Prevent browser help (F1) and default function key behaviors
+          if (e.key === 'F1') {
+              e.preventDefault();
+              openTransactionModal('income');
+          } else if (e.key === 'F2') {
+              e.preventDefault();
+              openTransactionModal('expense');
+          }
+      };
+
+      window.addEventListener('keydown', handler);
+      return () => window.removeEventListener('keydown', handler);
+  }, [activeTab, isModalOpen]);
+
   // Opening Balance Modal Handlers
   const openBalanceModal = () => {
       setTempOpeningBalance({
