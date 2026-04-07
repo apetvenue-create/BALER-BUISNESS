@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useRef, useState, useMemo, useEffect } from 'react';
 import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry } from '../../types';
 import { AccountPageView } from './AccountPage.view';
 import { formatMonthYear, getDatesInRange, formatISODateLocal } from '../../utils';
@@ -66,6 +66,51 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccountName, setSelectedAccountName] = useState<string | null>(null);
+  const selectedAccountNameRef = useRef<string | null>(null);
+  const pushedDetailHistoryRef = useRef(false);
+
+  useEffect(() => {
+    selectedAccountNameRef.current = selectedAccountName;
+  }, [selectedAccountName]);
+
+  // Esc (laptop): go back from detail view to list
+  useEffect(() => {
+    if (!selectedAccountName) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedAccountName(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [selectedAccountName]);
+
+  // Mobile back button (browser back): go back from detail view to list
+  useEffect(() => {
+    const onPopState = () => {
+      if (selectedAccountNameRef.current) {
+        setSelectedAccountName(null);
+      }
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // When entering a detail screen, push a history entry so "Back" returns to list instead of exiting the app.
+  useEffect(() => {
+    if (selectedAccountName && !pushedDetailHistoryRef.current) {
+      try {
+        window.history.pushState({ ledgerDetail: true }, '');
+        pushedDetailHistoryRef.current = true;
+      } catch {
+        // ignore history failures
+      }
+    }
+    if (!selectedAccountName) {
+      pushedDetailHistoryRef.current = false;
+    }
+  }, [selectedAccountName]);
 
   // LABOUR: Date Range State (Default: Current Month)
   const [labourStartDate, setLabourStartDate] = useState<string>(
