@@ -33,9 +33,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [accountName, setAccountName] = useState<string>('');
   const [details, setDetails] = useState<string>('');
   const [amountStr, setAmountStr] = useState<string>('');
-  const [paymentType, setPaymentType] = useState<string>('online');
+  const [paymentType, setPaymentType] = useState<string>('cash');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
+  // Range Logic (batch transactions)
+  const [isRange, setIsRange] = useState(false);
+  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
   // UI State for Manual Account Entry
   const [isManualEntry, setIsManualEntry] = useState(false);
 
@@ -75,6 +79,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setAmountStr(formatInputCurrency(initialData.amount.toString()));
         setPaymentType(initialData.paymentType);
         setDate(initialData.date);
+        setIsRange(false);
+        setEndDate(initialData.date);
         setIsManualEntry(false);
       } else {
         // Defaults
@@ -87,9 +93,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setAccountName(defaultAccountName || '');
         setDetails('');
         setAmountStr('');
-        setPaymentType('online');
+        setPaymentType('cash');
         const today = new Date().toISOString().split('T')[0];
         setDate(today);
+        setEndDate(today);
+        setIsRange(false);
         setIsManualEntry(false);
       }
     }
@@ -124,6 +132,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           }
       }
 
+      if (isRange && endDate < date) {
+          newErrors.dateRange = t.alertDateOrder;
+      }
+
       setErrors(newErrors);
       return Object.keys(newErrors).length === 0;
   };
@@ -144,7 +156,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       amount: parseCurrency(amountStr),
       paymentType: paymentType as any,
       date,
-    });
+    }, isRange ? endDate : undefined);
     onClose();
   };
 
@@ -197,7 +209,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           
           <form onSubmit={handleSubmit}>
             
-            {/* Date */}
+            {/* Date & Range Selection */}
             <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
                <div className="mb-2">
                   <DateInput 
@@ -206,6 +218,40 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       onChange={setDate}
                   />
                </div>
+               
+               {!initialData && (
+                   <div className="flex items-center mt-2 mb-2">
+                      <input 
+                          type="checkbox" 
+                          id="enableRange"
+                          checked={isRange}
+                          onChange={(e) => setIsRange(e.target.checked)}
+                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-gray-300"
+                      />
+                      <label htmlFor="enableRange" className="ml-2 text-sm text-gray-700 font-medium cursor-pointer">
+                          {t.enableDateRange}
+                      </label>
+                   </div>
+               )}
+
+               {isRange && !initialData && (
+                   <div className="mt-2 animate-fade-in">
+                      <DateInput 
+                          label={t.rangeEndDateLabel}
+                          value={endDate}
+                          onChange={(d) => {
+                              setEndDate(d);
+                              if (errors.dateRange) setErrors(prev => ({ ...prev, dateRange: '' }));
+                          }}
+                          min={date}
+                          className={errors.dateRange ? "border-red-500" : ""}
+                      />
+                      {errors.dateRange && <p className="text-red-500 text-xs mt-1">{errors.dateRange}</p>}
+                      <p className="text-xs text-gray-500 mt-1 italic">
+                          {t.rangeHelpText}
+                      </p>
+                   </div>
+               )}
             </div>
 
             <div className="mb-4">
