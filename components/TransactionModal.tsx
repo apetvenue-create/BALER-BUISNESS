@@ -33,7 +33,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [accountName, setAccountName] = useState<string>('');
   const [details, setDetails] = useState<string>('');
   const [amountStr, setAmountStr] = useState<string>('');
-  const [paymentType, setPaymentType] = useState<string>('cash');
+  const [paymentType, setPaymentType] = useState<string>('online');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   
   // Range Logic (batch transactions)
@@ -93,7 +93,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setAccountName(defaultAccountName || '');
         setDetails('');
         setAmountStr('');
-        setPaymentType('cash');
+        setPaymentType('online');
         const today = new Date().toISOString().split('T')[0];
         setDate(today);
         setEndDate(today);
