@@ -41,6 +41,14 @@ export function parseCurrency(value: string): number {
   return parseInt(value.replace(/,/g, ''), 10) || 0;
 }
 
+// Format a Date as YYYY-MM-DD using *local* calendar fields (no UTC shift).
+export function formatISODateLocal(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 // Generate array of dates (YYYY-MM-DD) between start and end (inclusive)
 // Uses UTC methods to avoid timezone issues when crossing DST or day boundaries locally
 export function getDatesInRange(startDate: string, endDate: string): string[] {

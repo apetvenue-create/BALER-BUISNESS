@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { 
   Transaction, 
   TransactionType, 
@@ -13,7 +13,7 @@ import {
   OwnerPreviousEntry
 } from './types';
 import { TRANSLATIONS } from './constants';
-import { getDatesInRange, formatIndianCurrency, formatDisplayDate } from './utils';
+import { getDatesInRange, formatIndianCurrency, formatDisplayDate, formatISODateLocal } from './utils';
 import {
   loadOwnerPreviousLocal,
   mergeOwnerPreviousEntries,
@@ -85,12 +85,22 @@ const FinancialApp: React.FC = () => {
       pa: {}
   });
   
+  const todayStr = useMemo(() => formatISODateLocal(new Date()), []);
+  const monthStartStr = useMemo(
+      () => formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1)),
+      []
+  );
+  const monthEndStr = useMemo(
+      () => formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0)),
+      []
+  );
+
   // Cashbook State
   const [dateFilter, setDateFilter] = useState<DateFilter>({
-      mode: 'single',
-      singleDate: new Date().toISOString().split('T')[0],
-      fromDate: new Date().toISOString().split('T')[0],
-      toDate: new Date().toISOString().split('T')[0]
+      mode: 'range',
+      singleDate: todayStr,
+      fromDate: monthStartStr,
+      toDate: monthEndStr
   });
 
   // Opening Balance State (Manually set start values)
@@ -100,10 +110,10 @@ const FinancialApp: React.FC = () => {
 
   // Stats Section State
   const [statsStartDate, setStatsStartDate] = useState<string>(
-      new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
   const [statsEndDate, setStatsEndDate] = useState<string>(
-      new Date().toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
   );
   
   // Modal State
@@ -115,6 +125,8 @@ const FinancialApp: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   /** Names hidden from Ledgers list only (transactions / stock unchanged). */
   const [hiddenLedgerAccounts, setHiddenLedgerAccounts] = useState<string[]>([]);
+  /** Minimal metadata to allow restoring previously removed ledger accounts. */
+  const [removedLedgerAccounts, setRemovedLedgerAccounts] = useState<StoredAccount[]>([]);
 
   /** Upload entries that only exist locally (negative id) after failed DB insert. */
   const syncPendingOwnerPreviousToSupabase = async (merged: StoredAccount[]) => {
@@ -152,21 +164,30 @@ const FinancialApp: React.FC = () => {
     }
   };
 
+  /**
+   * Attendance writes can happen rapidly (double clicks, lag, retries).
+   * Track the latest intent per (account,date) so "last action wins" and
+   * older in-flight requests don't overwrite newer state on the server.
+   */
+  const attendanceWriteSeqRef = useRef<Record<string, number>>({});
+
   // --- Initial Data Load (Migration from LocalStorage to Supabase) ---
   const loadData = async () => {
       setIsLoading(true);
       try {
-          const [txs, accs, stocks, ob, transCache, hiddenLedger] = await Promise.all([
+          const [txs, accs, stocks, ob, transCache, hiddenLedger, removedLedger] = await Promise.all([
               TransactionService.getAll(),
               AccountService.getAll(),
               StockService.getAll(),
               SettingsService.get('openingBalanceData'),
               SettingsService.get('translationCache'),
-              SettingsService.get('hiddenLedgerAccounts')
+              SettingsService.get('hiddenLedgerAccounts'),
+              SettingsService.get('removedLedgerAccounts')
           ]);
 
           setTransactions(txs);
           setHiddenLedgerAccounts(Array.isArray(hiddenLedger) ? hiddenLedger : []);
+          setRemovedLedgerAccounts(Array.isArray(removedLedger) ? removedLedger : []);
           const localOwnerPrev = loadOwnerPreviousLocal();
           const accsMerged = accs.map(acc => {
             if (acc.type !== 'partner') return acc;
@@ -246,32 +267,57 @@ const FinancialApp: React.FC = () => {
   };
 
   const handleRenameAccount = async (oldName: string, newName: string) => {
-      if (oldName === newName) return;
-      if (accounts.some(a => a.name.toLowerCase() === newName.toLowerCase())) {
+      const canonicalOld = oldName.trim();
+      const canonicalNew = newName.trim();
+      if (!canonicalNew) return;
+      if (canonicalOld.toLowerCase() === canonicalNew.toLowerCase()) return;
+
+      if (accounts.some(a => a.name.trim().toLowerCase() === canonicalNew.toLowerCase())) {
           alert(t.accountExists);
           return;
       }
 
       // 1. Update Accounts State
-      setAccounts(prev => prev.map(a => a.name === oldName ? { ...a, name: newName } : a));
+      setAccounts(prev =>
+        prev.map(a =>
+          a.name.trim().toLowerCase() === canonicalOld.toLowerCase()
+            ? { ...a, name: canonicalNew }
+            : a
+        )
+      );
 
       setHiddenLedgerAccounts(prev => {
-          if (!prev.includes(oldName)) return prev;
-          const next = prev.map(n => (n === oldName ? newName : n));
+          const has = prev.some(n => n.trim().toLowerCase() === canonicalOld.toLowerCase());
+          if (!has) return prev;
+          const next = prev.map(n =>
+            n.trim().toLowerCase() === canonicalOld.toLowerCase() ? canonicalNew : n
+          );
           SettingsService.set('hiddenLedgerAccounts', next).catch(() => {});
           return next;
       });
 
       // 2. Update Transactions State
-      setTransactions(prev => prev.map(t => t.accountName === oldName ? { ...t, accountName: newName } : t));
+      setTransactions(prev =>
+        prev.map(t =>
+          t.accountName && t.accountName.trim().toLowerCase() === canonicalOld.toLowerCase()
+            ? { ...t, accountName: canonicalNew }
+            : t
+        )
+      );
 
       // 3. Update Stock State
-      setStockMovements(prev => prev.map(m => m.accountName === oldName ? { ...m, accountName: newName } : m));
+      setStockMovements(prev =>
+        prev.map(m =>
+          m.accountName && m.accountName.trim().toLowerCase() === canonicalOld.toLowerCase()
+            ? { ...m, accountName: canonicalNew }
+            : m
+        )
+      );
 
       // 4. Sync with Backend
       try {
-          await AccountService.rename(oldName, newName);
-          renameOwnerPreviousLocalKey(oldName, newName);
+          await AccountService.rename(canonicalOld, canonicalNew);
+          renameOwnerPreviousLocalKey(canonicalOld, canonicalNew);
       } catch (e) {
           console.error("Rename failed", e);
           alert("Failed to update name on server. Please refresh.");
@@ -280,12 +326,29 @@ const FinancialApp: React.FC = () => {
   };
 
   const handleDeleteAccount = async (accountName: string) => {
+      const canonicalName = accountName.trim();
       const prevAccounts = accounts;
       const prevHidden = hiddenLedgerAccounts;
+      const prevRemoved = removedLedgerAccounts;
 
-      const nextHidden = [...new Set([...hiddenLedgerAccounts, accountName])];
+      const removedMeta = accounts.find(a => a.name.trim().toLowerCase() === canonicalName.toLowerCase());
+
+      const nextHidden = [
+          ...new Set([...hiddenLedgerAccounts.map(n => n.trim()), canonicalName])
+      ];
       setHiddenLedgerAccounts(nextHidden);
-      setAccounts(prev => prev.filter(a => a.name !== accountName));
+      setAccounts(prev => prev.filter(a => a.name.trim().toLowerCase() !== canonicalName.toLowerCase()));
+      if (removedMeta) {
+          const nextRemoved = prevRemoved.some(a => a.name.trim().toLowerCase() === removedMeta.name.trim().toLowerCase())
+              ? prevRemoved
+              : [...prevRemoved, {
+                    ...removedMeta,
+                    // Ensure canonical formatting for the key fields
+                    name: removedMeta.name.trim()
+                }];
+          setRemovedLedgerAccounts(nextRemoved);
+          void SettingsService.set('removedLedgerAccounts', nextRemoved);
+      }
 
       try {
           await SettingsService.set('hiddenLedgerAccounts', nextHidden);
@@ -295,8 +358,8 @@ const FinancialApp: React.FC = () => {
 
       try {
           const orderMap = await SettingsService.get('accountOrderMap');
-          if (orderMap && typeof orderMap === 'object' && accountName in orderMap) {
-              const { [accountName]: _removed, ...rest } = orderMap as Record<string, number>;
+          if (orderMap && typeof orderMap === 'object' && canonicalName in orderMap) {
+              const { [canonicalName]: _removed, ...rest } = orderMap as Record<string, number>;
               await SettingsService.set('accountOrderMap', rest);
           }
       } catch (e) {
@@ -304,13 +367,65 @@ const FinancialApp: React.FC = () => {
       }
 
       try {
-          await AccountService.removeAccountFromLedger(accountName);
+          await AccountService.removeAccountFromLedger(canonicalName);
       } catch (e) {
           console.error('Remove account from ledger failed', e);
           setAccounts(prevAccounts);
           setHiddenLedgerAccounts(prevHidden);
+          setRemovedLedgerAccounts(prevRemoved);
           await SettingsService.set('hiddenLedgerAccounts', prevHidden).catch(() => {});
+          await SettingsService.set('removedLedgerAccounts', prevRemoved).catch(() => {});
           alert(t.accountDeleteFailed);
+      }
+  };
+
+  const handleRestoreLedgerAccount = async (account: StoredAccount) => {
+      const canonicalName = account.name.trim();
+      const prevAccounts = accounts;
+      const prevHidden = hiddenLedgerAccounts;
+      const prevRemoved = removedLedgerAccounts;
+
+      const nextHidden = hiddenLedgerAccounts
+        .map(n => n.trim())
+        .filter(n => n.toLowerCase() !== canonicalName.toLowerCase());
+      const nextRemoved = removedLedgerAccounts.filter(a => a.name.trim().toLowerCase() !== canonicalName.toLowerCase());
+
+      // Optimistic UI: show it again in ledgers
+      setHiddenLedgerAccounts(nextHidden);
+      setRemovedLedgerAccounts(nextRemoved);
+      if (!accounts.some(a => a.name.trim().toLowerCase() === canonicalName.toLowerCase())) {
+          setAccounts(prev => [...prev, { ...account, name: canonicalName }]);
+      }
+      void SettingsService.set('hiddenLedgerAccounts', nextHidden);
+      void SettingsService.set('removedLedgerAccounts', nextRemoved);
+
+      try {
+          // Re-create the accounts row in Supabase so it shows up again.
+          await AccountService.create(canonicalName, account.type, account.rate);
+      } catch (e) {
+          console.error('Restore account failed', e);
+          setAccounts(prevAccounts);
+          setHiddenLedgerAccounts(prevHidden);
+          setRemovedLedgerAccounts(prevRemoved);
+          void SettingsService.set('hiddenLedgerAccounts', prevHidden);
+          void SettingsService.set('removedLedgerAccounts', prevRemoved);
+          alert("Failed to restore account on server. Please refresh.");
+      }
+  };
+
+  const handleDeleteRemovedLedgerAccount = async (accountName: string) => {
+      const canonicalName = accountName.trim();
+      const prevRemoved = removedLedgerAccounts;
+
+      const nextRemoved = removedLedgerAccounts.filter(
+        a => a.name.trim().toLowerCase() !== canonicalName.toLowerCase()
+      );
+      setRemovedLedgerAccounts(nextRemoved);
+      try {
+          await SettingsService.set('removedLedgerAccounts', nextRemoved);
+      } catch (e) {
+          console.warn('removedLedgerAccounts save failed', e);
+          setRemovedLedgerAccounts(prevRemoved);
       }
   };
 
@@ -495,9 +610,14 @@ const FinancialApp: React.FC = () => {
   // Specific Account Handlers (Optimistic Deep Updates)
   // Updated signature to accept null for delete
   const handleToggleAttendance = async (accountName: string, date: string, isPresent: boolean | null) => {
+     const canonicalAccount = accountName.trim().toLowerCase();
+     const key = `${canonicalAccount}__${date}`;
+     const nextSeq = (attendanceWriteSeqRef.current[key] || 0) + 1;
+     attendanceWriteSeqRef.current[key] = nextSeq;
+
      // Optimistic Update
      setAccounts(prevAccounts => prevAccounts.map(acc => {
-         if (acc.name === accountName) {
+         if (acc.name.trim().toLowerCase() === canonicalAccount) {
              const newAttendance = { ...acc.attendance };
              if (isPresent === null || isPresent === undefined) {
                  delete newAttendance[date];
@@ -510,7 +630,16 @@ const FinancialApp: React.FC = () => {
      }));
 
      // Sync
-     AccountService.toggleAttendance(accountName, date, isPresent);
+     try {
+         await AccountService.toggleAttendance(accountName.trim(), date, isPresent);
+     } catch (e) {
+         console.error('Attendance sync failed', e);
+     } finally {
+         // If a newer intent exists, let it continue; otherwise clear to avoid unbounded growth.
+         if (attendanceWriteSeqRef.current[key] === nextSeq) {
+             delete attendanceWriteSeqRef.current[key];
+         }
+     }
   };
 
   const handleToggleHisaab = async (accountName: string, date: string, isHisaab: boolean) => {
@@ -767,7 +896,11 @@ const FinancialApp: React.FC = () => {
       } else {
           filtered = filtered.filter(t => t.date >= dateFilter.fromDate && t.date <= dateFilter.toDate);
       }
-      return filtered.sort((a,b) => a.timestamp - b.timestamp);
+      // For Income/Expense tables: newest first (date desc, then timestamp desc).
+      return filtered.sort((a, b) => {
+          if (a.date !== b.date) return b.date.localeCompare(a.date);
+          return b.timestamp - a.timestamp;
+      });
   }, [transactions, dateFilter]);
 
   // Previous Balance: Initial + (Income - Expense) before start date
@@ -813,23 +946,8 @@ const FinancialApp: React.FC = () => {
       return { cashIn, onlineIn, cashOut, onlineOut };
   }, [displayedTransactions]);
 
-  // CALCULATE STOCK REVENUE (Stock Sold/Dispatch) based on Date Filter
-  const stockRevenue = useMemo(() => {
-      let filtered = stockMovements.filter(m => m.type === 'out');
-      
-      if (dateFilter.mode === 'single') {
-          filtered = filtered.filter(m => m.date === dateFilter.singleDate);
-      } else {
-          filtered = filtered.filter(m => m.date >= dateFilter.fromDate && m.date <= dateFilter.toDate);
-      }
-      
-      // Sum the totalAmount of dispatched stock
-      return filtered.reduce((sum, m) => sum + (m.totalAmount || 0), 0);
-  }, [stockMovements, dateFilter]);
-
-  // REPLACED: Total Income is now specifically the Money from Stock Selling
-  const totalIncome = stockRevenue; 
-  // Old Logic: const totalIncome = currentViewStats.cashIn + currentViewStats.onlineIn;
+  // Total Income/Expense for the Cashbook tables (sum of visible transactions)
+  const totalIncome = currentViewStats.cashIn + currentViewStats.onlineIn;
 
   const totalExpense = currentViewStats.cashOut + currentViewStats.onlineOut;
   
@@ -905,45 +1023,67 @@ const FinancialApp: React.FC = () => {
       <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
           {/* Header */}
           <header className="bg-white shadow z-10">
-              <div className="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
-                  <h1 className="text-xl font-bold text-gray-800">{t.pageTitle}</h1>
-                  <div className="flex items-center gap-2">
-                      <label className="text-sm font-semibold text-gray-600">{t.langLabel}</label>
-                      <select 
-                          value={language} 
+              <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+                  {/* Left: Language icon + selector (fixed area) */}
+                  <div className="flex items-center gap-2 justify-self-start min-w-[260px]">
+                      <div
+                        className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center"
+                        title={t.langLabel}
+                        aria-label={t.langLabel}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5" aria-hidden>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.6 9h16.8M3.6 15h16.8" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3c2.6 2.3 4.2 5.4 4.2 9s-1.6 6.7-4.2 9c-2.6-2.3-4.2-5.4-4.2-9S9.4 5.3 12 3Z" />
+                        </svg>
+                      </div>
+                      <select
+                          value={language}
                           onChange={(e) => setLanguage(e.target.value as Language)}
-                          className="border rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="border rounded-lg px-2 py-2 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                          aria-label={t.langLabel}
                       >
                           <option value="en">English</option>
                           <option value="hi">हिंदी</option>
                           <option value="pa">ਪੰਜਾਬੀ</option>
                       </select>
 
-                      {language !== 'en' && (
-                          <button 
-                             onClick={handleTranslateData}
-                             disabled={isTranslating}
-                             className={`ml-2 px-3 py-1 rounded text-sm font-bold shadow-sm flex items-center gap-2 transition ${isTranslating ? 'bg-gray-200 text-gray-500' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
-                             title="Translate all names and notes using AI"
-                          >
-                             {isTranslating ? (
-                                 <>
-                                   <svg className="animate-spin h-4 w-4 text-indigo-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                   </svg>
-                                   {t.translating}
-                                 </>
-                             ) : (
-                                 <>
-                                    <span>🌐</span> {t.translateBtn}
-                                 </>
-                             )}
-                          </button>
-                      )}
-                      
-                      {/* AUTH USER PROFILE */}
-                      <UserProfileHeader />
+                      <button
+                         onClick={handleTranslateData}
+                         disabled={isTranslating || language === 'en'}
+                         className={`ml-1 px-3 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition ${
+                           language === 'en'
+                             ? 'opacity-0 pointer-events-none select-none'
+                             : (isTranslating ? 'bg-gray-200 text-gray-500' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200')
+                         }`}
+                         title="Translate all names and notes using AI"
+                         aria-hidden={language === 'en'}
+                         tabIndex={language === 'en' ? -1 : 0}
+                      >
+                         {isTranslating ? (
+                             <>
+                               <svg className="animate-spin h-4 w-4 text-indigo-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                               </svg>
+                               {t.translating}
+                             </>
+                         ) : (
+                             <>
+                                <span>🌐</span> {t.translateBtn}
+                             </>
+                         )}
+                      </button>
+                  </div>
+
+                  {/* Middle: Title (always centered) */}
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-wide drop-shadow-sm text-center justify-self-center whitespace-nowrap">
+                    {t.pageTitle}
+                  </h1>
+
+                  {/* Right: Logged in as (fixed area) */}
+                  <div className="flex items-center justify-self-end justify-end min-w-[260px]">
+                    <UserProfileHeader />
                   </div>
               </div>
               {/* Tabs */}
@@ -1033,7 +1173,7 @@ const FinancialApp: React.FC = () => {
                                 ✎
                             </button>
 
-                            <h2 className="text-2xl font-bold mb-4 pr-10">{t.prevBalTitle}</h2>
+                            <h2 className="text-2xl font-bold mb-4 pr-10 text-center">{t.prevBalTitle}</h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
                                     <p className="text-sm opacity-90">{t.cashBalLabel}</p>
@@ -1053,7 +1193,9 @@ const FinancialApp: React.FC = () => {
                       {/* INCOME TRANSACTIONS TABLE */}
                       <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
                           <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-xl font-bold text-green-600">{t.incomeTitle}</h2>
+                              <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-green-700">
+                                {t.incomeTitle}
+                              </h2>
                               <button 
                                   onClick={() => openTransactionModal('income')}
                                   className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
@@ -1136,7 +1278,9 @@ const FinancialApp: React.FC = () => {
                       {/* EXPENSE TRANSACTIONS TABLE */}
                       <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
                           <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-xl font-bold text-red-600">{t.expenseTitle}</h2>
+                              <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-red-700">
+                                {t.expenseTitle}
+                              </h2>
                               <button 
                                   onClick={() => openTransactionModal('expense')}
                                   className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
@@ -1218,7 +1362,7 @@ const FinancialApp: React.FC = () => {
 
                       {/* FINAL BALANCE CARD */}
                       <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white text-center md:text-left">
-                          <h2 className="text-2xl font-bold mb-4">{t.finalBalanceTitle}</h2>
+                          <h2 className="text-2xl font-bold mb-4 text-center">{t.finalBalanceTitle}</h2>
                           
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
@@ -1238,7 +1382,9 @@ const FinancialApp: React.FC = () => {
 
                       {/* --- SUMMARY REPORT (STATS) SECTION --- */}
                       <div className="bg-white rounded-lg shadow-md p-6 border-t-4 border-indigo-500">
-                          <h2 className="text-2xl font-bold text-gray-800 mb-6">{t.statsTitle}</h2>
+                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-indigo-900 mb-6">
+                            {t.statsTitle}
+                          </h2>
                           
                           <div className="flex flex-col md:flex-row gap-4 mb-8">
                               <div className="w-full md:w-64">
@@ -1299,6 +1445,7 @@ const FinancialApp: React.FC = () => {
                       t={t}
                       accounts={accounts}
                       hiddenLedgerAccountNames={hiddenLedgerAccounts}
+                      removedAccounts={removedLedgerAccounts}
                       onAddAccount={handleCreateAccount}
                       onUpdateAccount={handleUpdateAccount}
                       onOpenTransactionModal={openTransactionModal}
@@ -1311,6 +1458,8 @@ const FinancialApp: React.FC = () => {
                       onDeleteAdjustment={handleDeleteAdjustment}
                       onRenameAccount={handleRenameAccount}
                       onDeleteAccount={handleDeleteAccount}
+                      onRestoreAccount={handleRestoreLedgerAccount}
+                      onDeleteRemovedAccount={handleDeleteRemovedLedgerAccount}
                       onAddOwnerPreviousEntry={handleAddOwnerPreviousEntry}
                       onUpdateOwnerPreviousEntry={handleUpdateOwnerPreviousEntry}
                       onDeleteOwnerPreviousEntry={handleDeleteOwnerPreviousEntry}
@@ -1337,6 +1486,7 @@ const FinancialApp: React.FC = () => {
               {activeTab === 'reports' && (
                   <ReportsPageController 
                       transactions={transactions}
+                      stockMovements={stockMovements}
                       t={t}
                       language={language}
                       getTranslated={getTranslated}
@@ -1360,7 +1510,16 @@ const FinancialApp: React.FC = () => {
           {/* Opening Balance Modal */}
           {isBalanceModalOpen && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl animate-fade-in">
+                  <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl animate-fade-in relative">
+                      <button
+                        type="button"
+                        onClick={() => setIsBalanceModalOpen(false)}
+                        className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition"
+                        aria-label={t.cancelBtn}
+                        title={t.cancelBtn}
+                      >
+                        ✕
+                      </button>
                       <h3 className="text-xl font-bold mb-4">{t.editOpeningBalanceTitle}</h3>
                       <div className="mb-4">
                           <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialCashLabel}</label>

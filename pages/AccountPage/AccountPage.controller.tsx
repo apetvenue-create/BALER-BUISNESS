@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry } from '../../types';
 import { AccountPageView } from './AccountPage.view';
-import { formatMonthYear, getDatesInRange } from '../../utils';
+import { formatMonthYear, getDatesInRange, formatISODateLocal } from '../../utils';
 import { PDFGenerator } from '../../services/pdfGenerator';
 import { SettingsService } from '../../services/settings.service';
 
@@ -27,6 +27,9 @@ interface AccountPageControllerProps {
   onDeleteAdjustment?: (id: number) => void;
   onRenameAccount?: (oldName: string, newName: string) => void;
   onDeleteAccount?: (accountName: string) => void;
+  removedAccounts?: StoredAccount[];
+  onRestoreAccount?: (account: StoredAccount) => void;
+  onDeleteRemovedAccount?: (accountName: string) => void;
 
   onAddOwnerPreviousEntry?: (accountName: string, entry: Omit<OwnerPreviousEntry, 'id'>) => void;
   onUpdateOwnerPreviousEntry?: (accountName: string, entry: OwnerPreviousEntry) => void;
@@ -52,6 +55,9 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   onDeleteAdjustment,
   onRenameAccount,
   onDeleteAccount,
+  removedAccounts = [],
+  onRestoreAccount,
+  onDeleteRemovedAccount,
 
   onAddOwnerPreviousEntry,
   onUpdateOwnerPreviousEntry,
@@ -63,18 +69,18 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   // LABOUR: Date Range State (Default: Current Month)
   const [labourStartDate, setLabourStartDate] = useState<string>(
-      new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
   const [labourEndDate, setLabourEndDate] = useState<string>(
-      new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
   );
 
   // PDF / Report Date Ranges
   const [reportStartDate, setReportStartDate] = useState<string>(
-      new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
   const [reportEndDate, setReportEndDate] = useState<string>(
-      new Date().toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
   );
   
   // PDF Language State
@@ -221,7 +227,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   // 2. Prepare List Data for the active tab (SORTED by Custom Serial)
   const hiddenSet = useMemo(
-    () => new Set(hiddenLedgerAccountNames),
+    () => new Set(hiddenLedgerAccountNames.map(n => n.trim().toLowerCase())),
     [hiddenLedgerAccountNames]
   );
 
@@ -230,7 +236,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
         .filter(([name, data]) => {
            const matchesType = data.type === activeTab;
            const matchesSearch = getTranslated(name).toLowerCase().includes(searchQuery.toLowerCase()) || name.toLowerCase().includes(searchQuery.toLowerCase());
-           const notHidden = !hiddenSet.has(name);
+           const notHidden = !hiddenSet.has(name.trim().toLowerCase());
            return matchesType && matchesSearch && notHidden;
         })
         .map(([name, data]) => ({ 
@@ -574,8 +580,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const handlePrevMonth = () => {
       const start = new Date(labourStartDate);
       start.setMonth(start.getMonth() - 1);
-      const startStr = new Date(start.getFullYear(), start.getMonth(), 1).toISOString().split('T')[0];
-      const endStr = new Date(start.getFullYear(), start.getMonth() + 1, 0).toISOString().split('T')[0];
+      const startStr = formatISODateLocal(new Date(start.getFullYear(), start.getMonth(), 1));
+      const endStr = formatISODateLocal(new Date(start.getFullYear(), start.getMonth() + 1, 0));
       setLabourStartDate(startStr);
       setLabourEndDate(endStr);
   };
@@ -583,31 +589,16 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const handleNextMonth = () => {
       const start = new Date(labourStartDate);
       start.setMonth(start.getMonth() + 1);
-      const startStr = new Date(start.getFullYear(), start.getMonth(), 1).toISOString().split('T')[0];
-      const endStr = new Date(start.getFullYear(), start.getMonth() + 1, 0).toISOString().split('T')[0];
+      const startStr = formatISODateLocal(new Date(start.getFullYear(), start.getMonth(), 1));
+      const endStr = formatISODateLocal(new Date(start.getFullYear(), start.getMonth() + 1, 0));
       setLabourStartDate(startStr);
       setLabourEndDate(endStr);
   };
 
   // Specific Actions calling props
-  const handleToggleAttendance = (date: string) => {
+  const handleSetAttendance = (date: string, isPresent: boolean | null) => {
       if (selectedAccountName && onToggleAttendance) {
-          // Find current state
-          const acc = accounts.find(a => a.name === selectedAccountName);
-          const current = acc?.attendance?.[date]; // true, false, or undefined
-          
-          // Cycle: undefined -> false (Absent) -> true (Present) -> undefined (Reset)
-          let nextState: boolean | null = null;
-          
-          if (current === undefined || current === null) {
-              nextState = false; // Mark as Absent (❌)
-          } else if (current === false) {
-              nextState = true;  // Mark as Present (✅)
-          } else {
-              nextState = null;  // Reset to Unmarked (-)
-          }
-
-          onToggleAttendance(selectedAccountName, date, nextState);
+          onToggleAttendance(selectedAccountName, date, isPresent);
       }
   };
 
@@ -636,15 +627,13 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       }
   };
 
-  const handleRenameLocal = (name: string) => {
-      if (onRenameAccount) {
-          const newName = prompt("Enter new name for account:", name);
-          if (newName && newName !== name) {
-              onRenameAccount(name, newName.trim());
-              // Update selected name locally so UI doesn't break
-              setSelectedAccountName(newName.trim());
-          }
-      }
+  const handleRenameLocal = (oldName: string, newName: string) => {
+      if (!onRenameAccount) return;
+      const next = newName.trim();
+      if (!next || next === oldName) return;
+      onRenameAccount(oldName, next);
+      // Update selected name locally so UI doesn't break
+      setSelectedAccountName(next);
   };
 
   const handleDeleteAccountClick = (name: string) => {
@@ -721,7 +710,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       newAccountRate={newAccountRate}
       onNewAccountRateChange={setNewAccountRate}
       
-      onToggleAttendance={handleToggleAttendance}
+      onToggleAttendance={handleSetAttendance}
       onToggleHisaab={handleToggleHisaab}
       onAddAdjustment={handleAddAdjustmentLocal}
       onUpdateAdjustment={onUpdateAdjustment}
@@ -751,6 +740,16 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       onUpdateSerial={handleUpdateSerial}
       onRenameAccount={handleRenameLocal}
       onDeleteAccount={handleDeleteAccountClick}
+      removedAccounts={removedAccounts.map(a => ({ name: a.name, type: a.type, rate: a.rate }))}
+      onRestoreAccount={(name) => {
+        const acc = removedAccounts.find(a => a.name === name);
+        if (acc && onRestoreAccount) onRestoreAccount(acc);
+      }}
+      onDeleteRemovedAccount={(name) => {
+        if (!onDeleteRemovedAccount) return;
+        if (!window.confirm(t.confirmDelete)) return;
+        onDeleteRemovedAccount(name);
+      }}
 
       onAddOwnerPreviousEntry={handleAddOwnerPreviousLocal}
       onUpdateOwnerPreviousEntry={handleUpdateOwnerPreviousLocal}

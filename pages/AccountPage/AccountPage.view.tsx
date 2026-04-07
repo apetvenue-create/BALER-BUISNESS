@@ -24,6 +24,22 @@ const LedgerRemoveTrashIcon: React.FC = () => (
   </svg>
 );
 
+const CheckCircleIcon: React.FC<{ className?: string; strokeWidth?: number }> = ({ className, strokeWidth = 3.5 }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={strokeWidth}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className ?? "w-5 h-5"}
+    aria-hidden
+  >
+    <path d="M20 6L9 17l-5-5" />
+  </svg>
+);
+
 interface AccountPageViewProps {
   t: Translation;
   activeTab: AccountTab;
@@ -54,7 +70,7 @@ interface AccountPageViewProps {
   onNewAccountRateChange: (val: string) => void;
 
   // Attendance
-  onToggleAttendance?: (date: string) => void;
+  onToggleAttendance?: (date: string, isPresent: boolean | null) => void;
   
   // Labour Specific
   labourStartDate?: string;
@@ -87,8 +103,12 @@ interface AccountPageViewProps {
 
   getTranslated: (text?: string) => string;
   onUpdateSerial: (name: string, serial: number) => void;
-  onRenameAccount?: (name: string) => void;
+  onRenameAccount?: (oldName: string, newName: string) => void;
   onDeleteAccount?: (name: string) => void;
+
+  removedAccounts?: { name: string; type: string; rate?: number }[];
+  onRestoreAccount?: (name: string) => void;
+  onDeleteRemovedAccount?: (name: string) => void;
 
   onAddOwnerPreviousEntry?: (entry: Omit<OwnerPreviousEntry, 'id'>) => void;
   onUpdateOwnerPreviousEntry?: (entry: OwnerPreviousEntry) => void;
@@ -145,6 +165,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   onUpdateSerial,
   onRenameAccount,
   onDeleteAccount,
+  removedAccounts = [],
+  onRestoreAccount,
+  onDeleteRemovedAccount,
 
   onAddOwnerPreviousEntry,
   onUpdateOwnerPreviousEntry,
@@ -177,6 +200,56 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   });
   const [editingOwnerPrevId, setEditingOwnerPrevId] = useState<number | null>(null);
   const [ownerPrevErrors, setOwnerPrevErrors] = useState<Record<string, string>>({});
+
+  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
+  const [renameOldName, setRenameOldName] = useState<string>('');
+  const [renameNewName, setRenameNewName] = useState<string>('');
+
+  const openRenameModal = (currentName: string) => {
+    setRenameOldName(currentName);
+    setRenameNewName(currentName);
+    setIsRenameModalOpen(true);
+  };
+
+  const renameModal =
+    isRenameModalOpen && onRenameAccount ? (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in">
+          <h3 className="text-xl font-bold mb-4 text-gray-800">Rename Account</h3>
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.nameLabel}</label>
+            <input
+              autoFocus
+              type="text"
+              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none focus:ring-blue-500 border-gray-300"
+              value={renameNewName}
+              onChange={(e) => setRenameNewName(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                const next = renameNewName.trim();
+                if (!next) return;
+                onRenameAccount(renameOldName, next);
+                setIsRenameModalOpen(false);
+              }}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
+            >
+              {t.updateBtn}
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsRenameModalOpen(false)}
+              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-bold transition"
+            >
+              {t.cancelBtn}
+            </button>
+          </div>
+        </div>
+      </div>
+    ) : null;
 
   const handleOpenOwnerPrevModal = (entry?: OwnerPreviousEntry) => {
     if (entry) {
@@ -378,8 +451,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                    {/* Header with Rename Button */}
                    <div className="flex items-center gap-3 border-b pb-2 mb-4">
                        <h2 className="text-2xl font-bold text-gray-800">{getTranslated(customerData.name)}</h2>
-                       <button 
-                           onClick={() => onRenameAccount && onRenameAccount(customerData.name)}
+                       <button
+                           type="button"
+                           onClick={() => onRenameAccount && openRenameModal(customerData.name)}
                            className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
                            title="Rename Account"
                        >
@@ -550,6 +624,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                             </div>
                        </div>
                    )}
+                   {renameModal}
               </div>
           );
       } else if (activeTab === 'supplier' && supplierData) {
@@ -579,8 +654,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                        <div className="flex justify-between items-start items-center">
                            <div className="flex items-center gap-3">
                                <h2 className="text-2xl font-bold text-gray-800">{getTranslated(supplierData.name)}</h2>
-                               <button 
-                                   onClick={() => onRenameAccount && onRenameAccount(supplierData.name)}
+                               <button
+                                   type="button"
+                                   onClick={() => onRenameAccount && openRenameModal(supplierData.name)}
                                    className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
                                    title="Rename Account"
                                >
@@ -666,6 +742,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                            </tbody>
                        </table>
                   </div>
+                  {renameModal}
               </div>
           );
       } else if (activeTab === 'partner' && partnerData) {
@@ -681,8 +758,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
               <div className="flex justify-between items-start">
                  <div className="flex items-center gap-3">
                     <h2 className="text-3xl font-bold text-gray-800">{getTranslated(partnerData.name)}</h2>
-                    <button 
-                       onClick={() => onRenameAccount && onRenameAccount(partnerData.name)}
+                    <button
+                       type="button"
+                       onClick={() => onRenameAccount && openRenameModal(partnerData.name)}
                        className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
                        title="Rename Account"
                     >
@@ -980,6 +1058,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                 </div>
               </div>
             )}
+            {renameModal}
           </div>
         );
       } else if (activeTab === 'labour' && labourData) {
@@ -1028,8 +1107,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                       <div>
                           <div className="flex items-center gap-3">
                               <h2 className="text-3xl font-bold text-gray-900">{getTranslated(labourData.name)}</h2>
-                              <button 
-                                   onClick={() => onRenameAccount && onRenameAccount(labourData.name)}
+                              <button
+                                   type="button"
+                                   onClick={() => onRenameAccount && openRenameModal(labourData.name)}
                                    className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
                                    title="Rename Account"
                                >
@@ -1104,10 +1184,6 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         />
                     </div>
                  </div>
-                 
-                 <div className="text-xs text-gray-400 italic">
-                    {t.hisaabHelp}
-                 </div>
             </div>
 
             {/* UNIFIED LEDGER VIEW */}
@@ -1171,10 +1247,21 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                 </div>
 
                                 {/* ATTENDANCE TOGGLE COLUMN */}
-                                <div className="w-24 flex items-center justify-center border-r border-gray-200 cursor-pointer select-none" onClick={() => onToggleAttendance && onToggleAttendance(row.date)}>
+                                <div
+                                  className="w-24 flex items-center justify-center border-r border-gray-200 cursor-pointer select-none"
+                                  onClick={() => {
+                                    if (!onToggleAttendance) return;
+                                    onToggleAttendance(row.date, true); // ✅ present (instant)
+                                  }}
+                                  onDoubleClick={() => {
+                                    if (!onToggleAttendance) return;
+                                    onToggleAttendance(row.date, false); // ❌ absent
+                                  }}
+                                  title="Single click = Present (✅), double click = Absent (❌)"
+                                >
                                    {row.isPresent === true && (
-                                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold shadow-sm border border-green-200">
-                                           ✅
+                                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shadow-sm border border-green-200">
+                                           <CheckCircleIcon className="w-6 h-6 text-green-700" />
                                        </div>
                                    )}
                                    {row.isPresent === false && (
@@ -1350,6 +1437,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     </div>
                 </div>
             )}
+            {renameModal}
           </div>
         );
       }
@@ -1454,6 +1542,52 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                </div>
             )}
          </div>
+
+         {/* Removed accounts (recover) */}
+         <div className="mt-8 border-t pt-4">
+           <div className="flex items-center justify-between mb-2">
+             <h3 className="text-sm font-bold text-gray-700">{t.removedAccountsTitle}</h3>
+           </div>
+           {removedAccounts.length === 0 || (!onRestoreAccount && !onDeleteRemovedAccount) ? (
+             <div className="text-sm text-gray-400">{t.noRemovedAccounts}</div>
+           ) : (
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+               {removedAccounts.map((acc) => (
+                 <div
+                   key={`removed-${acc.name}`}
+                   className="border rounded-lg p-3 bg-gray-50 flex items-center justify-between gap-3"
+                 >
+                   <div className="min-w-0">
+                     <div className="font-bold text-gray-800 truncate">{getTranslated(acc.name)}</div>
+                     <div className="text-[11px] text-gray-500 uppercase font-semibold">
+                       {acc.type}
+                     </div>
+                   </div>
+                   <div className="shrink-0 flex items-center gap-2">
+                     {onRestoreAccount && (
+                       <button
+                         type="button"
+                         onClick={() => onRestoreAccount(acc.name)}
+                         className="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold shadow-sm transition"
+                       >
+                         {t.restoreAccountBtn}
+                       </button>
+                     )}
+                     {onDeleteRemovedAccount && (
+                       <button
+                         type="button"
+                         onClick={() => onDeleteRemovedAccount(acc.name)}
+                         className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-sm transition"
+                       >
+                         {t.deleteRemovedAccountBtn}
+                       </button>
+                     )}
+                   </div>
+                 </div>
+               ))}
+             </div>
+           )}
+         </div>
       </div>
 
       {/* --- ADD ACCOUNT MODAL --- */}
@@ -1511,6 +1645,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             </div>
         </div>
       )}
+      {renameModal}
     </div>
   );
 };

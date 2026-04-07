@@ -448,4 +448,9 @@ export interface Translation {
   confirmDeleteAccount: string;
   confirmDeleteAccountSecond: string;
   accountDeleteFailed: string;
+
+  removedAccountsTitle: string;
+  restoreAccountBtn: string;
+  deleteRemovedAccountBtn: string;
+  noRemovedAccounts: string;
 }

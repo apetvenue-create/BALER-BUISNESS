@@ -6,27 +6,27 @@ export const TRANSLATIONS: Record<Language, Translation> = {
   en: {
     pageTitle: "VASDEV TRADING",
     langLabel: "Language:",
-    prevBalTitle: "Previous Balance",
+    prevBalTitle: "PREVIOUS BALANCE",
     cashBalLabel: "Cash Balance",
     onlineBalLabel: "Online Balance",
     totalBalLabel: "Total Balance",
-    incomeTitle: "Income Transactions",
+    incomeTitle: "INCOME TRANSACTIONS",
     addIncomeBtn: "+ Add",
     incomeTypeHeader: "Income Type",
     amountHeader: "Amount",
     typeHeader: "Payment Type",
     actionHeader: "Action",
     detailsHeader: "Description",
-    incomeTotalLabel: "Total Income:",
-    expenseTitle: "Expense Transactions",
+    incomeTotalLabel: "TOTAL INCOME:",
+    expenseTitle: "EXPENSE TRANSACTIONS",
     addExpenseBtn: "+ Add",
     expenseTypeHeader: "Expense Type",
-    expenseTotalLabel: "Total Expense:",
-    finalBalanceTitle: "Final Balance (Prev + Income - Expense)",
-    addIncomeTitle: "Add Income",
-    editIncomeTitle: "Edit Income",
-    addExpenseTitle: "Add Expense",
-    editExpenseTitle: "Edit Expense",
+    expenseTotalLabel: "TOTAL EXPENSE:",
+    finalBalanceTitle: "FINAL BALANCE",
+    addIncomeTitle: "ADD INCOME",
+    editIncomeTitle: "EDIT INCOME",
+    addExpenseTitle: "ADD EXPENSE",
+    editExpenseTitle: "EDIT EXPENSE",
     incomeTypeLabel: "Income Type",
     selectAccountLabel: "Select Account",
     amountLabel: "Amount (₹)",
@@ -63,10 +63,10 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     rangeEndDateLabel: "End Date:",
     rangeHelpText: "Adds this transaction to every day in range.",
     // Account Page
-    tabTransactions: "Cashbook",
-    tabAccounts: "Ledgers",
-    tabLabour: "Labour",
-    tabPartner: "Owners",
+    tabTransactions: "TRANSACTIONS",
+    tabAccounts: "ACCOUNTS",
+    tabLabour: "LABOUR",
+    tabPartner: "OWNERS",
     searchPlaceholder: "Search...",
     totalReceivable: "Total Receivables",
     totalPayable: "Total Payables",
@@ -122,7 +122,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     moneyTakenLabel: "Money Taken from Labour (Increases Payable)",
 
     // Stats
-    statsTitle: "Summary Report",
+    statsTitle: "SUMMARY REPORT",
     statsDateLabel: "From",
     tillNow: "Till Now",
     statsTotalExpense: "Total Expense",
@@ -140,7 +140,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     translateBtn: "Translate View",
     translating: "Translating...",
     // Stock
-    tabStock: "Stock & Sales",
+    tabStock: "STOCK",
     tabStockDashboard: "Dashboard",
     tabCustomers: "Customers",
     tabSuppliers: "Suppliers",
@@ -148,13 +148,13 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     addStockBtn: "+ Add",
     subtractStockBtn: "- Sub",
     unitToggleLabel: "Unit:",
-    dispatchTitle: "Dispatch Stock (Bill Generation)",
+    dispatchTitle: "DISPATCH STOCK",
     vehicleNoLabel: "Vehicle No",
     quantityLabel: "Quantity",
     rateLabel: "Rate",
     convertedWeightLabel: "In KG:",
     totalPriceLabel: "Bill Amount:",
-    dispatchBtn: "Generate Bill & Dispatch",
+    dispatchBtn: "DISPATCH",
     stockHistoryTitle: "Movement History",
     colGadi: "Vehicle",
     colQty: "Qty",
@@ -179,7 +179,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     initialOnlineLabel: "Online:",
     saveBtn: "Save",
     // Customer View
-    tabCustomer: "Customers (Receivables)",
+    tabCustomer: "CUSTOMERS",
     customerTotalStock: "Total Stock Given",
     customerTotalBilled: "Total Billed",
     customerTotalReceived: "Total Received",
@@ -198,7 +198,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     cr: "Rs",
     
     // Reports
-    tabReports: "Reports",
+    tabReports: "REPORTS",
     reportAllTransactionsTitle: "All Transactions",
     filterTypeLabel: "Filter by Type",
     filterAll: "All Transactions",
@@ -209,7 +209,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     reportNet: "Net Balance",
 
     // Supplier
-    tabSupplier: "Suppliers",
+    tabSupplier: "SUPPLIERS",
     addSupplierAccount: "+ Add Supplier",
     creatingSupplierAccount: "Creating Supplier Account",
     colPaymentMade: "Payment Made (Dr)",
@@ -271,6 +271,11 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     confirmDeleteAccountSecond:
       "Confirm again: you are only hiding this name from the accounts page. No transactions or stock records will be deleted.",
     accountDeleteFailed: "Could not update the server. Your accounts list has been restored.",
+
+    removedAccountsTitle: "REMOVED ACCOUNTS",
+    restoreAccountBtn: "Restore",
+    deleteRemovedAccountBtn: "Delete",
+    noRemovedAccounts: "No removed accounts.",
 
     // Validation
     errRequired: "Required",
@@ -539,6 +544,11 @@ export const TRANSLATIONS: Record<Language, Translation> = {
       "दोबारा पुष्टि करें: केवल खाता पेज से नाम हटेगा; कोई लेनदेन या स्टॉक नहीं मिटेगा।",
     accountDeleteFailed: "सर्वर अपडेट नहीं हुआ। खाता सूची वापस कर दी गई है।",
 
+    removedAccountsTitle: "हटाए गए खाते (वापस लाएँ)",
+    restoreAccountBtn: "वापस लाएँ",
+    deleteRemovedAccountBtn: "हटाएँ",
+    noRemovedAccounts: "कोई हटाया गया खाता नहीं है।",
+
     // Validation
     errRequired: "अनिवार्य",
     errAccountRequired: "खाता चुनें",
@@ -805,6 +815,11 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     confirmDeleteAccountSecond:
       "ਦੁਬਾਰਾ ਪੁਸ਼ਟੀ: ਸਿਰਫ਼ ਖਾਤਾ ਪੇਜ ਤੋਂ ਨਾਮ ਹਟੇਗਾ; ਕੋਈ ਲੈਣ-ਦੇਣ ਜਾਂ ਸਟਾਕ ਨਹੀਂ ਮਿਟੇਗਾ।",
     accountDeleteFailed: "ਸਰਵਰ ਅਪਡੇਟ ਨਹੀਂ ਹੋਇਆ। ਖਾਤਾ ਸੂਚੀ ਮੁੜ ਲੋਡ ਕੀਤੀ ਗਈ ਹੈ।",
+
+    removedAccountsTitle: "ਹਟਾਏ ਖਾਤੇ (ਰੀਕਵਰ)",
+    restoreAccountBtn: "ਵਾਪਸ ਲਿਆਓ",
+    deleteRemovedAccountBtn: "ਮਿਟਾਓ",
+    noRemovedAccounts: "ਕੋਈ ਹਟਾਇਆ ਖਾਤਾ ਨਹੀਂ।",
 
     // Validation
     errRequired: "ਲੋੜੀਂਦਾ",

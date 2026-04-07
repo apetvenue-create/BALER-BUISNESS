@@ -147,18 +147,21 @@ export const AccountService = {
 
     // Always clean up existing record for this date to ensure no duplicates if constraints are missing,
     // or to handle the update logic simply.
-    await supabase.from('attendance')
+    const delRes = await supabase.from('attendance')
         .delete()
+        .eq('user_id', user.id)
         .eq('account_name', accountName)
         .eq('date', date);
+    if (delRes.error) throw delRes.error;
 
     if (isPresent !== null && isPresent !== undefined) {
-      await supabase.from('attendance').insert({
+      const insRes = await supabase.from('attendance').insert({
         user_id: user.id,
         account_name: accountName,
         date,
         is_present: isPresent
       });
+      if (insRes.error) throw insRes.error;
     }
   },
 

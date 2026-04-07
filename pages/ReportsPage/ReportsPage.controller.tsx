@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Translation, Transaction, Language } from '../../types';
+import { Translation, Transaction, Language, StockMovement } from '../../types';
 import { ReportsPageView } from './ReportsPage.view';
 import { PDFGenerator } from '../../services/pdfGenerator';
+import { formatISODateLocal } from '../../utils';
 
 interface ReportsPageControllerProps {
   transactions: Transaction[];
+  stockMovements: StockMovement[];
   t: Translation;
   language: Language;
   getTranslated: (text?: string) => string;
@@ -12,17 +14,18 @@ interface ReportsPageControllerProps {
 
 export const ReportsPageController: React.FC<ReportsPageControllerProps> = ({
   transactions,
+  stockMovements,
   t,
   language,
   getTranslated
 }) => {
   // Default start date: 1st of current month
   const [startDate, setStartDate] = useState<string>(
-      new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
-  // Default end date: Today
+  // Default end date: last day of current month
   const [endDate, setEndDate] = useState<string>(
-      new Date().toISOString().split('T')[0]
+      formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
   );
   
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
@@ -47,22 +50,19 @@ export const ReportsPageController: React.FC<ReportsPageControllerProps> = ({
           });
   }, [transactions, startDate, endDate, filterType]);
 
-  // Logic: Summary Stats for the filtered view
-  const { totalIncome, totalExpense } = useMemo(() => {
-      let inc = 0;
-      let exp = 0;
-      filteredData.forEach(tr => {
-          if (tr.type === 'income') {
-              // Redundant check strictly speaking if filtered above, but good for safety
-              if (tr.category !== 'supplier') {
-                  inc += tr.amount;
-              }
-          } else {
-              // Expense includes Supplier Payments (Money Out) + Operational Expense
-              exp += tr.amount;
-          }
-      });
-      return { totalIncome: inc, totalExpense: exp };
+  const totalIncome = useMemo(() => {
+      // Rule: Total Income = Total amount of stock sold (dispatch total) for the selected date range.
+      return stockMovements
+        .filter(m => m.type === 'out' && m.date >= startDate && m.date <= endDate)
+        .reduce((sum, m) => sum + (m.totalAmount || 0), 0);
+  }, [stockMovements, startDate, endDate]);
+
+  const totalExpense = useMemo(() => {
+      // Rule: Total Expense = Total Expense - Paid to Owners
+      // "Paid to Owners" is recorded as an EXPENSE with category 'partner'.
+      return filteredData
+        .filter(tr => tr.type === 'expense' && tr.category !== 'partner')
+        .reduce((sum, tr) => sum + tr.amount, 0);
   }, [filteredData]);
 
   const netBalance = totalIncome - totalExpense;

@@ -467,7 +467,16 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
        {/* EDIT MODAL */}
        {editingMovement && (
            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-               <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in">
+               <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in relative">
+                   <button
+                     type="button"
+                     onClick={closeEditModal}
+                     className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition"
+                     aria-label={t.cancelBtn}
+                     title={t.cancelBtn}
+                   >
+                     ✕
+                   </button>
                    <h3 className="text-xl font-bold mb-4 text-gray-800">{t.editStockEntryTitle}</h3>
                    
                    <div className="space-y-4">
