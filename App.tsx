@@ -484,14 +484,49 @@ const FinancialApp: React.FC = () => {
           });
       } else {
           // CREATE
+          const isCashConversion = data.category === 'cash_conversion';
+          const makeCashConversionPair = (d: string, baseId: number, baseTs: number): Transaction[] => {
+            const amount = data.amount;
+            const common = {
+              ...data,
+              date: d,
+              accountName: '', // internal transfer
+              details: data.details?.trim() || 'Online to Cash Transfer',
+            };
+
+            // Expense: money leaves Online
+            const outTx: Transaction = {
+              ...common,
+              id: baseId,
+              timestamp: baseTs,
+              type: 'expense',
+              paymentType: 'online' as any,
+            };
+
+            // Income: money enters Cash
+            const inTx: Transaction = {
+              ...common,
+              id: baseId + 1,
+              timestamp: baseTs + 1,
+              type: 'income',
+              paymentType: 'cash' as any,
+            };
+
+            // Keep the same category so it can be identified as internal transfer in UI
+            // and appears in both Income and Expense tables.
+            return [outTx, inTx].map(tx => ({ ...tx, amount }));
+          };
+
           if (endDate && endDate !== data.date) {
               const dates = getDatesInRange(data.date, endDate);
-              const newTxs: Transaction[] = dates.map((d, i) => ({
-                  ...data,
-                  id: tempId + i,
-                  date: d,
-                  timestamp: Date.now() + i
-              }));
+              const newTxs: Transaction[] = isCashConversion
+                ? dates.flatMap((d, i) => makeCashConversionPair(d, tempId + i * 2, Date.now() + i * 2))
+                : dates.map((d, i) => ({
+                    ...data,
+                    id: tempId + i,
+                    date: d,
+                    timestamp: Date.now() + i
+                }));
               
               setTransactions(prev => [...prev, ...newTxs]);
 
@@ -499,7 +534,14 @@ const FinancialApp: React.FC = () => {
               (async () => {
                   try {
                       for (const d of dates) {
-                          await TransactionService.create({ ...data, date: d, timestamp: Date.now() });
+                          if (isCashConversion) {
+                            // Create both sides of transfer
+                            const baseTs = Date.now();
+                            await TransactionService.create({ ...data, type: 'expense', paymentType: 'online' as any, accountName: '', date: d, timestamp: baseTs, details: data.details?.trim() || 'Online to Cash Transfer' });
+                            await TransactionService.create({ ...data, type: 'income', paymentType: 'cash' as any, accountName: '', date: d, timestamp: baseTs + 1, details: data.details?.trim() || 'Online to Cash Transfer' });
+                          } else {
+                            await TransactionService.create({ ...data, date: d, timestamp: Date.now() });
+                          }
                       }
                   } catch (e) {
                       console.error("Batch create failed", e);
@@ -507,23 +549,45 @@ const FinancialApp: React.FC = () => {
               })();
 
           } else {
-              const newTx: Transaction = {
-                  ...data,
-                  id: tempId,
-                  timestamp: Date.now()
-              };
-              setTransactions(prev => [...prev, newTx]);
+              if (isCashConversion) {
+                const pair = makeCashConversionPair(data.date, tempId, Date.now());
+                setTransactions(prev => [...prev, ...pair]);
 
-              // Background Sync
-              TransactionService.create({ ...data, timestamp: Date.now() })
-                  .then(realTx => {
-                      // Replace temp ID with real ID
-                      setTransactions(prev => prev.map(t => t.id === tempId ? realTx : t));
-                  })
-                  .catch(e => {
-                      console.error("Create tx failed", e);
-                      setTransactions(prev => prev.filter(t => t.id !== tempId));
-                  });
+                // Background Sync: create both, then replace temp ids
+                (async () => {
+                  try {
+                    const baseTs = Date.now();
+                    const outReal = await TransactionService.create({ ...data, type: 'expense', paymentType: 'online' as any, accountName: '', timestamp: baseTs, details: data.details?.trim() || 'Online to Cash Transfer' });
+                    const inReal = await TransactionService.create({ ...data, type: 'income', paymentType: 'cash' as any, accountName: '', timestamp: baseTs + 1, details: data.details?.trim() || 'Online to Cash Transfer' });
+                    setTransactions(prev => prev.map(t => {
+                      if (t.id === tempId) return outReal;
+                      if (t.id === tempId + 1) return inReal;
+                      return t;
+                    }));
+                  } catch (e) {
+                    console.error("Create cash conversion failed", e);
+                    setTransactions(prev => prev.filter(t => t.id !== tempId && t.id !== tempId + 1));
+                  }
+                })();
+              } else {
+                const newTx: Transaction = {
+                    ...data,
+                    id: tempId,
+                    timestamp: Date.now()
+                };
+                setTransactions(prev => [...prev, newTx]);
+
+                // Background Sync
+                TransactionService.create({ ...data, timestamp: Date.now() })
+                    .then(realTx => {
+                        // Replace temp ID with real ID
+                        setTransactions(prev => prev.map(t => t.id === tempId ? realTx : t));
+                    })
+                    .catch(e => {
+                        console.error("Create tx failed", e);
+                        setTransactions(prev => prev.filter(t => t.id !== tempId));
+                    });
+              }
           }
       }
       setEditingTransaction(null);
@@ -531,17 +595,38 @@ const FinancialApp: React.FC = () => {
   };
 
   const handleDeleteTransaction = async (id: number) => {
-      if (window.confirm(t.confirmDelete)) {
-          // Optimistic
-          setTransactions(prev => prev.filter(t => t.id !== id));
-          
-          // Background
-          try {
-              await TransactionService.delete(id);
-          } catch (e) {
-              console.error("Delete tx failed", e);
-              // Typically we'd reload data here if it failed
+      if (!window.confirm(t.confirmDelete)) return;
+
+      let idsToDelete: number[] = [id];
+
+      // Optimistic: if this is an Online->Cash transfer, delete the paired entry too.
+      setTransactions(prev => {
+          const tx = prev.find(t => t.id === id);
+          if (!tx) return prev.filter(t => t.id !== id);
+
+          if (tx.category === 'cash_conversion') {
+              const pair = prev.find(other =>
+                  other.id !== tx.id &&
+                  other.category === 'cash_conversion' &&
+                  other.date === tx.date &&
+                  other.amount === tx.amount &&
+                  (other.details || '') === (tx.details || '') &&
+                  ((tx.type === 'expense' && other.type === 'income') || (tx.type === 'income' && other.type === 'expense')) &&
+                  ((tx.paymentType === 'online' && other.paymentType === 'cash') || (tx.paymentType === 'cash' && other.paymentType === 'online'))
+              );
+              if (pair) idsToDelete = [tx.id, pair.id];
           }
+
+          const deleteSet = new Set(idsToDelete);
+          return prev.filter(t => !deleteSet.has(t.id));
+      });
+
+      // Background
+      try {
+          await Promise.all(idsToDelete.map(txId => TransactionService.delete(txId)));
+      } catch (e) {
+          console.error("Delete tx failed", e);
+          // Typically we'd reload data here if it failed
       }
   };
   
@@ -1039,7 +1124,7 @@ const FinancialApp: React.FC = () => {
       if (cat === 'cl_oil') return t.clOilOption;
       if (cat === 'electricity') return t.electricityOption;
       if (cat === 'supplier') return t.supplierOption;
-      if (cat === 'cash_conversion') return "Internal Transfer";
+      if (cat === 'cash_conversion') return "ONLINE -> CASH";
       if (cat === 'other_income') return t.otherIncomeOption;
       return cat;
   };
@@ -1264,8 +1349,8 @@ const FinancialApp: React.FC = () => {
                                                       {tr.paymentType}
                                                   </span>
                                               </td>
-                                              <td className="px-4 py-3">
-                                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                              <td className="px-4 py-3 text-center">
+                                                  <span className="inline-flex justify-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
                                                       {getCategoryLabel(tr.category)}
                                                   </span>
                                               </td>
@@ -1349,8 +1434,8 @@ const FinancialApp: React.FC = () => {
                                                       {tr.paymentType}
                                                   </span>
                                               </td>
-                                              <td className="px-4 py-3">
-                                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                              <td className="px-4 py-3 text-center">
+                                                  <span className="inline-flex justify-center px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
                                                       {getCategoryLabel(tr.category)}
                                                   </span>
                                               </td>
