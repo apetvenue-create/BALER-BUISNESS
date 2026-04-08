@@ -307,6 +307,7 @@ export interface Translation {
   statsOilExpense: string;
   statsClOilExpense: string;
   oilOption: string;
+  clOilOption: string;
   electricityOption: string; 
   statsElectricityExpense: string; 
 

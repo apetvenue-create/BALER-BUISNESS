@@ -182,11 +182,17 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         return;
     }
 
+    const normalizedCategory = category === 'cl_oil' ? 'oil' : category;
+    const normalizedDetails =
+      category === 'cl_oil'
+        ? (details && details.trim() ? `CL OIL - ${details.trim()}` : 'CL OIL')
+        : details;
+
     onSubmit({
       type: mode,
-      category,
+      category: normalizedCategory,
       accountName: accountName.trim(), 
-      details,
+      details: normalizedDetails,
       amount: parseCurrency(amountStr),
       paymentType: paymentType as any,
       date,
@@ -322,6 +328,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <>
                     <option value="shop">{t.shopOption}</option>
                     <option value="oil">{t.oilOption}</option>
+                    <option value="cl_oil">{t.clOilOption}</option>
                     <option value="electricity">{t.electricityOption}</option>
                     <option value="labour">{t.labourOption}</option>
                     <option value="partner">{t.partnerOption}</option>
