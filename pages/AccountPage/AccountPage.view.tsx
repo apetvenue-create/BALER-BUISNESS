@@ -385,7 +385,16 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   const renameModal =
     isRenameModalOpen && onRenameAccount ? (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in">
+        <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in relative">
+          <button
+            type="button"
+            onClick={() => setIsRenameModalOpen(false)}
+            className="absolute top-3 right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition font-extrabold"
+            aria-label={t.cancelBtn}
+            title={t.cancelBtn}
+          >
+            ✕
+          </button>
           <h3 className="text-xl font-bold mb-4 text-gray-800">Rename Account</h3>
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-1">{t.nameLabel}</label>
@@ -395,29 +404,28 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
               className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none focus:ring-blue-500 border-gray-300"
               value={renameNewName}
               onChange={(e) => setRenameNewName(e.target.value)}
-            />
-          </div>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => {
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                e.preventDefault();
                 const next = renameNewName.trim();
                 if (!next) return;
                 onRenameAccount(renameOldName, next);
                 setIsRenameModalOpen(false);
               }}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
-            >
-              {t.updateBtn}
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsRenameModalOpen(false)}
-              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-bold transition"
-            >
-              {t.cancelBtn}
-            </button>
+            />
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              const next = renameNewName.trim();
+              if (!next) return;
+              onRenameAccount(renameOldName, next);
+              setIsRenameModalOpen(false);
+            }}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
+          >
+            {t.updateBtn}
+          </button>
         </div>
       </div>
     ) : null;
@@ -427,7 +435,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       setEditingOwnerPrevId(entry.id);
       setOwnerPrevForm({
         date: entry.date,
-        amount: String(entry.amount),
+        amount: formatInputCurrency(String(entry.amount)),
         note: entry.note || '',
         kind: entry.kind
       });
@@ -446,7 +454,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
   const handleOwnerPrevSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const rawAmt = parseFloat(ownerPrevForm.amount);
+    const rawAmt = parseCurrency(ownerPrevForm.amount);
     const errors: Record<string, string> = {};
     if (!rawAmt || rawAmt <= 0) errors.amount = t.errPositiveAmount;
     if (Object.keys(errors).length > 0) {
@@ -491,7 +499,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
   const handleBonusSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-      const rawAmt = parseFloat(bonusForm.amount);
+      const rawAmt = parseCurrency(bonusForm.amount);
       const errors: Record<string, string> = {};
       
       if (!rawAmt || rawAmt === 0) errors.amount = t.errPositiveAmount;
@@ -1264,7 +1272,16 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
             {isOwnerPrevModalOpen && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-                <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in">
+                <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsOwnerPrevModalOpen(false)}
+                    className="absolute top-3 right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition font-extrabold"
+                    aria-label={t.cancelBtn}
+                    title={t.cancelBtn}
+                  >
+                    ✕
+                  </button>
                   <h3 className="text-xl font-bold mb-4 text-gray-800">
                     {editingOwnerPrevId ? t.ownerPreviousModalEdit : t.ownerPreviousModalAdd}
                   </h3>
@@ -1308,12 +1325,13 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     <div className="mb-4">
                       <label className="block text-sm font-semibold text-gray-700 mb-1">{t.adjustmentAmount}</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="numeric"
                         required
                         className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none ${ownerPrevErrors.amount ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500 border-gray-300'}`}
                         value={ownerPrevForm.amount}
                         onChange={(e) => {
-                          setOwnerPrevForm({ ...ownerPrevForm, amount: e.target.value });
+                          setOwnerPrevForm({ ...ownerPrevForm, amount: formatInputCurrency(e.target.value) });
                           setOwnerPrevErrors({});
                         }}
                         placeholder="0"
@@ -1332,19 +1350,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         placeholder={t.adjustmentNote}
                       />
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 items-stretch">
                       <button
                         type="submit"
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
+                        className="flex-1 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
                       >
                         {editingOwnerPrevId ? t.updateBtn : t.submitBtn}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setIsOwnerPrevModalOpen(false)}
-                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-bold transition"
-                      >
-                        {t.cancelBtn}
                       </button>
                       {editingOwnerPrevId != null && onDeleteOwnerPreviousEntry && (
                         <button
@@ -1654,7 +1665,16 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             {/* ADJUSTMENT / BONUS MODAL */}
             {isBonusModalOpen && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in relative">
+                        <button
+                            type="button"
+                            onClick={() => setIsBonusModalOpen(false)}
+                            className="absolute top-3 right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition font-extrabold"
+                            aria-label={t.cancelBtn}
+                            title={t.cancelBtn}
+                        >
+                            ✕
+                        </button>
                         <h3 className="text-xl font-bold mb-4 text-gray-800">
                             {editingAdjustmentId ? t.editBtn : t.adjustmentTitle}
                         </h3>
@@ -1703,11 +1723,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                             <div className="mb-4">
                                 <label className="block text-sm font-semibold text-gray-700 mb-1">{t.adjustmentAmount}</label>
                                 <input 
-                                    type="number"
+                                    type="text"
+                                    inputMode="numeric"
                                     required
                                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none ${bonusErrors.amount ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500 border-gray-300'}`}
                                     value={bonusForm.amount}
-                                    onChange={e => { setBonusForm({...bonusForm, amount: e.target.value}); setBonusErrors({}); }}
+                                    onChange={e => { setBonusForm({...bonusForm, amount: formatInputCurrency(e.target.value)}); setBonusErrors({}); }}
                                     placeholder="0"
                                 />
                                 {bonusErrors.amount && <p className="text-red-500 text-xs mt-1">{bonusErrors.amount}</p>}
@@ -1722,16 +1743,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                     placeholder="e.g. Bonus, Advance, Previous Balance"
                                 />
                             </div>
-                            <div className="flex gap-3">
-                                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition">
+                            <div className="flex gap-3 items-stretch">
+                                <button type="submit" className="flex-1 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition">
                                     {editingAdjustmentId ? t.updateBtn : t.submitBtn}
-                                </button>
-                                <button 
-                                    type="button" 
-                                    onClick={() => setIsBonusModalOpen(false)}
-                                    className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-bold transition"
-                                >
-                                    {t.cancelBtn}
                                 </button>
                                 {editingAdjustmentId && (
                                     <button
@@ -1915,7 +1929,16 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       {/* --- ADD ACCOUNT MODAL --- */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in">
+            <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in relative">
+                <button
+                  type="button"
+                  onClick={onCancelAddAccount}
+                  className="absolute top-3 right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition font-extrabold"
+                  aria-label={t.cancelBtn}
+                  title={t.cancelBtn}
+                >
+                  ✕
+                </button>
                 <h3 className="text-xl font-bold mb-2">{t.createAccountTitle}</h3>
                 <p className="mb-4 text-sm text-gray-600">
                     {activeTab === 'labour' ? t.creatingLabourAccount : 
@@ -1932,6 +1955,11 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         placeholder={t.enterAccountName}
                         value={newAccountName}
                         onChange={e => { onNewAccountNameChange(e.target.value); setAccountErrors(''); }}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return;
+                          e.preventDefault();
+                          handleConfirmAddAccountClick();
+                        }}
                     />
                     {accountErrors && <p className="text-red-500 text-xs mt-1">{accountErrors}</p>}
                 </div>
@@ -1941,29 +1969,27 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     <div className="mb-4">
                         <label className="block text-sm font-semibold text-gray-700 mb-1">{t.enterRate}</label>
                         <input 
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none border-gray-300"
                             placeholder="400"
                             value={newAccountRate}
-                            onChange={e => onNewAccountRateChange(e.target.value)}
+                            onChange={e => onNewAccountRateChange(formatInputCurrency(e.target.value))}
+                            onKeyDown={(e) => {
+                              if (e.key !== 'Enter') return;
+                              e.preventDefault();
+                              handleConfirmAddAccountClick();
+                            }}
                         />
                     </div>
                 )}
 
-                <div className="flex gap-3">
-                    <button 
-                        onClick={handleConfirmAddAccountClick} 
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
-                    >
-                        {t.createBtn}
-                    </button>
-                    <button 
-                        onClick={onCancelAddAccount} 
-                        className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold transition"
-                    >
-                        {t.cancelBtn}
-                    </button>
-                </div>
+                <button 
+                    onClick={handleConfirmAddAccountClick} 
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
+                >
+                    {t.createBtn}
+                </button>
             </div>
         </div>
       )}

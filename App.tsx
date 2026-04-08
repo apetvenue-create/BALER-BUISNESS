@@ -13,7 +13,7 @@ import {
   OwnerPreviousEntry
 } from './types';
 import { TRANSLATIONS } from './constants';
-import { getDatesInRange, formatIndianCurrency, formatDisplayDate, formatISODateLocal } from './utils';
+import { getDatesInRange, formatIndianCurrency, formatDisplayDate, formatISODateLocal, formatInputCurrency, parseCurrency } from './utils';
 import {
   loadOwnerPreviousLocal,
   mergeOwnerPreviousEntries,
@@ -107,6 +107,8 @@ const FinancialApp: React.FC = () => {
   const [initialOpeningBalance, setInitialOpeningBalance] = useState({ cash: 0, online: 0 });
   const [isBalanceModalOpen, setIsBalanceModalOpen] = useState(false);
   const [tempOpeningBalance, setTempOpeningBalance] = useState({ cash: '0', online: '0' });
+  const openingBalanceFormRef = useRef<HTMLFormElement | null>(null);
+  const openingBalanceSubmittingRef = useRef(false);
 
   // Stats Section State
   const [statsStartDate, setStatsStartDate] = useState<string>(
@@ -790,16 +792,16 @@ const FinancialApp: React.FC = () => {
   // Opening Balance Modal Handlers
   const openBalanceModal = () => {
       setTempOpeningBalance({
-          cash: initialOpeningBalance.cash.toString(),
-          online: initialOpeningBalance.online.toString()
+          cash: formatInputCurrency(initialOpeningBalance.cash.toString()),
+          online: formatInputCurrency(initialOpeningBalance.online.toString())
       });
       setIsBalanceModalOpen(true);
   };
 
   const saveOpeningBalance = async () => {
       const newVal = {
-          cash: parseFloat(tempOpeningBalance.cash) || 0,
-          online: parseFloat(tempOpeningBalance.online) || 0
+          cash: parseCurrency(tempOpeningBalance.cash) || 0,
+          online: parseCurrency(tempOpeningBalance.online) || 0
       };
       // Optimistic
       setInitialOpeningBalance(newVal);
@@ -808,6 +810,29 @@ const FinancialApp: React.FC = () => {
       // Sync
       SettingsService.set('openingBalanceData', newVal);
   };
+
+  // Enter key should save the Opening Balance modal reliably.
+  useEffect(() => {
+      if (!isBalanceModalOpen) return;
+      openingBalanceSubmittingRef.current = false;
+
+      const onKeyDown = (e: KeyboardEvent) => {
+          if (e.key !== 'Enter') return;
+          if (e.repeat) return;
+          if (openingBalanceSubmittingRef.current) return;
+
+          const target = e.target as HTMLElement | null;
+          const tag = target?.tagName?.toLowerCase();
+          if (tag === 'textarea' || tag === 'select') return;
+          if ((target as any)?.isContentEditable) return;
+
+          e.preventDefault();
+          openingBalanceFormRef.current?.requestSubmit();
+      };
+
+      window.addEventListener('keydown', onKeyDown, { capture: true });
+      return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
+  }, [isBalanceModalOpen]);
 
   // Stock Handlers (Optimistic)
   const handleAddStockMovement = async (m: StockMovement) => {
@@ -1768,38 +1793,46 @@ const FinancialApp: React.FC = () => {
                         ✕
                       </button>
                       <h3 className="text-xl font-bold mb-4">{t.editOpeningBalanceTitle}</h3>
-                      <div className="mb-4">
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialCashLabel}</label>
-                          <input 
-                              type="number"
-                              value={tempOpeningBalance.cash}
-                              onChange={(e) => setTempOpeningBalance(prev => ({ ...prev, cash: e.target.value }))}
-                              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          />
-                      </div>
-                      <div className="mb-6">
-                          <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialOnlineLabel}</label>
-                          <input 
-                              type="number"
-                              value={tempOpeningBalance.online}
-                              onChange={(e) => setTempOpeningBalance(prev => ({ ...prev, online: e.target.value }))}
-                              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          />
-                      </div>
-                      <div className="flex gap-3">
-                          <button 
-                              onClick={saveOpeningBalance} 
-                              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition"
-                          >
-                              {t.saveBtn}
-                          </button>
-                          <button 
-                              onClick={() => setIsBalanceModalOpen(false)} 
-                              className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 rounded-lg font-semibold transition"
-                          >
-                              {t.cancelBtn}
-                          </button>
-                      </div>
+                      <form
+                        ref={openingBalanceFormRef}
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          if (openingBalanceSubmittingRef.current) return;
+                          openingBalanceSubmittingRef.current = true;
+                          void saveOpeningBalance();
+                        }}
+                      >
+                        <div className="mb-4">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialCashLabel}</label>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={tempOpeningBalance.cash}
+                                onChange={(e) =>
+                                  setTempOpeningBalance(prev => ({ ...prev, cash: formatInputCurrency(e.target.value) }))
+                                }
+                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            />
+                        </div>
+                        <div className="mb-6">
+                            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialOnlineLabel}</label>
+                            <input
+                                type="text"
+                                inputMode="numeric"
+                                value={tempOpeningBalance.online}
+                                onChange={(e) =>
+                                  setTempOpeningBalance(prev => ({ ...prev, online: formatInputCurrency(e.target.value) }))
+                                }
+                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition"
+                        >
+                            {t.saveBtn}
+                        </button>
+                      </form>
                   </div>
               </div>
           )}
