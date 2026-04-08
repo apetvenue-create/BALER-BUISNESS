@@ -61,6 +61,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     if (category === 'partner') targetType = 'partner';
     if (category === 'customer') targetType = 'customer';
     if (category === 'supplier') targetType = 'supplier';
+    if (category === 'dealer') targetType = 'dealer';
     
     // If category has a specific type map, filter. Otherwise show all (or none if shop)
     if (targetType) {
@@ -151,7 +152,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
 
       // Account Name Validation for specific categories
-      const requiresAccount = !isCashConversion && (category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier');
+      const requiresAccount = !isCashConversion && (category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier' || category === 'dealer');
       
       if (requiresAccount) {
           if (!accountName || !accountName.trim()) {
@@ -215,7 +216,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const showAccountSelect = 
     !isCashConversion && (
       mode === 'income' || 
-      ['labour', 'partner', 'customer', 'supplier', 'other_income'].includes(category)
+      ['labour', 'partner', 'customer', 'supplier', 'dealer', 'other_income'].includes(category)
     );
 
   return (
@@ -311,6 +312,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     {(category === 'supplier' || defaultCategory === 'supplier') && (
                         <option value="supplier">{t.supplierOption}</option>
                     )}
+                    {/* Dealer (similar to Supplier) */}
+                    {(category === 'dealer' || defaultCategory === 'dealer') && (
+                        <option value="dealer">{t.dealerOption}</option>
+                    )}
                     <option value="other_income">{t.otherIncomeOption}</option>
                   </>
                 ) : (
@@ -322,6 +327,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <option value="partner">{t.partnerOption}</option>
                     <option value="customer">{t.customerOption}</option>
                     <option value="supplier">{t.supplierOption}</option>
+                    <option value="dealer">{t.dealerOption}</option>
                     <option value="custom">{t.customOption}</option>
                     {/* Cash Conversion Option - Only available in Expense mode */}
                     <option value="cash_conversion" className="font-bold text-blue-600">{t.cashConversionOption}</option>

@@ -239,7 +239,7 @@ const FinancialApp: React.FC = () => {
           void SettingsService.set('hiddenLedgerAccounts', nextHiddenCreate);
       }
 
-      const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
+      const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'dealer', 'other'].includes(type) ? type : 'other';
       
       const newAccount: StoredAccount = {
           name,
@@ -990,6 +990,7 @@ const FinancialApp: React.FC = () => {
     let expense = 0;
     let labour = 0;
     let oil = 0;
+    let clOil = 0;
     let partnerIn = 0;
     let electricity = 0;
     
@@ -1002,6 +1003,10 @@ const FinancialApp: React.FC = () => {
                 }
                 if (t.category === 'oil') {
                     oil += t.amount;
+                    const details = (t.details || '').toLowerCase();
+                    if (details.includes('cl') || details.includes('cl oil') || details.includes('cl-oil')) {
+                      clOil += t.amount;
+                    }
                 }
                 if (t.category === 'electricity') {
                     electricity += t.amount;
@@ -1022,7 +1027,7 @@ const FinancialApp: React.FC = () => {
     const dispatchedQuintal = dispatchedKg / 100;
     const labourPerQuintal = dispatchedQuintal > 0 ? (labour / dispatchedQuintal) : 0;
     
-    return { expense, labour, oil, electricity, partnerIn, dispatchedQuintal, labourPerQuintal };
+    return { expense, labour, oil, clOil, electricity, partnerIn, dispatchedQuintal, labourPerQuintal };
   }, [transactions, stockMovements, statsStartDate, statsEndDate]);
 
   // Helpers
@@ -1144,7 +1149,8 @@ const FinancialApp: React.FC = () => {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 max-w-7xl mx-auto w-full p-4 overflow-hidden flex flex-col">
+          <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 overflow-hidden flex flex-col">
+              <div className="flex-1 lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-gray-200 lg:p-6">
               {activeTab === 'transactions' && (
                   <div className="flex flex-col space-y-6">
                       
@@ -1431,7 +1437,7 @@ const FinancialApp: React.FC = () => {
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
                               {/* Total Expense */}
                               <div className="p-5 bg-red-50 rounded-lg border border-red-100 shadow-sm">
                                    <p className="text-xs uppercase tracking-wide font-bold text-red-500 mb-1">{t.statsTotalExpense}</p>
@@ -1446,6 +1452,11 @@ const FinancialApp: React.FC = () => {
                               <div className="p-5 bg-yellow-50 rounded-lg border border-yellow-100 shadow-sm">
                                    <p className="text-xs uppercase tracking-wide font-bold text-yellow-600 mb-1">{t.statsOilExpense}</p>
                                    <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.oil)}</p>
+                              </div>
+                              {/* CL Oil Expense */}
+                              <div className="p-5 bg-green-50 rounded-lg border border-green-100 shadow-sm">
+                                   <p className="text-xs uppercase tracking-wide font-bold text-green-700 mb-1">{t.statsClOilExpense}</p>
+                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.clOil)}</p>
                               </div>
                               {/* Electricity Expense */}
                               <div className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
@@ -1520,6 +1531,7 @@ const FinancialApp: React.FC = () => {
                       getTranslated={getTranslated}
                   />
               )}
+              </div>
           </main>
 
           {/* Transaction Modal */}

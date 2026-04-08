@@ -35,7 +35,7 @@ export interface OwnerPreviousEntry {
 
 // Simple structure for persisting account metadata
 // Expanded to allow 'customer' or other types for the unified store
-export type AccountType = 'labour' | 'partner' | 'customer' | 'supplier' | 'other';
+export type AccountType = 'labour' | 'partner' | 'customer' | 'supplier' | 'dealer' | 'other';
 
 export interface StoredAccount {
   name: string;
@@ -76,7 +76,7 @@ export interface StockMovement {
 // --- Account Page Types ---
 
 // Used specifically for the Account View Tabs
-export type AccountTab = 'labour' | 'partner' | 'customer' | 'supplier';
+export type AccountTab = 'labour' | 'partner' | 'customer' | 'supplier' | 'dealer';
 
 export interface PartnerSummary {
   name: string;
@@ -150,7 +150,15 @@ export interface SupplierLedgerItem {
     debitAmount: number; // Payment Made (Expense)
     creditAmount: number; // Refund/Advance (Income)
     runningBalance: number;
-    originalTransaction: Transaction;
+    originalTransaction?: Transaction;
+}
+
+export interface AccountOnlyLedgerEntry {
+  id: number;
+  date: string; // YYYY-MM-DD
+  amount: number;
+  note?: string;
+  kind: 'received' | 'paid';
 }
 
 export interface SupplierSummary {
@@ -226,6 +234,7 @@ export interface Translation {
   tabAccounts: string;
   tabLabour: string;
   tabPartner: string;
+  tabDealer: string;
   searchPlaceholder: string;
   totalReceivable: string;
   totalPayable: string;
@@ -245,6 +254,7 @@ export interface Translation {
   // Add Account Keys
   addLabourAccount: string;
   addPartnerAccount: string;
+  addDealerAccount: string;
   createAccountTitle: string;
   accountCreated: string;
   accountExists: string;
@@ -270,6 +280,7 @@ export interface Translation {
   noAccountsFound: string;
   creatingLabourAccount: string;
   creatingPartnerAccount: string;
+  creatingDealerAccount: string;
   nameLabel: string;
   createBtn: string;
   payLabourBtn: string; 
@@ -294,6 +305,7 @@ export interface Translation {
   statsLabourPerQuintal: string;
   totalDispatchedLabel: string;
   statsOilExpense: string;
+  statsClOilExpense: string;
   oilOption: string;
   electricityOption: string; 
   statsElectricityExpense: string; 
@@ -393,6 +405,7 @@ export interface Translation {
   supplierCreditModalTitle: string;
   supplierCreditHelp: string;
   supplierOption: string;
+  dealerOption: string;
   
   // Other Income
   otherIncomeOption: string;
