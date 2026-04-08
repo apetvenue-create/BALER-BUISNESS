@@ -4,14 +4,33 @@ import { Transaction } from '../types';
 
 export const TransactionService = {
   async getAll(): Promise<Transaction[]> {
-    const { data, error } = await supabase
-      .from('transactions')
-      .select('*')
-      .order('timestamp', { ascending: true });
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error("Not authenticated");
 
-    if (error) throw error;
+    // Supabase/PostgREST projects often enforce a max rows per request (commonly 1000).
+    // Paginate to ensure older/high-volume accounts don't “lose” newer rows after refresh.
+    const pageSize = 1000;
+    let from = 0;
+    let allRows: any[] = [];
 
-    return (data || []).map(row => ({
+    while (true) {
+      const to = from + pageSize - 1;
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('timestamp', { ascending: true })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const chunk = data || [];
+      allRows = allRows.concat(chunk);
+      if (chunk.length < pageSize) break;
+      from += pageSize;
+    }
+
+    return (allRows || []).map(row => ({
       id: Number(row.id), // Ensure number type for frontend compatibility
       type: row.type as any,
       category: row.category,

@@ -125,6 +125,56 @@ const FinancialApp: React.FC = () => {
   const [modalDefaults, setModalDefaults] = useState<{ category?: string, accountName?: string }>({});
 
   const [isLoading, setIsLoading] = useState(true);
+
+  // ---- Local outbox for transactions (prevents “disappears after refresh”) ----
+  // If Supabase insert fails / is pending and the user refreshes, we keep the tx locally
+  // and auto-sync it on next load.
+  const TX_OUTBOX_KEY = 'pendingTransactions_v1';
+  const readTxOutbox = (): Omit<Transaction, 'id'>[] => {
+    try {
+      const raw = localStorage.getItem(TX_OUTBOX_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+  const writeTxOutbox = (list: Omit<Transaction, 'id'>[]) => {
+    try {
+      localStorage.setItem(TX_OUTBOX_KEY, JSON.stringify(list));
+    } catch {
+      // ignore
+    }
+  };
+  const txFingerprint = (t: Omit<Transaction, 'id'>) =>
+    [
+      t.type,
+      t.category,
+      (t.accountName || '').trim(),
+      (t.details || '').trim(),
+      String(t.amount),
+      t.paymentType,
+      t.date
+    ].join('|');
+  const outboxAddMany = (items: Omit<Transaction, 'id'>[]) => {
+    if (!items.length) return;
+    const existing = readTxOutbox();
+    const set = new Set(existing.map(txFingerprint));
+    const merged = [...existing];
+    for (const it of items) {
+      const fp = txFingerprint(it);
+      if (set.has(fp)) continue;
+      set.add(fp);
+      merged.push(it);
+    }
+    writeTxOutbox(merged);
+  };
+  const outboxRemoveMany = (items: Omit<Transaction, 'id'>[]) => {
+    if (!items.length) return;
+    const remove = new Set(items.map(txFingerprint));
+    const next = readTxOutbox().filter(it => !remove.has(txFingerprint(it)));
+    writeTxOutbox(next);
+  };
   /** Names hidden from Ledgers list only (transactions / stock unchanged). */
   const [hiddenLedgerAccounts, setHiddenLedgerAccounts] = useState<string[]>([]);
   /** Minimal metadata to allow restoring previously removed ledger accounts. */
@@ -187,7 +237,18 @@ const FinancialApp: React.FC = () => {
               SettingsService.get('removedLedgerAccounts')
           ]);
 
-          setTransactions(txs);
+          // Merge any locally pending txs so they don't disappear on refresh.
+          // Then try to sync them in background.
+          const pending = readTxOutbox();
+          const serverSet = new Set(txs.map(t => txFingerprint(t)));
+          const pendingNotOnServer = pending.filter(p => !serverSet.has(txFingerprint(p)));
+          const pendingAsTxs: Transaction[] = pendingNotOnServer.map((p, i) => ({
+            ...p,
+            id: -(Date.now() + i + 1), // negative id = local-only
+            timestamp: typeof p.timestamp === 'number' ? p.timestamp : Date.now()
+          }));
+
+          setTransactions([...txs, ...pendingAsTxs]);
           setHiddenLedgerAccounts(Array.isArray(hiddenLedger) ? hiddenLedger : []);
           setRemovedLedgerAccounts(Array.isArray(removedLedger) ? removedLedger : []);
           const localOwnerPrev = loadOwnerPreviousLocal();
@@ -206,6 +267,26 @@ const FinancialApp: React.FC = () => {
           setStockMovements(stocks);
           if (ob) setInitialOpeningBalance(ob);
           if (transCache) setTranslationCache(transCache);
+
+          // Background: sync pending txs
+          if (pendingNotOnServer.length) {
+            (async () => {
+              const created: Omit<Transaction, 'id'>[] = [];
+              for (const p of pendingNotOnServer) {
+                try {
+                  await TransactionService.create(p);
+                  created.push(p);
+                } catch (e) {
+                  // keep in outbox
+                }
+              }
+              if (created.length) {
+                outboxRemoveMany(created);
+                const all = await TransactionService.getAll().catch(() => null);
+                if (all) setTransactions(all);
+              }
+            })();
+          }
           
       } catch (e: any) {
           console.error("Failed to load data", e);
@@ -693,22 +774,28 @@ const FinancialApp: React.FC = () => {
                   }
                 })();
               } else {
+                const ts = Date.now();
                 const newTx: Transaction = {
                     ...data,
                     id: tempId,
-                    timestamp: Date.now()
+                    timestamp: ts
                 };
                 setTransactions(prev => [...prev, newTx]);
 
+                // Persist locally immediately so refresh won't lose it.
+                outboxAddMany([{ ...data, timestamp: ts }]);
+
                 // Background Sync
-                TransactionService.create({ ...data, timestamp: Date.now() })
+                TransactionService.create({ ...data, timestamp: ts })
                     .then(realTx => {
                         // Replace temp ID with real ID
                         setTransactions(prev => prev.map(t => t.id === tempId ? realTx : t));
+                        outboxRemoveMany([{ ...data, timestamp: ts }]);
                     })
                     .catch(e => {
                         console.error("Create tx failed", e);
                         setTransactions(prev => prev.filter(t => t.id !== tempId));
+                        alert(`Transaction not saved. Check internet/login and try again.\n\n${(e as any)?.message || ''}`.trim());
                     });
               }
           }
