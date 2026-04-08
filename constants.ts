@@ -134,7 +134,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     statsLabourPerQuintal: "Labour Cost / Quintal",
     totalDispatchedLabel: "Total Dispatched",
     statsOilExpense: "Total Oil Expense",
-    statsClOilExpense: "TOTAL CL OIL EXPENSE",
+    statsClOilExpense: "CL OIL EXPENSE",
     oilOption: "Oil / Fuel",
     clOilOption: "CL Oil",
     electricityOption: "Electricity Bill",
