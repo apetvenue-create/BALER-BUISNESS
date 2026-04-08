@@ -535,14 +535,24 @@ const FinancialApp: React.FC = () => {
                   try {
                       for (const d of dates) {
                           if (isCashConversion) {
-                            // Create both sides of transfer
-                            const baseTs = Date.now();
-                            await TransactionService.create({ ...data, type: 'expense', paymentType: 'online' as any, accountName: '', date: d, timestamp: baseTs, details: data.details?.trim() || 'Online to Cash Transfer' });
-                            await TransactionService.create({ ...data, type: 'income', paymentType: 'cash' as any, accountName: '', date: d, timestamp: baseTs + 1, details: data.details?.trim() || 'Online to Cash Transfer' });
+                            // NOTE: TransactionService.create() already creates both sides for cash_conversion.
+                            // Calling it twice causes duplicates after refresh.
+                            await TransactionService.create({
+                              ...data,
+                              type: 'expense',
+                              paymentType: 'online' as any,
+                              accountName: '',
+                              date: d,
+                              timestamp: Date.now(),
+                              details: data.details?.trim() || 'ONLINE -> CASH'
+                            });
                           } else {
                             await TransactionService.create({ ...data, date: d, timestamp: Date.now() });
                           }
                       }
+                      // Re-sync to replace temp ids with real ones
+                      const all = await TransactionService.getAll();
+                      setTransactions(all);
                   } catch (e) {
                       console.error("Batch create failed", e);
                   }
@@ -553,17 +563,19 @@ const FinancialApp: React.FC = () => {
                 const pair = makeCashConversionPair(data.date, tempId, Date.now());
                 setTransactions(prev => [...prev, ...pair]);
 
-                // Background Sync: create both, then replace temp ids
+                // Background Sync: create once (service creates both), then re-sync
                 (async () => {
                   try {
-                    const baseTs = Date.now();
-                    const outReal = await TransactionService.create({ ...data, type: 'expense', paymentType: 'online' as any, accountName: '', timestamp: baseTs, details: data.details?.trim() || 'Online to Cash Transfer' });
-                    const inReal = await TransactionService.create({ ...data, type: 'income', paymentType: 'cash' as any, accountName: '', timestamp: baseTs + 1, details: data.details?.trim() || 'Online to Cash Transfer' });
-                    setTransactions(prev => prev.map(t => {
-                      if (t.id === tempId) return outReal;
-                      if (t.id === tempId + 1) return inReal;
-                      return t;
-                    }));
+                    await TransactionService.create({
+                      ...data,
+                      type: 'expense',
+                      paymentType: 'online' as any,
+                      accountName: '',
+                      timestamp: Date.now(),
+                      details: data.details?.trim() || 'ONLINE -> CASH'
+                    });
+                    const all = await TransactionService.getAll();
+                    setTransactions(all);
                   } catch (e) {
                     console.error("Create cash conversion failed", e);
                     setTransactions(prev => prev.filter(t => t.id !== tempId && t.id !== tempId + 1));

@@ -31,7 +31,43 @@ export const TransactionService = {
     // --- Special Logic for Cash Conversion (Internal Transfer) ---
     // Creates two records: Expense (Source) and Income (Destination)
     if (t.category === 'cash_conversion') {
-        const commonTimestamp = Date.now();
+        // Use caller-provided timestamp when available so we can de-dupe reliably
+        // if the UI accidentally submits twice.
+        const commonTimestamp = typeof t.timestamp === 'number' ? t.timestamp : Date.now();
+        const cleanedDetails = (t.details || '').trim();
+        const label = cleanedDetails ? cleanedDetails : 'ONLINE -> CASH';
+
+        // Idempotency guard: if the exact same pair already exists (same timestamp window),
+        // do not insert again. This prevents duplicates after reload.
+        const { data: existing, error: existingError } = await supabase
+          .from('transactions')
+          .select('id,type,category,details,amount,payment_type,date,timestamp')
+          .eq('user_id', user.id)
+          .eq('category', 'cash_conversion')
+          .eq('date', t.date)
+          .eq('amount', t.amount)
+          .eq('details', label)
+          .gte('timestamp', commonTimestamp - 5)
+          .lte('timestamp', commonTimestamp + 5);
+
+        if (existingError) throw existingError;
+
+        const hasExpenseOnline = (existing || []).some(
+          (r: any) => r.type === 'expense' && r.payment_type === t.paymentType
+        );
+        const hasIncomeCash = (existing || []).some(
+          (r: any) => r.type === 'income' && r.payment_type === 'cash'
+        );
+
+        if (hasExpenseOnline && hasIncomeCash) {
+          const expenseRow = (existing || []).find(
+            (r: any) => r.type === 'expense' && r.payment_type === t.paymentType
+          );
+          return {
+            ...t,
+            id: Number(expenseRow?.id ?? (existing || [])[0]?.id)
+          };
+        }
         
         // 1. Expense Record (Money Leaving Online/Bank)
         const expensePayload = {
@@ -39,7 +75,7 @@ export const TransactionService = {
             type: 'expense',
             category: 'cash_conversion',
             account_name: '', // Internal
-            details: t.details ? `Internal Transfer: ${t.details}` : 'Internal Transfer: Online to Cash',
+            details: label,
             amount: t.amount,
             payment_type: t.paymentType, // online or bank
             date: t.date,
@@ -52,7 +88,7 @@ export const TransactionService = {
             type: 'income',
             category: 'cash_conversion',
             account_name: '', // Internal
-            details: t.details ? `Internal Transfer: ${t.details}` : 'Internal Transfer: Received from Online',
+            details: label,
             amount: t.amount,
             payment_type: 'cash',
             date: t.date,
