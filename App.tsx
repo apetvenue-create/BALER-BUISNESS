@@ -1003,10 +1003,9 @@ const FinancialApp: React.FC = () => {
                 }
                 if (t.category === 'oil') {
                     oil += t.amount;
-                    const details = (t.details || '').toLowerCase();
-                    if (details.includes('cl') || details.includes('cl oil') || details.includes('cl-oil')) {
-                      clOil += t.amount;
-                    }
+                }
+                if (t.category === 'cl_oil') {
+                    clOil += t.amount;
                 }
                 if (t.category === 'electricity') {
                     electricity += t.amount;
@@ -1037,6 +1036,7 @@ const FinancialApp: React.FC = () => {
       if (cat === 'shop') return t.shopOption;
       if (cat === 'labour') return t.labourOption;
       if (cat === 'oil') return t.oilOption;
+      if (cat === 'cl_oil') return t.clOilOption;
       if (cat === 'electricity') return t.electricityOption;
       if (cat === 'supplier') return t.supplierOption;
       if (cat === 'cash_conversion') return "Internal Transfer";

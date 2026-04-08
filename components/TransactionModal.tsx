@@ -182,7 +182,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         return;
     }
 
-    const normalizedCategory = category === 'cl_oil' ? 'oil' : category;
+    const normalizedCategory = category;
     const normalizedDetails =
       category === 'cl_oil'
         ? (details && details.trim() ? `CL OIL - ${details.trim()}` : 'CL OIL')
