@@ -473,15 +473,124 @@ const FinancialApp: React.FC = () => {
       const tempId = Date.now();
       
       if (editingTransaction) {
-          // UPDATE
-          const updatedTx = { ...editingTransaction, ...data };
-          setTransactions(prev => prev.map(t => t.id === editingTransaction.id ? updatedTx : t));
-          
-          // Background Sync
-          TransactionService.update(updatedTx).catch(e => {
+          const prevTx = editingTransaction;
+          const updatedTx = { ...prevTx, ...data };
+
+          const wasCashConversion = prevTx.category === 'cash_conversion';
+          const isCashConversion = data.category === 'cash_conversion';
+
+          // Special handling when entering/leaving ONLINE -> CASH.
+          // Reason: cash_conversion is stored as TWO rows (expense online + income cash).
+          if (wasCashConversion || isCashConversion) {
+            // 1) Optimistic UI: remove previous row(s) and add the new representation
+            setTransactions(prev => {
+              const removeSet = new Set<number>();
+
+              // If previous was cash conversion, remove all matching cash_conversion rows for that signature
+              if (wasCashConversion) {
+                const matchingPrev = prev.filter(other => {
+                  if (other.category !== 'cash_conversion') return false;
+                  if (other.date !== prevTx.date) return false;
+                  if (other.amount !== prevTx.amount) return false;
+                  const isExpenseOnline = other.type === 'expense' && other.paymentType === 'online';
+                  const isIncomeCash = other.type === 'income' && other.paymentType === 'cash';
+                  return isExpenseOnline || isIncomeCash;
+                });
+                for (const m of matchingPrev) removeSet.add(m.id);
+              } else {
+                removeSet.add(prevTx.id);
+              }
+
+              const next = prev.filter(t => !removeSet.has(t.id));
+
+              if (isCashConversion) {
+                const tempBase = Date.now();
+                const pair = [
+                  {
+                    ...updatedTx,
+                    id: tempBase,
+                    timestamp: tempBase,
+                    type: 'expense' as any,
+                    category: 'cash_conversion',
+                    accountName: '',
+                    paymentType: 'online' as any,
+                    details: (updatedTx.details || '').trim() || 'ONLINE -> CASH'
+                  },
+                  {
+                    ...updatedTx,
+                    id: tempBase + 1,
+                    timestamp: tempBase + 1,
+                    type: 'income' as any,
+                    category: 'cash_conversion',
+                    accountName: '',
+                    paymentType: 'cash' as any,
+                    details: (updatedTx.details || '').trim() || 'ONLINE -> CASH'
+                  }
+                ] as Transaction[];
+                return [...next, ...pair];
+              }
+
+              // Leaving cash conversion: show as a normal single tx (with same id)
+              return [...next, { ...updatedTx, id: prevTx.id }];
+            });
+
+            // 2) Background sync: delete old representation, create new, then re-sync
+            (async () => {
+              try {
+                // Delete old rows if needed
+                if (wasCashConversion) {
+                  const ids = transactions
+                    .filter(other => {
+                      if (other.category !== 'cash_conversion') return false;
+                      if (other.date !== prevTx.date) return false;
+                      if (other.amount !== prevTx.amount) return false;
+                      const isExpenseOnline = other.type === 'expense' && other.paymentType === 'online';
+                      const isIncomeCash = other.type === 'income' && other.paymentType === 'cash';
+                      return isExpenseOnline || isIncomeCash;
+                    })
+                    .map(x => x.id);
+                  const unique = Array.from(new Set(ids));
+                  await Promise.all(unique.map(txId => TransactionService.delete(txId)));
+                } else {
+                  await TransactionService.delete(prevTx.id);
+                }
+
+                // Create the new representation
+                if (isCashConversion) {
+                  await TransactionService.create({
+                    ...updatedTx,
+                    type: 'expense',
+                    category: 'cash_conversion',
+                    accountName: '',
+                    paymentType: 'online' as any,
+                    timestamp: Date.now(),
+                    details: (updatedTx.details || '').trim() || 'ONLINE -> CASH'
+                  });
+                } else {
+                  await TransactionService.create({
+                    ...updatedTx,
+                    timestamp: Date.now()
+                  });
+                }
+
+                const all = await TransactionService.getAll();
+                setTransactions(all);
+              } catch (e) {
+                console.error("Update (cash conversion) failed", e);
+                const all = await TransactionService.getAll().catch(() => null);
+                if (all) setTransactions(all);
+              }
+            })();
+          } else {
+            // Normal UPDATE (single row)
+            setTransactions(prev => prev.map(t => t.id === prevTx.id ? updatedTx : t));
+
+            // Background Sync
+            TransactionService.update(updatedTx).catch(e => {
               console.error("Update tx failed", e);
               // Revert logic would go here
-          });
+            });
+          }
       } else {
           // CREATE
           const isCashConversion = data.category === 'cash_conversion';
@@ -609,29 +718,30 @@ const FinancialApp: React.FC = () => {
   const handleDeleteTransaction = async (id: number) => {
       if (!window.confirm(t.confirmDelete)) return;
 
+      const tx = transactions.find(t => t.id === id);
+      if (!tx) return;
+
       let idsToDelete: number[] = [id];
 
-      // Optimistic: if this is an Online->Cash transfer, delete the paired entry too.
-      setTransactions(prev => {
-          const tx = prev.find(t => t.id === id);
-          if (!tx) return prev.filter(t => t.id !== id);
+      // If this is an Online->Cash transfer, remove BOTH sides.
+      // Also remove any older duplicates that may have different `details` strings.
+      if (tx.category === 'cash_conversion') {
+        const matching = transactions.filter(other => {
+          if (other.category !== 'cash_conversion') return false;
+          if (other.date !== tx.date) return false;
+          if (other.amount !== tx.amount) return false;
 
-          if (tx.category === 'cash_conversion') {
-              const pair = prev.find(other =>
-                  other.id !== tx.id &&
-                  other.category === 'cash_conversion' &&
-                  other.date === tx.date &&
-                  other.amount === tx.amount &&
-                  (other.details || '') === (tx.details || '') &&
-                  ((tx.type === 'expense' && other.type === 'income') || (tx.type === 'income' && other.type === 'expense')) &&
-                  ((tx.paymentType === 'online' && other.paymentType === 'cash') || (tx.paymentType === 'cash' && other.paymentType === 'online'))
-              );
-              if (pair) idsToDelete = [tx.id, pair.id];
-          }
+          const isExpenseOnline = other.type === 'expense' && other.paymentType === 'online';
+          const isIncomeCash = other.type === 'income' && other.paymentType === 'cash';
+          return isExpenseOnline || isIncomeCash;
+        });
 
-          const deleteSet = new Set(idsToDelete);
-          return prev.filter(t => !deleteSet.has(t.id));
-      });
+        const uniqueIds = Array.from(new Set(matching.map(m => m.id)));
+        if (uniqueIds.length) idsToDelete = uniqueIds;
+      }
+
+      const deleteSet = new Set(idsToDelete);
+      setTransactions(prev => prev.filter(t => !deleteSet.has(t.id)));
 
       // Background
       try {
