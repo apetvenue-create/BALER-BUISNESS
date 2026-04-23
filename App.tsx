@@ -1243,11 +1243,9 @@ const FinancialApp: React.FC = () => {
       } else {
           filtered = filtered.filter(t => t.date >= dateFilter.fromDate && t.date <= dateFilter.toDate);
       }
-      // For Income/Expense tables: newest first (date desc, then timestamp desc).
-      return filtered.sort((a, b) => {
-          if (a.date !== b.date) return b.date.localeCompare(a.date);
-          return b.timestamp - a.timestamp;
-      });
+      // Keep Income/Expense tables in entry order (newest entered first),
+      // independent of selected transaction date.
+      return [...filtered].sort((a, b) => b.timestamp - a.timestamp);
   }, [transactions, dateFilter]);
 
   // Previous Balance: Initial + (Income - Expense) before start date
