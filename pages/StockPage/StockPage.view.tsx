@@ -122,6 +122,11 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
       setEditErrors('');
   };
 
+  const closeEditModal = () => {
+      setEditingMovement(null);
+      setEditErrors('');
+  };
+
   const validateEdit = (): boolean => {
       const qtyNum = parseFloat(editQty);
       if (isNaN(qtyNum) || qtyNum <= 0) {
