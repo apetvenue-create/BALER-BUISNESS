@@ -334,7 +334,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <option value="partner">{t.partnerOption}</option>
                     <option value="customer">{t.customerOption}</option>
                     <option value="supplier">{t.supplierOption}</option>
-                    <option value="dealer">{t.dealerOption}</option>
+                    <option value="dealer">{t.dealerExpenseOption}</option>
                     <option value="custom">{t.customOption}</option>
                     {/* Cash Conversion Option - Only available in Expense mode */}
                     <option value="cash_conversion" className="font-bold text-blue-600">{t.cashConversionOption}</option>

@@ -407,6 +407,7 @@ export interface Translation {
   supplierCreditHelp: string;
   supplierOption: string;
   dealerOption: string;
+  dealerExpenseOption: string;
   
   // Other Income
   otherIncomeOption: string;

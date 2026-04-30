@@ -227,6 +227,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditHelp: "This will be recorded as Income/Credit",
     supplierOption: "Supplier",
     dealerOption: "Dealer",
+    dealerExpenseOption: "Dealer Expense",
     
     otherIncomeOption: "Other Income",
 
@@ -505,6 +506,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditHelp: "यह आय/क्रेडिट के रूप में दर्ज होगा",
     supplierOption: "सप्लायर",
     dealerOption: "डीलर",
+    dealerExpenseOption: "डीलर खर्च",
     
     otherIncomeOption: "अन्य आय",
 
@@ -783,6 +785,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditHelp: "ਇਹ ਆਮਦਨ/ਕ੍ਰੈਡਿਟ ਵਜੋਂ ਦਰਜ ਹੋਵੇਗਾ",
     supplierOption: "ਸਪਲਾਇਰ",
     dealerOption: "ਡੀਲਰ",
+    dealerExpenseOption: "ਡੀਲਰ ਖਰਚਾ",
     
     otherIncomeOption: "ਹੋਰ ਆਮਦਨ",
 
