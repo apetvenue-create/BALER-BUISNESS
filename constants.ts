@@ -4,7 +4,7 @@ import { Translation, Language } from './types';
 
 export const TRANSLATIONS: Record<Language, Translation> = {
   en: {
-    pageTitle: "VASDEV TRADING",
+    pageTitle: "",
     langLabel: "Language:",
     prevBalTitle: "PREVIOUS BALANCE",
     cashBalLabel: "Cash Balance",
@@ -290,7 +290,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     errPositiveAmount: "Must be > 0"
   },
   hi: {
-    pageTitle: "VASDEV TRADING",
+    pageTitle: "",
     langLabel: "भाषा:",
     prevBalTitle: "पिछला शेष",
     cashBalLabel: "नकद शेष",
@@ -569,7 +569,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     errPositiveAmount: "राशि > 0 होनी चाहिए"
   },
   pa: {
-    pageTitle: "VASDEV TRADING",
+    pageTitle: "",
     langLabel: "ਭਾਸ਼ਾ:",
     prevBalTitle: "ਪਿਛਲਾ ਬਕਾਇਆ",
     cashBalLabel: "ਨਕਦ ਬਕਾਇਆ",
