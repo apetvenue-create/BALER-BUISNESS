@@ -63,10 +63,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const session = await AuthService.signIn(email, pass);
       setState({ session, loading: false, error: null });
     } catch (err: any) {
+      const raw = err?.message || 'Authentication failed';
+      const friendly =
+        /429|rate limit|too many|http error/i.test(raw)
+          ? 'Too many requests. Please wait a few seconds and try again.'
+          : raw;
       setState(prev => ({
         ...prev,
         loading: false,
-        error: err.message || 'Authentication failed',
+        error: friendly,
       }));
       throw err;
     }
@@ -78,10 +83,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const session = await AuthService.signUp(email, pass, name);
       setState({ session, loading: false, error: null });
     } catch (err: any) {
+      const raw = err?.message || 'Registration failed';
+      const friendly =
+        /429|rate limit|too many|http error/i.test(raw)
+          ? 'Too many requests. Please wait a few seconds and try again.'
+          : raw;
       setState(prev => ({
         ...prev,
         loading: false,
-        error: err.message || 'Registration failed',
+        error: friendly,
       }));
       throw err;
     }

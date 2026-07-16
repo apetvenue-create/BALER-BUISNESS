@@ -1,5 +1,5 @@
 
-import { supabase } from './supabase';
+import { supabase, getCachedUser } from './supabase';
 
 const LOCAL_SETTINGS_PREFIX = 'app_settings_fallback_v1';
 
@@ -25,8 +25,7 @@ const writeLocalFallback = (key: string, userId: string | undefined, value: any)
 
 export const SettingsService = {
   async get(key: string): Promise<any> {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
+    const user = await getCachedUser();
     if (!user) return readLocalFallback(key);
 
     const { data, error } = await supabase
@@ -50,8 +49,7 @@ export const SettingsService = {
   },
 
   async set(key: string, value: any): Promise<void> {
-    const { data: userData } = await supabase.auth.getUser();
-    const user = userData.user;
+    const user = await getCachedUser();
 
     // Persist locally first to prevent data loss during transient auth/network failures.
     writeLocalFallback(key, user?.id, value);

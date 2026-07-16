@@ -1,6 +1,14 @@
 
 import { AuthSession } from './auth.contract';
-import { supabase } from '../services/supabase';
+import { supabase, clearCachedUser } from '../services/supabase';
+
+const friendlyAuthError = (message: string): string => {
+  const lower = (message || '').toLowerCase();
+  if (lower.includes('429') || lower.includes('rate limit') || lower.includes('too many')) {
+    return 'Too many requests. Please wait a few seconds and try again.';
+  }
+  return message || 'Authentication failed';
+};
 
 export const AuthService = {
   async signIn(email: string, pass: string): Promise<AuthSession> {
@@ -9,9 +17,10 @@ export const AuthService = {
       password: pass,
     });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(friendlyAuthError(error.message));
     if (!data.session || !data.user) throw new Error("No session created");
 
+    clearCachedUser();
     return this._mapSession(data.user);
   },
 
@@ -24,7 +33,7 @@ export const AuthService = {
       },
     });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(friendlyAuthError(error.message));
     
     // Check if session exists (Supabase might require email confirmation)
     if (!data.session && data.user) {
@@ -33,10 +42,12 @@ export const AuthService = {
     
     if (!data.user || !data.session) throw new Error("Registration failed");
 
+    clearCachedUser();
     return this._mapSession(data.user);
   },
 
   async signOut(): Promise<void> {
+    clearCachedUser();
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
   },

@@ -67,7 +67,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     tabAccounts: "ACCOUNTS",
     tabLabour: "LABOUR",
     tabPartner: "OWNERS",
-    tabDealer: "DEALER",
+
     searchPlaceholder: "Search...",
     totalReceivable: "Total Receivables",
     totalPayable: "Total Payables",
@@ -86,7 +86,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     backToAccounts: "← Back",
     addLabourAccount: "+ Add Labour",
     addPartnerAccount: "+ Add Owner",
-    addDealerAccount: "+ Add Dealer",
+
     createAccountTitle: "New Account",
     accountCreated: "Created!",
     accountExists: "Exists already.",
@@ -111,7 +111,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     noAccountsFound: "No accounts.",
     creatingLabourAccount: "New Labour Account",
     creatingPartnerAccount: "New Owner Account",
-    creatingDealerAccount: "New Dealer Account",
+
     nameLabel: "Account Holder",
     createBtn: "Create",
     payLabourBtn: "Pay / Advance",
@@ -137,8 +137,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     statsClOilExpense: "CL OIL EXPENSE",
     oilOption: "Oil / Fuel",
     clOilOption: "CL Oil",
-    electricityOption: "Electricity Bill",
-    statsElectricityExpense: "Electricity Bill",
+    electricityOption: "Thread Expense",
+    statsElectricityExpense: "THREAD EXPENSE",
     viewDetailedReport: "View Detailed Transactions",
     hideDetailedReport: "Hide Transactions",
     detailedTransactionReport: "Detailed Transaction Report",
@@ -148,7 +148,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     tabStock: "STOCK",
     tabStockDashboard: "Dashboard",
     tabCustomers: "Customers",
-    tabSuppliers: "Suppliers",
+    tabSuppliers: "Farmers",
     currentStockTitle: "Current Stock",
     addStockBtn: "+ Add",
     subtractStockBtn: "- Sub",
@@ -213,21 +213,20 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     reportTotalExpense: "Total Expense",
     reportNet: "Net Balance",
 
-    // Supplier
-    tabSupplier: "SUPPLIERS",
-    addSupplierAccount: "+ Add Supplier",
-    creatingSupplierAccount: "Creating Supplier Account",
+    // Farmer (stored internally as supplier)
+    tabSupplier: "FARMERS",
+    addSupplierAccount: "+ Add Farmer",
+    creatingSupplierAccount: "Creating Farmer Account",
     colPaymentMade: "PAYMENT MADE",
     colRefundReceived: "PAYMENT RECEIVED",
     totalPaidToSupplier: "Total Paid",
     totalReceivedFromSupplier: "TOTAL RECEIVED",
     netPaidBalance: "NET PAYMENT",
     receiveRefundBtn: "RECEIVED",
-    supplierCreditModalTitle: "Receive Money from Supplier",
+    supplierCreditModalTitle: "Receive Money from Farmer",
     supplierCreditHelp: "This will be recorded as Income/Credit",
-    supplierOption: "Supplier",
-    dealerOption: "Dealer",
-    dealerExpenseOption: "Dealer Expense",
+    supplierOption: "Farmer",
+
     
     otherIncomeOption: "Other Income",
 
@@ -250,7 +249,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     
     // Strictly Isolated Labels
     operationalExpenseLabel: "Operational Expense",
-    supplierPaymentsLabel: "Supplier Payments",
+    supplierPaymentsLabel: "Farmer Payments",
     sourceExpense: "Source: Expense",
     sourceManual: "Source: Manual",
 
@@ -352,7 +351,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     tabAccounts: "खाते (Ledger)",
     tabLabour: "मजदूर",
     tabPartner: "मालिक",
-    tabDealer: "डीलर",
+
     searchPlaceholder: "खोजें...",
     totalReceivable: "कुल लेना है",
     totalPayable: "कुल देना है",
@@ -371,7 +370,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     backToAccounts: "← वापस",
     addLabourAccount: "+ मजदूर",
     addPartnerAccount: "+ मालिक",
-    addDealerAccount: "+ डीलर",
+
     createAccountTitle: "नया खाता",
     accountCreated: "बन गया!",
     accountExists: "पहले से मौजूद है।",
@@ -395,7 +394,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     noAccountsFound: "खाते नहीं मिले",
     creatingLabourAccount: "नया मजदूर खाता",
     creatingPartnerAccount: "नया मालिक खाता",
-    creatingDealerAccount: "नया डीलर खाता",
+
     nameLabel: "खाता धारक",
     createBtn: "बनाएं",
     payLabourBtn: "भुगतान / एडवांस",
@@ -420,8 +419,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     statsClOilExpense: "कुल CL तेल खर्च",
     oilOption: "तेल / ईंधन",
     clOilOption: "CL तेल",
-    electricityOption: "बिजली बिल",
-    statsElectricityExpense: "बिजली बिल खर्च",
+    electricityOption: "धागा खर्च",
+    statsElectricityExpense: "धागा खर्च",
     viewDetailedReport: "विस्तृत लेनदेन देखें",
     hideDetailedReport: "लेनदेन छुपाएं",
     detailedTransactionReport: "विस्तृत लेनदेन रिपोर्ट",
@@ -430,7 +429,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     tabStock: "स्टॉक और बिक्री",
     tabStockDashboard: "डैशबोर्ड",
     tabCustomers: "ग्राहक",
-    tabSuppliers: "सप्लायर",
+    tabSuppliers: "किसान",
     currentStockTitle: "स्टॉक",
     addStockBtn: "+ जोड़ें",
     subtractStockBtn: "- घटाएं",
@@ -492,21 +491,20 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     reportTotalExpense: "कुल खर्च",
     reportNet: "शुद्ध शेष",
 
-    // Supplier
-    tabSupplier: "सप्लायर",
-    addSupplierAccount: "+ सप्लायर जोड़ें",
-    creatingSupplierAccount: "नया सप्लायर खाता",
+    // Farmer (stored internally as supplier)
+    tabSupplier: "किसान",
+    addSupplierAccount: "+ किसान जोड़ें",
+    creatingSupplierAccount: "नया किसान खाता",
     colPaymentMade: "भुगतान किया (Dr)",
     colRefundReceived: "वापसी/एडवांस (Cr)",
     totalPaidToSupplier: "कुल भुगतान",
     totalReceivedFromSupplier: "कुल प्राप्त",
     netPaidBalance: "शुद्ध भुगतान",
     receiveRefundBtn: "वापसी / एडवांस प्राप्त करें",
-    supplierCreditModalTitle: "सप्लायर से पैसा प्राप्त",
+    supplierCreditModalTitle: "किसान से पैसा प्राप्त",
     supplierCreditHelp: "यह आय/क्रेडिट के रूप में दर्ज होगा",
-    supplierOption: "सप्लायर",
-    dealerOption: "डीलर",
-    dealerExpenseOption: "डीलर खर्च",
+    supplierOption: "किसान",
+
     
     otherIncomeOption: "अन्य आय",
 
@@ -529,7 +527,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     
     // Strictly Isolated Labels
     operationalExpenseLabel: "दुकान/मजदूरी खर्च",
-    supplierPaymentsLabel: "सप्लायर भुगतान",
+    supplierPaymentsLabel: "किसान भुगतान",
     sourceExpense: "स्रोत: खर्च",
     sourceManual: "स्रोत: मैनुअल",
     
@@ -631,7 +629,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     tabAccounts: "ਖਾਤੇ (Ledger)",
     tabLabour: "ਮਜ਼ਦੂਰ",
     tabPartner: "ਮਾਲਕ",
-    tabDealer: "ਡੀਲਰ",
+
     searchPlaceholder: "ਖੋਜੋ...",
     totalReceivable: "ਕੁੱਲ ਲੈਣਯੋਗ",
     totalPayable: "ਕੁੱਲ ਦੇਣਦਾਰੀ",
@@ -650,7 +648,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     backToAccounts: "← ਵਾਪਸ",
     addLabourAccount: "+ ਮਜ਼ਦੂਰ",
     addPartnerAccount: "+ ਮਾਲਕ",
-    addDealerAccount: "+ ਡੀਲਰ",
+
     createAccountTitle: "ਨਵਾਂ ਖਾਤਾ",
     accountCreated: "ਬਣ ਗਿਆ!",
     accountExists: "ਪਹਿਲਾਂ ਹੀ ਮੌਜੂਦ ਹੈ।",
@@ -674,7 +672,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     noAccountsFound: "ਕੋਈ ਖਾਤਾ ਨਹੀਂ",
     creatingLabourAccount: "ਨਵਾਂ ਮਜ਼ਦੂਰ ਖਾਤਾ",
     creatingPartnerAccount: "ਨਵਾਂ ਮਾਲਕ ਖਾਤਾ",
-    creatingDealerAccount: "ਨਵਾਂ ਡੀਲਰ ਖਾਤਾ",
+
     nameLabel: "ਖਾਤਾ ਧਾਰਕ",
     createBtn: "ਬਣਾਓ",
     payLabourBtn: "ਭੁਗਤਾਨ / ਐਡਵਾਂਸ",
@@ -699,8 +697,8 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     statsClOilExpense: "ਕੁੱਲ CL ਤੇਲ ਖਰਚਾ",
     oilOption: "ਤੇਲ / ਬਾਲਣ",
     clOilOption: "CL ਤੇਲ",
-    electricityOption: "ਬਿਜਲੀ ਦਾ ਬਿੱਲ",
-    statsElectricityExpense: "ਬਿਜਲੀ ਖਰਚਾ",
+    electricityOption: "ਧਾਗਾ ਖਰਚਾ",
+    statsElectricityExpense: "ਧਾਗਾ ਖਰਚਾ",
     viewDetailedReport: "ਵੇਰਵੇ ਸਹਿਤ ਲੈਣ-ਦੇਣ ਦੇਖੋ",
     hideDetailedReport: "ਲੈਣ-ਦੇਣ ਲੁਕਾਓ",
     detailedTransactionReport: "ਵੇਰਵੇ ਸਹਿਤ ਲੈਣ-ਦੇਣ ਰਿਪੋਰਟ",
@@ -709,7 +707,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     tabStock: "ਸਟਾਕ ਅਤੇ ਵਿਕਰੀ",
     tabStockDashboard: "ਡੈਸ਼ਬੋਰਡ",
     tabCustomers: "ਗਾਹਕ",
-    tabSuppliers: "ਸਪਲਾਇਰ",
+    tabSuppliers: "ਕਿਸਾਨ",
     currentStockTitle: "ਸਟਾਕ",
     addStockBtn: "+ ਜੋੜੋ",
     subtractStockBtn: "- ਘਟਾਓ",
@@ -771,21 +769,20 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     reportTotalExpense: "ਕੁੱਲ ਖਰਚਾ",
     reportNet: "ਸ਼ੁੱਧ ਬਕਾਇਆ",
 
-    // Supplier
-    tabSupplier: "ਸਪਲਾਇਰ",
-    addSupplierAccount: "+ ਸਪਲਾਇਰ ਜੋੜੋ",
-    creatingSupplierAccount: "ਨਵਾਂ ਸਪਲਾਇਰ ਖਾਤਾ",
+    // Farmer (stored internally as supplier)
+    tabSupplier: "ਕਿਸਾਨ",
+    addSupplierAccount: "+ ਕਿਸਾਨ ਜੋੜੋ",
+    creatingSupplierAccount: "ਨਵਾਂ ਕਿਸਾਨ ਖਾਤਾ",
     colPaymentMade: "ਭੁਗਤਾਨ ਕੀਤਾ (Dr)",
     colRefundReceived: "ਵਾਪਸੀ/ਐਡਵਾਂਸ (Cr)",
     totalPaidToSupplier: "ਕੁੱਲ ਭੁਗਤਾਨ",
     totalReceivedFromSupplier: "ਕੁੱਲ ਪ੍ਰਾਪਤ",
     netPaidBalance: "ਸ਼ੁੱਧ ਭੁਗਤਾਨ",
     receiveRefundBtn: "ਵਾਪਸੀ / ਐਡਵਾਂਸ ਪ੍ਰਾਪਤ ਕਰੋ",
-    supplierCreditModalTitle: "ਸਪਲਾਇਰ ਤੋਂ ਪੈਸੇ ਪ੍ਰਾਪਤ",
+    supplierCreditModalTitle: "ਕਿਸਾਨ ਤੋਂ ਪੈਸੇ ਪ੍ਰਾਪਤ",
     supplierCreditHelp: "ਇਹ ਆਮਦਨ/ਕ੍ਰੈਡਿਟ ਵਜੋਂ ਦਰਜ ਹੋਵੇਗਾ",
-    supplierOption: "ਸਪਲਾਇਰ",
-    dealerOption: "ਡੀਲਰ",
-    dealerExpenseOption: "ਡੀਲਰ ਖਰਚਾ",
+    supplierOption: "ਕਿਸਾਨ",
+
     
     otherIncomeOption: "ਹੋਰ ਆਮਦਨ",
 
@@ -808,7 +805,7 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     
     // Strictly Isolated Labels
     operationalExpenseLabel: "ਦੁਕਾਨ/ਮਜ਼ਦੂਰੀ ਖਰਚ",
-    supplierPaymentsLabel: "ਸਪਲਾਇਰ ਭੁਗਤਾਨ",
+    supplierPaymentsLabel: "ਕਿਸਾਨ ਭੁਗਤਾਨ",
     sourceExpense: "ਸਰੋਤ: ਖਰਚਾ",
     sourceManual: "ਸਰੋਤ: ਮੈਨੁਅਲ",
     

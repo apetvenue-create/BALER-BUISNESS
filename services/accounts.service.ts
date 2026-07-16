@@ -1,85 +1,115 @@
 
 
-import { supabase } from './supabase';
+import { supabase, getCachedUser } from './supabase';
 import { StoredAccount, AccountType, ManualAdjustment, OwnerPreviousEntry } from '../types';
 
 export const AccountService = {
   async getAll(): Promise<StoredAccount[]> {
-    // 1. Fetch Accounts
-    const { data: accountsData, error: accError } = await supabase
-      .from('accounts')
-      .select('*');
-    if (accError) throw accError;
-
-    // 2. Fetch Related Data (Attendance, Hisaab, Adjustments)
-    const { data: attendanceData } = await supabase.from('attendance').select('*');
-    const { data: hisaabData } = await supabase.from('hisaab_days').select('*');
-    const { data: adjustmentsData } = await supabase.from('adjustments').select('*');
-    const ownerPrevRes = await supabase.from('owner_previous_entries').select('*');
-    const ownerPrevData = ownerPrevRes.error ? [] : ownerPrevRes.data || [];
-    if (ownerPrevRes.error) {
-      console.warn('owner_previous_entries:', ownerPrevRes.error.message);
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("getAll: No authenticated user, returning empty array");
+      return [];
     }
 
-    // 3. Map to Frontend Structure
-    return (accountsData || []).map(acc => {
-      const accName = acc.name;
-      
-      // Map Attendance: Record<date, boolean>
-      // We now load explicit false values (Absent) too
-      const attendanceMap: Record<string, boolean> = {};
-      (attendanceData || [])
-        .filter((a: any) => a.account_name === accName)
-        .forEach((a: any) => {
-          attendanceMap[a.date] = a.is_present;
-        });
+    try {
+      // 1. Fetch Accounts
+      const { data: accountsData, error: accError } = await supabase
+        .from('accounts')
+        .select('*')
+        .eq('user_id', user.id);
+      if (accError) throw accError;
 
-      // Map Hisaab Days
-      const hisaabMap: Record<string, boolean> = {};
-      (hisaabData || [])
-        .filter((h: any) => h.account_name === accName)
-        .forEach((h: any) => {
-          hisaabMap[h.date] = true;
-        });
+      // 2. Fetch Related Data (Attendance, Hisaab, Adjustments) - parallel, with individual try/catch
+      const [attendanceRes, hisaabRes, adjustmentsRes, ownerPrevRes] = await Promise.allSettled([
+        supabase.from('attendance').select('*').eq('user_id', user.id),
+        supabase.from('hisaab_days').select('*').eq('user_id', user.id),
+        supabase.from('adjustments').select('*').eq('user_id', user.id),
+        supabase.from('owner_previous_entries').select('*').eq('user_id', user.id),
+      ]);
 
-      // Map Adjustments
-      const adjustments: ManualAdjustment[] = (adjustmentsData || [])
-        .filter((adj: any) => adj.account_name === accName)
-        .map((adj: any) => ({
-          id: Number(adj.id),
-          date: adj.date,
-          amount: Number(adj.amount),
-          note: adj.note
-        }));
+      const attendanceData = attendanceRes.status === 'fulfilled' && !attendanceRes.value.error 
+        ? attendanceRes.value.data || [] 
+        : [];
+      const hisaabData = hisaabRes.status === 'fulfilled' && !hisaabRes.value.error 
+        ? hisaabRes.value.data || [] 
+        : [];
+      const adjustmentsData = adjustmentsRes.status === 'fulfilled' && !adjustmentsRes.value.error 
+        ? adjustmentsRes.value.data || [] 
+        : [];
+      const ownerPrevData = ownerPrevRes.status === 'fulfilled' && !ownerPrevRes.value.error 
+        ? ownerPrevRes.value.data || [] 
+        : [];
 
-      const ownerPreviousEntries: OwnerPreviousEntry[] =
-        acc.type === 'partner'
-          ? (ownerPrevData || [])
-              .filter((row: any) => row.account_name === accName)
-              .map((row: any) => ({
-                id: Number(row.id),
-                date: row.date,
-                amount: Number(row.amount),
-                kind: row.kind as 'received' | 'paid',
-                note: row.note || undefined
-              }))
-          : [];
+      if (ownerPrevRes.status === 'rejected' || (ownerPrevRes.status === 'fulfilled' && ownerPrevRes.value.error)) {
+        console.warn('owner_previous_entries fetch failed:', ownerPrevRes.status === 'rejected' ? ownerPrevRes.reason : ownerPrevRes.value.error);
+      }
 
-      return {
-        name: acc.name,
-        type: acc.type as AccountType,
-        rate: acc.rate ? Number(acc.rate) : undefined,
-        attendance: attendanceMap,
-        hisaabDays: hisaabMap,
-        manualAdjustments: adjustments,
-        ...(acc.type === 'partner' ? { ownerPreviousEntries } : {})
-      };
-    });
+      // 3. Map to Frontend Structure
+      return (accountsData || []).map(acc => {
+        const accName = acc.name;
+        
+        // Map Attendance: Record<date, boolean>
+        // We now load explicit false values (Absent) too
+        const attendanceMap: Record<string, boolean> = {};
+        (attendanceData || [])
+          .filter((a: any) => a.account_name === accName)
+          .forEach((a: any) => {
+            attendanceMap[a.date] = a.is_present;
+          });
+
+        // Map Hisaab Days
+        const hisaabMap: Record<string, boolean> = {};
+        (hisaabData || [])
+          .filter((h: any) => h.account_name === accName)
+          .forEach((h: any) => {
+            hisaabMap[h.date] = true;
+          });
+
+        // Map Adjustments
+        const adjustments: ManualAdjustment[] = (adjustmentsData || [])
+          .filter((adj: any) => adj.account_name === accName)
+          .map((adj: any) => ({
+            id: Number(adj.id),
+            date: adj.date,
+            amount: Number(adj.amount),
+            note: adj.note
+          }));
+
+        const ownerPreviousEntries: OwnerPreviousEntry[] =
+          acc.type === 'partner'
+            ? (ownerPrevData || [])
+                .filter((row: any) => row.account_name === accName)
+                .map((row: any) => ({
+                  id: Number(row.id),
+                  date: row.date,
+                  amount: Number(row.amount),
+                  kind: row.kind as 'received' | 'paid',
+                  note: row.note || undefined
+                }))
+            : [];
+
+        return {
+          name: acc.name,
+          type: acc.type as AccountType,
+          rate: acc.rate ? Number(acc.rate) : undefined,
+          attendance: attendanceMap,
+          hisaabDays: hisaabMap,
+          manualAdjustments: adjustments,
+          ...(acc.type === 'partner' ? { ownerPreviousEntries } : {})
+        };
+      });
+    } catch (error) {
+      console.error("Failed to fetch accounts, using empty fallback", error);
+      return [];
+    }
   },
 
   async create(name: string, type: AccountType, rate?: number): Promise<void> {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error("Not authenticated");
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("create: No authenticated user, skipping");
+      return;
+    }
 
     const { error } = await supabase
       .from('accounts')
@@ -94,8 +124,11 @@ export const AccountService = {
   },
 
   async rename(oldName: string, newName: string): Promise<void> {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error("Not authenticated");
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("rename: No authenticated user, skipping");
+      return;
+    }
 
     // 1. Accounts Table
     const { error } = await supabase
@@ -127,8 +160,11 @@ export const AccountService = {
 
   /** Removes only the `accounts` row so the name disappears from Ledgers; transactions, stock, etc. stay. */
   async removeAccountFromLedger(accountName: string): Promise<void> {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error('Not authenticated');
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("removeAccountFromLedger: No authenticated user, skipping");
+      return;
+    }
 
     const { error } = await supabase
       .from('accounts')
@@ -142,8 +178,11 @@ export const AccountService = {
   // Attendance Operations
   // Updated to support tri-state: true=Present, false=Absent, null=Delete
   async toggleAttendance(accountName: string, date: string, isPresent: boolean | null): Promise<void> {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) return;
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("toggleAttendance: No authenticated user, skipping");
+      return;
+    }
 
     // Always clean up existing record for this date to ensure no duplicates if constraints are missing,
     // or to handle the update logic simply.
@@ -167,8 +206,11 @@ export const AccountService = {
 
   // Hisaab Operations
   async toggleHisaab(accountName: string, date: string, isHisaab: boolean): Promise<void> {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) return;
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("toggleHisaab: No authenticated user, skipping");
+      return;
+    }
 
     if (isHisaab) {
       await supabase.from('hisaab_days').insert({
@@ -180,13 +222,14 @@ export const AccountService = {
       await supabase.from('hisaab_days')
         .delete()
         .eq('account_name', accountName)
-        .eq('date', date);
+        .eq('date', date)
+        .eq('user_id', user.id);
     }
   },
 
   // Adjustment Operations
   async addAdjustment(accountName: string, adj: Omit<ManualAdjustment, 'id'>): Promise<ManualAdjustment> {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = await getCachedUser();
     if (!user) throw new Error("Not authenticated");
 
     const { data, error } = await supabase
@@ -212,6 +255,11 @@ export const AccountService = {
   },
 
   async updateAdjustment(adj: ManualAdjustment): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("updateAdjustment: No authenticated user, skipping");
+      return;
+    }
     await supabase.from('adjustments')
       .update({
         date: adj.date,
@@ -222,6 +270,11 @@ export const AccountService = {
   },
 
   async deleteAdjustment(id: number): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("deleteAdjustment: No authenticated user, skipping");
+      return;
+    }
     await supabase.from('adjustments').delete().eq('id', id);
   },
 
@@ -229,7 +282,7 @@ export const AccountService = {
     accountName: string,
     entry: Omit<OwnerPreviousEntry, 'id'>
   ): Promise<OwnerPreviousEntry> {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = await getCachedUser();
     if (!user) throw new Error('Not authenticated');
 
     const { data, error } = await supabase
@@ -257,8 +310,11 @@ export const AccountService = {
   },
 
   async updateOwnerPreviousEntry(entry: OwnerPreviousEntry): Promise<void> {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error('Not authenticated');
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("updateOwnerPreviousEntry: No authenticated user, skipping");
+      return;
+    }
 
     const { error } = await supabase
       .from('owner_previous_entries')
@@ -275,8 +331,11 @@ export const AccountService = {
   },
 
   async deleteOwnerPreviousEntry(id: number): Promise<void> {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) throw new Error('Not authenticated');
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("deleteOwnerPreviousEntry: No authenticated user, skipping");
+      return;
+    }
 
     const { error } = await supabase
       .from('owner_previous_entries')

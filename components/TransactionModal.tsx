@@ -8,7 +8,7 @@ import { DateInput } from './DateInput';
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (t: Omit<Transaction, 'id' | 'timestamp'>, endDate?: string) => void;
+  onSubmit: (t: Omit<Transaction, 'id' | 'timestamp'>) => void;
   initialData?: Transaction | null;
   mode: TransactionType;
   t: Translation;
@@ -37,10 +37,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [amountStr, setAmountStr] = useState<string>('');
   const [paymentType, setPaymentType] = useState<string>('online');
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  
-  // Range Logic (batch transactions)
-  const [isRange, setIsRange] = useState(false);
-  const [endDate, setEndDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // UI State for Manual Account Entry
   const [isManualEntry, setIsManualEntry] = useState(false);
@@ -61,7 +57,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     if (category === 'partner') targetType = 'partner';
     if (category === 'customer') targetType = 'customer';
     if (category === 'supplier') targetType = 'supplier';
-    if (category === 'dealer') targetType = 'dealer';
     
     // If category has a specific type map, filter. Otherwise show all (or none if shop)
     if (targetType) {
@@ -83,8 +78,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setAmountStr(formatInputCurrency(initialData.amount.toString()));
         setPaymentType(initialData.paymentType);
         setDate(initialData.date);
-        setIsRange(false);
-        setEndDate(initialData.date);
         setIsManualEntry(false);
       } else {
         // Defaults
@@ -100,8 +93,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setPaymentType('online');
         const today = new Date().toISOString().split('T')[0];
         setDate(today);
-        setEndDate(today);
-        setIsRange(false);
         setIsManualEntry(false);
       }
     }
@@ -152,7 +143,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       }
 
       // Account Name Validation for specific categories
-      const requiresAccount = !isCashConversion && (category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier' || category === 'dealer');
+      const requiresAccount = !isCashConversion && (category === 'customer' || category === 'partner' || category === 'labour' || category === 'supplier');
       
       if (requiresAccount) {
           if (!accountName || !accountName.trim()) {
@@ -160,10 +151,6 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           } else if (accountName === '__new__') {
               newErrors.accountName = t.errAccountRequired;
           }
-      }
-
-      if (isRange && endDate < date) {
-          newErrors.dateRange = t.alertDateOrder;
       }
 
       setErrors(newErrors);
@@ -196,7 +183,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       amount: parseCurrency(amountStr),
       paymentType: paymentType as any,
       date,
-    }, isRange ? endDate : undefined);
+    });
     onClose();
   };
 
@@ -222,7 +209,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const showAccountSelect = 
     !isCashConversion && (
       mode === 'income' || 
-      ['labour', 'partner', 'customer', 'supplier', 'dealer', 'other_income'].includes(category)
+      ['labour', 'partner', 'customer', 'supplier', 'other_income'].includes(category)
     );
 
   return (
@@ -239,7 +226,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         </button>
 
         {/* Scrollable content (close button stays fixed) */}
-        <div className="p-6 overflow-y-auto max-h-[90vh]">
+        <div className="p-6">
           <h3 className={`text-2xl font-bold mb-4 pr-10 ${mode === 'income' ? 'text-green-600' : 'text-red-600'}`}>
             {initialData 
               ? (mode === 'income' ? t.editIncomeTitle : t.editExpenseTitle)
@@ -252,49 +239,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             onSubmit={handleSubmit}
           >
             
-            {/* Date & Range Selection */}
-            <div className="mb-4 bg-gray-50 p-3 rounded-lg border border-gray-200">
-               <div className="mb-2">
-                  <DateInput 
-                      label={t.transactionDateLabel}
-                      value={date}
-                      onChange={setDate}
-                  />
-               </div>
-               
-               {!initialData && (
-                   <div className="flex items-center mt-2 mb-2">
-                      <input 
-                          type="checkbox" 
-                          id="enableRange"
-                          checked={isRange}
-                          onChange={(e) => setIsRange(e.target.checked)}
-                          className="w-4 h-4 text-blue-600 focus:ring-blue-500 rounded border-gray-300"
-                      />
-                      <label htmlFor="enableRange" className="ml-2 text-sm text-gray-700 font-medium cursor-pointer">
-                          {t.enableDateRange}
-                      </label>
-                   </div>
-               )}
-
-               {isRange && !initialData && (
-                   <div className="mt-2 animate-fade-in">
-                      <DateInput 
-                          label={t.rangeEndDateLabel}
-                          value={endDate}
-                          onChange={(d) => {
-                              setEndDate(d);
-                              if (errors.dateRange) setErrors(prev => ({ ...prev, dateRange: '' }));
-                          }}
-                          min={date}
-                          className={errors.dateRange ? "border-red-500" : ""}
-                      />
-                      {errors.dateRange && <p className="text-red-500 text-xs mt-1">{errors.dateRange}</p>}
-                      <p className="text-xs text-gray-500 mt-1 italic">
-                          {t.rangeHelpText}
-                      </p>
-                   </div>
-               )}
+            {/* Date Selection */}
+            <div className="mb-4">
+               <DateInput 
+                   value={date}
+                   onChange={setDate}
+               />
             </div>
 
             <div className="mb-4">
@@ -318,10 +268,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     {(category === 'supplier' || defaultCategory === 'supplier') && (
                         <option value="supplier">{t.supplierOption}</option>
                     )}
-                    {/* Dealer (similar to Supplier) */}
-                    {(category === 'dealer' || defaultCategory === 'dealer') && (
-                        <option value="dealer">{t.dealerOption}</option>
-                    )}
+
                     <option value="other_income">{t.otherIncomeOption}</option>
                   </>
                 ) : (
@@ -334,7 +281,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <option value="partner">{t.partnerOption}</option>
                     <option value="customer">{t.customerOption}</option>
                     <option value="supplier">{t.supplierOption}</option>
-                    <option value="dealer">{t.dealerExpenseOption}</option>
+
                     <option value="custom">{t.customOption}</option>
                     {/* Cash Conversion Option - Only available in Expense mode */}
                     <option value="cash_conversion" className="font-bold text-blue-600">{t.cashConversionOption}</option>

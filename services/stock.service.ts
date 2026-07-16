@@ -1,33 +1,45 @@
 
-import { supabase } from './supabase';
+import { supabase, getCachedUser } from './supabase';
 import { StockMovement } from '../types';
 
 export const StockService = {
   async getAll(): Promise<StockMovement[]> {
-    const { data, error } = await supabase
-      .from('stock')
-      .select('*')
-      .order('id', { ascending: true }); // ID usually correlates with insertion time/sequence
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("getAll: No authenticated user, returning empty array");
+      return [];
+    }
 
-    if (error) throw error;
+    try {
+      const { data, error } = await supabase
+        .from('stock')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('id', { ascending: true }); // ID usually correlates with insertion time/sequence
 
-    return (data || []).map(row => ({
-      id: Number(row.id),
-      date: row.date,
-      type: row.type as any,
-      quantityKg: Number(row.quantity_kg),
-      remainingStockKg: Number(row.remaining_stock_kg),
-      accountName: row.account_name,
-      vehicleNumber: row.vehicle_number,
-      ratePerQuintal: row.rate_per_quintal ? Number(row.rate_per_quintal) : undefined,
-      totalAmount: row.total_amount ? Number(row.total_amount) : undefined,
-      note: row.note,
-      transactionId: row.transaction_id ? Number(row.transaction_id) : undefined
-    }));
+      if (error) throw error;
+
+      return (data || []).map(row => ({
+        id: Number(row.id),
+        date: row.date,
+        type: row.type as any,
+        quantityKg: Number(row.quantity_kg),
+        remainingStockKg: Number(row.remaining_stock_kg),
+        accountName: row.account_name,
+        vehicleNumber: row.vehicle_number,
+        ratePerQuintal: row.rate_per_quintal ? Number(row.rate_per_quintal) : undefined,
+        totalAmount: row.total_amount ? Number(row.total_amount) : undefined,
+        note: row.note,
+        transactionId: row.transaction_id ? Number(row.transaction_id) : undefined
+      }));
+    } catch (error) {
+      console.error("Failed to fetch stock movements", error);
+      return [];
+    }
   },
 
   async create(s: StockMovement): Promise<StockMovement> {
-    const user = (await supabase.auth.getUser()).data.user;
+    const user = await getCachedUser();
     if (!user) throw new Error("Not authenticated");
 
     const payload = {

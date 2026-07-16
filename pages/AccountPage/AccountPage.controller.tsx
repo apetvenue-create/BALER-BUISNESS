@@ -149,15 +149,13 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   // Account-only ledger entries (do not affect global Cashbook)
   const [accountOnlyLedger, setAccountOnlyLedger] = useState<{
     supplier: Record<string, AccountOnlyLedgerEntry[]>;
-    dealer: Record<string, AccountOnlyLedgerEntry[]>;
-  }>({ supplier: {}, dealer: {} });
+  }>({ supplier: {} });
 
   useEffect(() => {
     SettingsService.get('accountOnlyLedger_v1').then((data) => {
       if (data && typeof data === 'object') {
         setAccountOnlyLedger({
-          supplier: data.supplier || {},
-          dealer: data.dealer || {}
+          supplier: data.supplier || {}
         });
       }
     });
@@ -208,10 +206,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
              tabType = 'supplier';
              initialBalance = 0;
          }
-        else if (type === 'dealer') {
-            tabType = 'dealer';
-            initialBalance = 0;
-        }
+
          else {
              // Customer or others
              tabType = 'customer';
@@ -231,7 +226,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
             if (tr.category === 'labour') inferredType = 'labour';
             else if (tr.category === 'partner') inferredType = 'partner';
             else if (tr.category === 'supplier') inferredType = 'supplier';
-            else if (tr.category === 'dealer') inferredType = 'dealer';
+
             
             map.set(tr.accountName, { type: inferredType, balance: 0 });
         }
@@ -268,11 +263,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
              if (tr.type === 'expense') current.balance += tr.amount;
              else if (tr.type === 'income') current.balance -= tr.amount;
         }
-        else if (current.type === 'dealer') {
-             // Dealer Balance = Net Paid (same logic as Supplier)
-             if (tr.type === 'expense') current.balance += tr.amount;
-             else if (tr.type === 'income') current.balance -= tr.amount;
-        }
+
      });
 
      // 3. Process Stock Movements (Critical for Customers)
@@ -309,16 +300,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
        });
      });
 
-     Object.entries(accountOnlyLedger.dealer || {}).forEach(([accountName, entries]) => {
-       if (!entries || entries.length === 0) return;
-       if (!map.has(accountName)) map.set(accountName, { type: 'dealer', balance: 0 });
-       const current = map.get(accountName)!;
-       if (current.type !== 'dealer') return;
-       entries.forEach(e => {
-         if (e.kind === 'paid') current.balance += e.amount;
-         else if (e.kind === 'received') current.balance -= e.amount;
-       });
-     });
+
 
      return map;
   }, [transactions, accounts, stockMovements, accountOnlyLedger]);
@@ -611,74 +593,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   }, [selectedAccountName, activeTab, transactions, accountOnlyLedger.supplier]);
 
-  const dealerData: SupplierSummary | undefined = useMemo(() => {
-      if (activeTab !== 'dealer' || !selectedAccountName) return undefined;
 
-      // Same logic as Supplier (net paid ledger)
-      const relevantTxs = transactions.filter(t => t.accountName === selectedAccountName);
-      const localEntries = accountOnlyLedger.dealer[selectedAccountName] || [];
-      const ledger: SupplierLedgerItem[] = [];
-      let runningBalance = 0;
-
-      const combined = [
-        ...relevantTxs.map(tx => ({ kind: 'tx' as const, date: tx.date, order: tx.timestamp, tx })),
-        ...localEntries.map(e => ({ kind: 'local' as const, date: e.date, order: e.id, entry: e }))
-      ].sort((a, b) => (a.date !== b.date ? a.date.localeCompare(b.date) : a.order - b.order));
-
-      combined.forEach(item => {
-        if (item.kind === 'tx') {
-          const tx = item.tx;
-          if (tx.type === 'expense') {
-            runningBalance += tx.amount;
-            ledger.push({
-              id: `tx-${tx.id}`,
-              date: tx.date,
-              description: tx.details || 'Payment Made',
-              debitAmount: tx.amount,
-              creditAmount: 0,
-              runningBalance,
-              originalTransaction: tx
-            });
-          } else {
-            runningBalance -= tx.amount;
-            ledger.push({
-              id: `tx-${tx.id}`,
-              date: tx.date,
-              description: tx.details || 'Payment Received',
-              debitAmount: 0,
-              creditAmount: tx.amount,
-              runningBalance,
-              originalTransaction: tx
-            });
-          }
-        } else {
-          const e = item.entry;
-          const isPaid = e.kind === 'paid';
-          if (isPaid) runningBalance += e.amount;
-          else runningBalance -= e.amount;
-          ledger.push({
-            id: `local-${e.id}`,
-            date: e.date,
-            description: e.note || (isPaid ? 'Payment Made' : 'Payment Received'),
-            debitAmount: isPaid ? e.amount : 0,
-            creditAmount: isPaid ? 0 : e.amount,
-            runningBalance
-          });
-        }
-      });
-
-      const displayLedger = [...ledger].reverse();
-      const totalPaid = ledger.reduce((sum, i) => sum + i.debitAmount, 0);
-      const totalReceived = ledger.reduce((sum, i) => sum + i.creditAmount, 0);
-
-      return {
-          name: selectedAccountName,
-          totalPaid,
-          totalReceived,
-          netBalance: runningBalance,
-          ledger: displayLedger
-      };
-  }, [selectedAccountName, activeTab, transactions, accountOnlyLedger.dealer]);
 
   // LABOUR LOGIC
   const labourData: LabourSummary | undefined = useMemo(() => {
@@ -845,27 +760,20 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       // UI is handled in the view via modal; this handler stays for backward compatibility if wired.
   };
 
-  const handleReceiveDealerRefund = () => {
-      // Intentionally NOT opening Cashbook income for dealer.
-      if (!selectedAccountName) return;
-  };
+
 
   const handleAddAccountOnlyEntry = async (
-    kind: 'supplier' | 'dealer',
+    kind: 'supplier',
     accountName: string,
     entry: Omit<AccountOnlyLedgerEntry, 'id'>
   ) => {
     const id = Date.now();
-    const list = (kind === 'supplier' ? accountOnlyLedger.supplier[accountName] : accountOnlyLedger.dealer[accountName]) || [];
+    const list = accountOnlyLedger.supplier[accountName] || [];
     const nextEntry: AccountOnlyLedgerEntry = { id, ...entry };
     const next = {
       supplier: {
         ...accountOnlyLedger.supplier,
-        ...(kind === 'supplier' ? { [accountName]: [...list, nextEntry] } : {})
-      },
-      dealer: {
-        ...accountOnlyLedger.dealer,
-        ...(kind === 'dealer' ? { [accountName]: [...list, nextEntry] } : {})
+        [accountName]: [...list, nextEntry]
       }
     };
     await saveAccountOnlyLedger(next);
@@ -922,9 +830,6 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       } else if (activeTab === 'supplier' && supplierData) {
           const range = { start: reportStartDate, end: reportEndDate };
           await PDFGenerator.generateSupplierLedger(supplierData, range, 0, pdfLanguage);
-      } else if (activeTab === 'dealer' && dealerData) {
-          const range = { start: reportStartDate, end: reportEndDate };
-          await PDFGenerator.generateSupplierLedger(dealerData, range, 0, pdfLanguage);
       }
   };
 
@@ -946,7 +851,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       labourData={labourData}
       customerData={customerData}
       supplierData={supplierData}
-      dealerData={dealerData}
+
 
       onOpenAddAccount={() => setIsAddModalOpen(true)}
       isAddModalOpen={isAddModalOpen}
@@ -974,7 +879,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       
       onPayLabour={handlePayLabour}
       onReceiveRefund={handleReceiveRefund}
-      onReceiveDealerRefund={handleReceiveDealerRefund}
+
       onAddAccountOnlyEntry={handleAddAccountOnlyEntry}
 
       onDownloadPdf={handleDownloadPdf}

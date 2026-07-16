@@ -56,8 +56,6 @@ interface AccountPageViewProps {
   labourData?: LabourSummary;
   customerData?: CustomerSummary;
   supplierData?: SupplierSummary;
-  dealerData?: SupplierSummary;
-  
   // Actions & Modal
   onOpenAddAccount: () => void;
   isAddModalOpen: boolean;
@@ -90,8 +88,7 @@ interface AccountPageViewProps {
   // Payments
   onPayLabour?: () => void;
   onReceiveRefund?: () => void;
-  onReceiveDealerRefund?: () => void;
-  onAddAccountOnlyEntry?: (kind: 'supplier' | 'dealer', accountName: string, entry: Omit<AccountOnlyLedgerEntry, 'id'>) => void;
+  onAddAccountOnlyEntry?: (kind: 'supplier', accountName: string, entry: Omit<AccountOnlyLedgerEntry, 'id'>) => void;
   
   // PDF
   onDownloadPdf: () => void;
@@ -132,7 +129,6 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   labourData,
   customerData,
   supplierData,
-  dealerData,
   
   onOpenAddAccount,
   isAddModalOpen,
@@ -158,7 +154,6 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   onNextMonth,
   onPayLabour,
   onReceiveRefund,
-  onReceiveDealerRefund,
   onAddAccountOnlyEntry,
   onDownloadPdf,
   pdfLanguage,
@@ -210,7 +205,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   // Supplier/Dealer "RECEIVED" should NOT create Cashbook income.
   // We store a ledger-only entry linked to this account.
   const [isAccountOnlyModalOpen, setIsAccountOnlyModalOpen] = useState(false);
-  const [accountOnlyKind, setAccountOnlyKind] = useState<'supplier' | 'dealer'>('supplier');
+  const [accountOnlyKind, setAccountOnlyKind] = useState<'supplier'>('supplier');
   const [accountOnlyForm, setAccountOnlyForm] = useState<{ date: string; amount: string; note: string }>({
     date: new Date().toISOString().split('T')[0],
     amount: '',
@@ -218,7 +213,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   });
   const [accountOnlyErrors, setAccountOnlyErrors] = useState<Record<string, string>>({});
 
-  const openAccountOnlyReceivedModal = (kind: 'supplier' | 'dealer') => {
+  const openAccountOnlyReceivedModal = (kind: 'supplier') => {
     setAccountOnlyKind(kind);
     setAccountOnlyErrors({});
     setAccountOnlyForm({
@@ -930,129 +925,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                   {renameModal}
               </div>
           );
-      } else if (activeTab === 'dealer' && dealerData) {
-          return (
-              <div className="animate-fade-in space-y-6">
-                  {/* HEADER & NAV */}
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                      <div className="flex items-center gap-4">
-                          <button
-                            type="button"
-                            onClick={onBack}
-                            className="w-10 h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-2xl leading-none shadow-sm"
-                            aria-label={t.backToAccounts}
-                            title={t.backToAccounts}
-                          >
-                            ←
-                          </button>
-                      </div>
-                      
-                      <div className="flex gap-4 items-center flex-wrap">
-                          {renderReportControls()}
-                          <button 
-                             onClick={() => openAccountOnlyReceivedModal('dealer')}
-                             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition"
-                          >
-                             {t.receiveRefundBtn}
-                          </button>
-                      </div>
-                  </div>
 
-                  {/* DEALER SUMMARY CARD (same layout as Supplier) */}
-                  <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-orange-600">
-                       <div className="flex justify-between items-start items-center">
-                           <div className="flex items-center gap-3">
-                               <h2 className="text-2xl font-bold text-gray-800">{getTranslated(dealerData.name)}</h2>
-                               <button
-                                   type="button"
-                                   onClick={() => onRenameAccount && openRenameModal(dealerData.name)}
-                                   className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
-                                   title="Rename Account"
-                               >
-                                   ✎
-                               </button>
-                               {onDeleteAccount && (
-                                 <button
-                                   type="button"
-                                   onClick={() => onDeleteAccount(dealerData.name)}
-                                   className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
-                                   title={t.deleteAccountBtn}
-                                   aria-label={t.deleteAccountBtn}
-                                 >
-                                   <LedgerRemoveTrashIcon />
-                                 </button>
-                               )}
-                           </div>
-                           <div className="text-right">
-                               <p className="text-xs uppercase font-bold text-gray-500">{t.netPaidBalance}</p>
-                               <div className="text-3xl font-bold text-gray-800">
-                                   ₹{formatIndianCurrency(dealerData.netBalance)}
-                               </div>
-                              {/* removed per request */}
-                           </div>
-                       </div>
-                       
-                       <div className="grid grid-cols-2 gap-4 mt-6 border-t pt-4">
-                           <div>
-                               <p className="text-xs text-gray-500 uppercase font-bold">{t.totalPaidToSupplier}</p>
-                               <p className="text-xl font-bold text-red-600">₹{formatIndianCurrency(dealerData.totalPaid)}</p>
-                           </div>
-                           <div className="text-right">
-                               <p className="text-xs text-gray-500 uppercase font-bold">{t.totalReceivedFromSupplier}</p>
-                               <p className="text-xl font-bold text-green-600">₹{formatIndianCurrency(dealerData.totalReceived)}</p>
-                           </div>
-                       </div>
-                  </div>
-
-                  {/* STRICT DEALER LEDGER */}
-                  <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-                       <table className="w-full text-sm">
-                           <thead className="bg-gray-100 text-gray-700 font-bold uppercase border-b">
-                               <tr>
-                                   <th className="px-4 py-3 text-left">{t.dateHeader}</th>
-                                   <th className="px-4 py-3 text-left w-1/3">{t.detailsHeader}</th>
-                                   <th className="px-4 py-3 text-center bg-red-50 text-red-700">{t.colPaymentMade}</th>
-                                   <th className="px-4 py-3 text-center bg-green-50 text-green-700">{t.colRefundReceived}</th>
-                                   <th className="px-4 py-3 text-center">{t.netPaidBalance}</th>
-                               </tr>
-                           </thead>
-                           <tbody className="divide-y divide-gray-100">
-                               {dealerData.ledger.map(row => (
-                                   <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                                       <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">
-                                           {formatDisplayDate(row.date)}
-                                       </td>
-                                       <td className="px-4 py-3 text-gray-600">
-                                           {getTranslated(row.description)}
-                                           <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">
-                                               {row.debitAmount > 0 ? t.sourceExpense : t.sourceManual}
-                                           </div>
-                                       </td>
-                                       <td className="px-4 py-3 text-center bg-red-50/30">
-                                           {row.debitAmount > 0 ? (
-                                               <span className="font-bold text-red-600">₹{formatIndianCurrency(row.debitAmount)}</span>
-                                           ) : <span className="text-gray-300">-</span>}
-                                       </td>
-                                       <td className="px-4 py-3 text-center bg-green-50/30">
-                                           {row.creditAmount > 0 ? (
-                                               <span className="font-bold text-green-600">₹{formatIndianCurrency(row.creditAmount)}</span>
-                                           ) : <span className="text-gray-300">-</span>}
-                                       </td>
-                                       <td className="px-4 py-3 text-center font-bold text-gray-800">
-                                           ₹{formatIndianCurrency(row.runningBalance)}
-                                       </td>
-                                   </tr>
-                               ))}
-                               {dealerData.ledger.length === 0 && (
-                                   <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t.noRecords}</td></tr>
-                                )}
-                           </tbody>
-                       </table>
-                  </div>
-                  {accountOnlyModal}
-                  {renameModal}
-              </div>
-          );
       } else if (activeTab === 'partner' && partnerData) {
         return (
           <div className="animate-fade-in space-y-4">
@@ -1803,12 +1676,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
          >
             {t.tabSupplier}
          </button>
-         <button 
-            className={`flex-1 py-4 px-4 text-center font-bold transition-colors whitespace-nowrap ${activeTab === 'dealer' ? 'border-b-4 border-orange-500 text-orange-700 bg-orange-50' : 'text-gray-500 hover:bg-gray-50'}`}
-            onClick={() => onTabChange('dealer')}
-         >
-            {t.tabDealer}
-         </button>
+
       </div>
 
       {/* Actions & Search */}
@@ -1828,12 +1696,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                  activeTab === 'labour' 
                     ? 'bg-yellow-500 hover:bg-yellow-600' 
                     : (activeTab === 'customer' ? 'bg-purple-600 hover:bg-purple-700' : 
-                      (activeTab === 'supplier' ? 'bg-indigo-600 hover:bg-indigo-700' : (activeTab === 'dealer' ? 'bg-orange-600 hover:bg-orange-700' : 'bg-blue-500 hover:bg-blue-600')))
+                      (activeTab === 'supplier' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-500 hover:bg-blue-600'))
              }`}
          >
              {activeTab === 'labour' ? t.addLabourAccount : 
               (activeTab === 'customer' ? t.addCustomerAccount : 
-              (activeTab === 'supplier' ? t.addSupplierAccount : (activeTab === 'dealer' ? t.addDealerAccount : t.addPartnerAccount)))}
+              (activeTab === 'supplier' ? t.addSupplierAccount : t.addPartnerAccount))}
          </button>
       </div>
 

@@ -42,10 +42,10 @@ const UserProfileHeader: React.FC = () => {
   if (!session) return null;
 
   return (
-    <div className="flex items-center gap-3 pl-3 border-l border-gray-200">
+    <div className="flex items-center gap-3">
         <div className="text-right hidden sm:block">
-            <p className="text-xs text-gray-500 font-semibold">Logged in as</p>
-            <p className="text-sm font-bold text-gray-800">{session.name || session.email}</p>
+            <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Logged in as</p>
+            <p className="text-sm font-semibold text-gray-700">{session.name || session.email}</p>
         </div>
         <button 
             type="button"
@@ -54,10 +54,10 @@ const UserProfileHeader: React.FC = () => {
                     signOut();
                 }
             }}
-            className="text-red-600 hover:bg-red-50 p-2 rounded-full transition cursor-pointer"
+            className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-all cursor-pointer"
             title="Logout"
         >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-5 h-5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
             </svg>
         </button>
@@ -69,7 +69,22 @@ const UserProfileHeader: React.FC = () => {
 const FinancialApp: React.FC = () => {
   // State
   const [language, setLanguage] = useState<Language>('en');
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
   const t = TRANSLATIONS[language];
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setIsLangDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
   
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<StoredAccount[]>([]);
@@ -227,15 +242,26 @@ const FinancialApp: React.FC = () => {
   const loadData = async () => {
       setIsLoading(true);
       try {
-          const [txs, accs, stocks, ob, transCache, hiddenLedger, removedLedger] = await Promise.all([
+          // Load core data first, then settings — reduces burst that triggers Supabase 429
+          const [txsResult, accsResult, stocksResult] = await Promise.allSettled([
               TransactionService.getAll(),
               AccountService.getAll(),
               StockService.getAll(),
+          ]);
+          const [obResult, transCacheResult, hiddenLedgerResult, removedLedgerResult] = await Promise.allSettled([
               SettingsService.get('openingBalanceData'),
               SettingsService.get('translationCache'),
               SettingsService.get('hiddenLedgerAccounts'),
-              SettingsService.get('removedLedgerAccounts')
+              SettingsService.get('removedLedgerAccounts'),
           ]);
+
+          const txs = txsResult.status === 'fulfilled' ? txsResult.value : [];
+          const accs = accsResult.status === 'fulfilled' ? accsResult.value : [];
+          const stocks = stocksResult.status === 'fulfilled' ? stocksResult.value : [];
+          const ob = obResult.status === 'fulfilled' ? obResult.value : null;
+          const transCache = transCacheResult.status === 'fulfilled' ? transCacheResult.value : null;
+          const hiddenLedger = hiddenLedgerResult.status === 'fulfilled' ? hiddenLedgerResult.value : [];
+          const removedLedger = removedLedgerResult.status === 'fulfilled' ? removedLedgerResult.value : [];
 
           // Merge any locally pending txs so they don't disappear on refresh.
           // Then try to sync them in background.
@@ -322,7 +348,7 @@ const FinancialApp: React.FC = () => {
           void SettingsService.set('hiddenLedgerAccounts', nextHiddenCreate);
       }
 
-      const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'dealer', 'other'].includes(type) ? type : 'other';
+      const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
       
       const newAccount: StoredAccount = {
           name,
@@ -516,7 +542,7 @@ const FinancialApp: React.FC = () => {
       // Not typically used directly in UI, usually granular updates
   };
 
-  const handleAddTransaction = async (data: Omit<Transaction, 'id' | 'timestamp'>, endDate?: string) => {
+  const handleAddTransaction = async (data: Omit<Transaction, 'id' | 'timestamp'>) => {
       // 1. Create Account if needed (Optimistic)
       if (data.accountName) {
          const exists = accounts.some(a => a.name === data.accountName);
@@ -527,29 +553,18 @@ const FinancialApp: React.FC = () => {
 
       // --- AUTO-ADJUST DATE FILTER (CASHBOOK RULE) ---
       const txDate = data.date;
-      const isRangeTransaction = endDate && endDate > txDate;
+      const isInsideActiveRange = 
+          dateFilter.mode === 'range' && 
+          txDate >= dateFilter.fromDate && 
+          txDate <= dateFilter.toDate;
 
-      if (isRangeTransaction) {
+      if (!isInsideActiveRange) {
           setDateFilter({
-              mode: 'range',
-              singleDate: txDate, 
+              mode: 'single',
+              singleDate: txDate,
               fromDate: txDate,
-              toDate: endDate
+              toDate: txDate
           });
-      } else {
-          const isInsideActiveRange = 
-              dateFilter.mode === 'range' && 
-              txDate >= dateFilter.fromDate && 
-              txDate <= dateFilter.toDate;
-
-          if (!isInsideActiveRange) {
-              setDateFilter({
-                  mode: 'single',
-                  singleDate: txDate,
-                  fromDate: txDate,
-                  toDate: txDate
-              });
-          }
       }
 
       // Optimistic Updates
@@ -709,95 +724,52 @@ const FinancialApp: React.FC = () => {
             return [outTx, inTx].map(tx => ({ ...tx, amount }));
           };
 
-          if (endDate && endDate !== data.date) {
-              const dates = getDatesInRange(data.date, endDate);
-              const newTxs: Transaction[] = isCashConversion
-                ? dates.flatMap((d, i) => makeCashConversionPair(d, tempId + i * 2, Date.now() + i * 2))
-                : dates.map((d, i) => ({
-                    ...data,
-                    id: tempId + i,
-                    date: d,
-                    timestamp: Date.now() + i
-                }));
-              
-              setTransactions(prev => [...prev, ...newTxs]);
+          if (isCashConversion) {
+            const pair = makeCashConversionPair(data.date, tempId, Date.now());
+            setTransactions(prev => [...prev, ...pair]);
 
-              // Background Sync - Sequential to maintain order if important
-              (async () => {
-                  try {
-                      for (const d of dates) {
-                          if (isCashConversion) {
-                            // NOTE: TransactionService.create() already creates both sides for cash_conversion.
-                            // Calling it twice causes duplicates after refresh.
-                            await TransactionService.create({
-                              ...data,
-                              type: 'expense',
-                              paymentType: 'online' as any,
-                              accountName: '',
-                              date: d,
-                              timestamp: Date.now(),
-                              details: data.details?.trim() || 'ONLINE -> CASH'
-                            });
-                          } else {
-                            await TransactionService.create({ ...data, date: d, timestamp: Date.now() });
-                          }
-                      }
-                      // Re-sync to replace temp ids with real ones
-                      const all = await TransactionService.getAll();
-                      setTransactions(all);
-                  } catch (e) {
-                      console.error("Batch create failed", e);
-                  }
-              })();
-
-          } else {
-              if (isCashConversion) {
-                const pair = makeCashConversionPair(data.date, tempId, Date.now());
-                setTransactions(prev => [...prev, ...pair]);
-
-                // Background Sync: create once (service creates both), then re-sync
-                (async () => {
-                  try {
-                    await TransactionService.create({
-                      ...data,
-                      type: 'expense',
-                      paymentType: 'online' as any,
-                      accountName: '',
-                      timestamp: Date.now(),
-                      details: data.details?.trim() || 'ONLINE -> CASH'
-                    });
-                    const all = await TransactionService.getAll();
-                    setTransactions(all);
-                  } catch (e) {
-                    console.error("Create cash conversion failed", e);
-                    setTransactions(prev => prev.filter(t => t.id !== tempId && t.id !== tempId + 1));
-                  }
-                })();
-              } else {
-                const ts = Date.now();
-                const newTx: Transaction = {
-                    ...data,
-                    id: tempId,
-                    timestamp: ts
-                };
-                setTransactions(prev => [...prev, newTx]);
-
-                // Persist locally immediately so refresh won't lose it.
-                outboxAddMany([{ ...data, timestamp: ts }]);
-
-                // Background Sync
-                TransactionService.create({ ...data, timestamp: ts })
-                    .then(realTx => {
-                        // Replace temp ID with real ID
-                        setTransactions(prev => prev.map(t => t.id === tempId ? realTx : t));
-                        outboxRemoveMany([{ ...data, timestamp: ts }]);
-                    })
-                    .catch(e => {
-                        console.error("Create tx failed", e);
-                        setTransactions(prev => prev.filter(t => t.id !== tempId));
-                        alert(`Transaction not saved. Check internet/login and try again.\n\n${(e as any)?.message || ''}`.trim());
-                    });
+            // Background Sync: create once (service creates both), then re-sync
+            (async () => {
+              try {
+                await TransactionService.create({
+                  ...data,
+                  type: 'expense',
+                  paymentType: 'online' as any,
+                  accountName: '',
+                  timestamp: Date.now(),
+                  details: data.details?.trim() || 'ONLINE -> CASH'
+                });
+                const all = await TransactionService.getAll();
+                setTransactions(all);
+              } catch (e) {
+                console.error("Create cash conversion failed", e);
+                setTransactions(prev => prev.filter(t => t.id !== tempId && t.id !== tempId + 1));
               }
+            })();
+          } else {
+            const ts = Date.now();
+            const newTx: Transaction = {
+                ...data,
+                id: tempId,
+                timestamp: ts
+            };
+            setTransactions(prev => [...prev, newTx]);
+
+            // Persist locally immediately so refresh won't lose it.
+            outboxAddMany([{ ...data, timestamp: ts }]);
+
+            // Background Sync
+            TransactionService.create({ ...data, timestamp: ts })
+                .then(realTx => {
+                    // Replace temp ID with real ID
+                    setTransactions(prev => prev.map(t => t.id === tempId ? realTx : t));
+                    outboxRemoveMany([{ ...data, timestamp: ts }]);
+                })
+                .catch(e => {
+                    console.error("Create tx failed", e);
+                    setTransactions(prev => prev.filter(t => t.id !== tempId));
+                    alert(`Transaction not saved. Check internet/login and try again.\n\n${(e as any)?.message || ''}`.trim());
+                });
           }
       }
       setEditingTransaction(null);
@@ -1178,12 +1150,12 @@ const FinancialApp: React.FC = () => {
   }, [translationCache]);
 
   // --- Translation Logic ---
-  const getTranslated = (text?: string): string => {
+  const getTranslated = React.useCallback((text?: string): string => {
     if (!text) return "";
     if (language === 'en') return text;
     const cache = translationCache[language];
     return cache && cache[text] ? cache[text] : text;
-  };
+  }, [language, translationCache]);
 
   const handleTranslateData = async () => {
       if (language === 'en') return;
@@ -1356,7 +1328,7 @@ const FinancialApp: React.FC = () => {
       if (cat === 'cl_oil') return t.clOilOption;
       if (cat === 'electricity') return t.electricityOption;
       if (cat === 'supplier') return t.supplierOption;
-      if (cat === 'dealer') return t.dealerExpenseOption;
+
       if (cat === 'cash_conversion') return "ONLINE -> CASH";
       if (cat === 'other_income') return t.otherIncomeOption;
       return cat;
@@ -1373,12 +1345,12 @@ const FinancialApp: React.FC = () => {
   return (
       <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
           {/* Header */}
-          <header className="bg-white shadow z-10">
-              <div className="max-w-7xl mx-auto px-4 py-4 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
+          <header className="bg-white shadow-sm z-10">
+              <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-center gap-8">
                   {/* Left: Language icon + selector (fixed area) */}
-                  <div className="flex items-center gap-2 justify-self-start min-w-[260px]">
+                  <div className="flex items-center gap-3">
                       <div
-                        className="w-9 h-9 rounded-full bg-gray-100 text-gray-700 flex items-center justify-center"
+                        className="w-10 h-10 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center"
                         title={t.langLabel}
                         aria-label={t.langLabel}
                       >
@@ -1391,7 +1363,7 @@ const FinancialApp: React.FC = () => {
                       <select
                           value={language}
                           onChange={(e) => setLanguage(e.target.value as Language)}
-                          className="border rounded-lg px-2 py-2 text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white"
+                          className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-all"
                           aria-label={t.langLabel}
                       >
                           <option value="en">English</option>
@@ -1402,10 +1374,10 @@ const FinancialApp: React.FC = () => {
                       <button
                          onClick={handleTranslateData}
                          disabled={isTranslating || language === 'en'}
-                         className={`ml-1 px-3 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition ${
+                         className={`px-3 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition-all ${
                            language === 'en'
                              ? 'opacity-0 pointer-events-none select-none'
-                             : (isTranslating ? 'bg-gray-200 text-gray-500' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200')
+                             : (isTranslating ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-700 hover:bg-blue-100')
                          }`}
                          title="Translate all names and notes using AI"
                          aria-hidden={language === 'en'}
@@ -1413,7 +1385,7 @@ const FinancialApp: React.FC = () => {
                       >
                          {isTranslating ? (
                              <>
-                               <svg className="animate-spin h-4 w-4 text-indigo-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                               <svg className="animate-spin h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                </svg>
@@ -1427,15 +1399,8 @@ const FinancialApp: React.FC = () => {
                       </button>
                   </div>
 
-                  {/* Middle: Title (always centered) */}
-                  <h1 className="text-xl sm:text-2xl font-extrabold text-gray-900 tracking-wide drop-shadow-sm text-center justify-self-center whitespace-nowrap">
-                    {t.pageTitle}
-                  </h1>
-
-                  {/* Right: Logged in as (fixed area) */}
-                  <div className="flex items-center justify-self-end justify-end min-w-[260px]">
-                    <UserProfileHeader />
-                  </div>
+                  {/* User profile */}
+                  <UserProfileHeader />
               </div>
               {/* Tabs */}
               <div className="flex overflow-x-auto bg-gray-50 border-t">
@@ -1542,91 +1507,6 @@ const FinancialApp: React.FC = () => {
                             </div>
                       </div>
 
-                      {/* INCOME TRANSACTIONS TABLE */}
-                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-                          <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-green-700">
-                                {t.incomeTitle}
-                              </h2>
-                              <button 
-                                  onClick={() => openTransactionModal('income')}
-                                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
-                              >
-                                  {t.addIncomeBtn}
-                              </button>
-                          </div>
-                          <div className="overflow-x-auto">
-                              <table className="w-full">
-                                  <thead className="bg-green-50">
-                                      <tr>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.incomeTypeHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
-                                      </tr>
-                                  </thead>
-                                  <tbody>
-                                      {displayedTransactions.filter(tr => tr.type === 'income').length === 0 && (
-                                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noIncome}</td></tr>
-                                      )}
-                                      {displayedTransactions.filter(tr => tr.type === 'income').map(tr => (
-                                          <tr key={tr.id} className="border-b hover:bg-gray-50">
-                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
-                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
-                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
-                                              <td className="px-4 py-3">
-                                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
-                                                      {tr.paymentType}
-                                                  </span>
-                                              </td>
-                                              <td className="px-4 py-3 text-center">
-                                                  <span className="inline-flex justify-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                                      {getCategoryLabel(tr.category)}
-                                                  </span>
-                                              </td>
-                                              <td className="px-4 py-3 text-right font-bold text-green-600">₹{formatIndianCurrency(tr.amount)}</td>
-                                              <td className="px-4 py-3 text-right">
-                                                  <div className="flex justify-end items-center gap-2">
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
-                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
-                                                          title={t.editBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                                                          </svg>
-                                                      </button>
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
-                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
-                                                          title={t.deleteBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                          </svg>
-                                                      </button>
-                                                  </div>
-                                              </td>
-                                          </tr>
-                                      ))}
-                                  </tbody>
-                                  <tfoot className="bg-green-50 border-t border-green-200">
-                                      <tr>
-                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
-                                              {t.incomeTotalLabel} <span className="text-green-700 text-lg ml-2">₹{formatIndianCurrency(totalIncome)}</span>
-                                          </td>
-                                          <td colSpan={4}></td>
-                                      </tr>
-                                  </tfoot>
-                              </table>
-                          </div>
-                      </div>
-
                       {/* EXPENSE TRANSACTIONS TABLE */}
                       <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
                           <div className="flex justify-between items-center mb-4">
@@ -1712,6 +1592,91 @@ const FinancialApp: React.FC = () => {
                           </div>
                       </div>
 
+                      {/* INCOME TRANSACTIONS TABLE */}
+                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+                          <div className="flex justify-between items-center mb-4">
+                              <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-green-700">
+                                {t.incomeTitle}
+                              </h2>
+                              <button 
+                                  onClick={() => openTransactionModal('income')}
+                                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
+                              >
+                                  {t.addIncomeBtn}
+                              </button>
+                          </div>
+                          <div className="overflow-x-auto">
+                              <table className="w-full">
+                                  <thead className="bg-green-50">
+                                      <tr>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
+                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.incomeTypeHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
+                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
+                                      </tr>
+                                  </thead>
+                                  <tbody>
+                                      {displayedTransactions.filter(tr => tr.type === 'income').length === 0 && (
+                                          <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noIncome}</td></tr>
+                                      )}
+                                      {displayedTransactions.filter(tr => tr.type === 'income').map(tr => (
+                                          <tr key={tr.id} className="border-b hover:bg-gray-50">
+                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
+                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
+                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
+                                              <td className="px-4 py-3">
+                                                  <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                      {tr.paymentType}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-center">
+                                                  <span className="inline-flex justify-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                                      {getCategoryLabel(tr.category)}
+                                                  </span>
+                                              </td>
+                                              <td className="px-4 py-3 text-right font-bold text-green-600">₹{formatIndianCurrency(tr.amount)}</td>
+                                              <td className="px-4 py-3 text-right">
+                                                  <div className="flex justify-end items-center gap-2">
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
+                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
+                                                          title={t.editBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                                                          </svg>
+                                                      </button>
+                                                      <button 
+                                                          type="button"
+                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
+                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
+                                                          title={t.deleteBtn}
+                                                      >
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                                                          </svg>
+                                                      </button>
+                                                  </div>
+                                              </td>
+                                          </tr>
+                                      ))}
+                                  </tbody>
+                                  <tfoot className="bg-green-50 border-t border-green-200">
+                                      <tr>
+                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
+                                              {t.incomeTotalLabel} <span className="text-green-700 text-lg ml-2">₹{formatIndianCurrency(totalIncome)}</span>
+                                          </td>
+                                          <td colSpan={4}></td>
+                                      </tr>
+                                  </tfoot>
+                              </table>
+                          </div>
+                      </div>
+
                       {/* FINAL BALANCE CARD */}
                       <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white text-center md:text-left">
                           <h2 className="text-2xl font-bold mb-4 text-center">{t.finalBalanceTitle}</h2>
@@ -1776,7 +1741,7 @@ const FinancialApp: React.FC = () => {
                                    <p className="text-xs uppercase tracking-wide font-bold text-green-700 mb-1">{t.statsClOilExpense}</p>
                                    <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.clOil)}</p>
                               </div>
-                              {/* Electricity Expense */}
+                              {/* Thread Expense */}
                               <div className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
                                       <p className="text-xs uppercase tracking-wide font-bold text-blue-600 mb-1">{t.statsElectricityExpense}</p>
                                       <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.electricity)}</p>

@@ -455,7 +455,7 @@ export class PDFGenerator {
           }
       });
 
-      this.save(doc, `Supplier_${data.name}`, lang, fontName);
+      this.save(doc, `Farmer_${data.name}`, lang, fontName);
   }
 
   // 4. Partner Ledger
@@ -610,7 +610,7 @@ export class PDFGenerator {
           
           // Calculate total earnings including extra bonuses
           let earnings = row.isPresent ? (row.dailyWage || 0) : 0;
-          let notes = [];
+          let notes: string[] = [];
           
           if(row.adjustments && row.adjustments.length > 0) {
               row.adjustments.forEach(adj => {
