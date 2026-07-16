@@ -39,8 +39,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
 }) => {
   // Navigation State Removed
 
-  // Stock State
-  const [unit, setUnit] = useState<'KG' | 'QUINTAL'>('QUINTAL'); 
+  // Stock State — Quintal only (stored internally as KG)
   const [adjustQty, setAdjustQty] = useState(''); 
 
   // Derived Current Stock
@@ -71,32 +70,11 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
 
   // -- LOGIC --
 
-  const toggleUnit = () => {
-      setUnit(prev => prev === 'KG' ? 'QUINTAL' : 'KG');
-      // Convert Adjust Input if present
-      if (adjustQty) {
-           const val = parseFloat(adjustQty);
-           if (!isNaN(val)) {
-               if (unit === 'KG') setAdjustQty((val / 100).toString());
-               else setAdjustQty((val * 100).toString());
-           }
-      }
-      // Convert Dispatch Input if present
-      if (dispatchQty) {
-          const val = parseFloat(dispatchQty);
-          if (!isNaN(val)) {
-              if (unit === 'KG') setDispatchQty((val / 100).toString());
-              else setDispatchQty((val * 100).toString());
-          }
-      }
-  };
-
   const handleAddStock = () => {
       const qty = parseFloat(adjustQty);
       if (isNaN(qty) || qty <= 0) return; // Validation handled in View
 
-      // Input qty respects current unit
-      const qtyKg = unit === 'KG' ? qty : qty * 100;
+      const qtyKg = qty * 100;
       
       const newMovement: StockMovement = {
           id: Date.now(),
@@ -104,7 +82,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
           type: 'adjust_add',
           quantityKg: qtyKg,
           remainingStockKg: currentStockKg + qtyKg,
-          note: `${t.manualAddNote} (${qty} ${unit === 'KG' ? t.unitKg : t.unitQuintal})`
+          note: `${t.manualAddNote} (${qty} ${t.unitQuintal})`
       };
       onAddStockMovement(newMovement);
       setAdjustQty(''); // Clear input
@@ -114,7 +92,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
       const qty = parseFloat(adjustQty);
       if (isNaN(qty) || qty <= 0) return; // Validation handled in View
 
-      const qtyKg = unit === 'KG' ? qty : qty * 100;
+      const qtyKg = qty * 100;
       // Insufficient stock check handled in view, but extra safety:
       if (currentStockKg < qtyKg) return;
 
@@ -124,18 +102,18 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
           type: 'adjust_sub',
           quantityKg: qtyKg,
           remainingStockKg: currentStockKg - qtyKg,
-          note: `${t.manualSubNote} (${qty} ${unit === 'KG' ? t.unitKg : t.unitQuintal})`
+          note: `${t.manualSubNote} (${qty} ${t.unitQuintal})`
       };
       onAddStockMovement(newMovement);
       setAdjustQty(''); // Clear input
   };
 
-  // Dispatch Calculation
+  // Dispatch Calculation (qty entered in Quintal)
   const dispatchTotalKg = useMemo(() => {
       const q = parseFloat(dispatchQty);
       if (isNaN(q)) return 0;
-      return unit === 'KG' ? q : q * 100;
-  }, [dispatchQty, unit]);
+      return q * 100;
+  }, [dispatchQty]);
 
   const dispatchTotalPrice = useMemo(() => {
       const r = parseFloat(ratePerQuintal);
@@ -192,8 +170,6 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
        t={t}
        currentStockKg={currentStockKg}
        stockMovements={stockMovements}
-       unit={unit}
-       onToggleUnit={toggleUnit}
        
        adjustQty={adjustQty}
        setAdjustQty={setAdjustQty}

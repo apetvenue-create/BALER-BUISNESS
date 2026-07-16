@@ -1,7 +1,19 @@
 
 
 import { supabase, getCachedUser } from './supabase';
-import { StoredAccount, AccountType, ManualAdjustment, OwnerPreviousEntry } from '../types';
+import { StoredAccount, AccountType, ManualAdjustment, OwnerPreviousEntry, FarmerProfileDetails } from '../types';
+import { SettingsService } from './settings.service';
+
+const FARMER_DETAILS_KEY = 'farmerDetailsByName';
+
+const readFarmerDetailsMap = async (): Promise<Record<string, FarmerProfileDetails>> => {
+  const raw = await SettingsService.get(FARMER_DETAILS_KEY);
+  return raw && typeof raw === 'object' ? raw : {};
+};
+
+const writeFarmerDetailsMap = async (map: Record<string, FarmerProfileDetails>) => {
+  await SettingsService.set(FARMER_DETAILS_KEY, map);
+};
 
 export const AccountService = {
   async getAll(): Promise<StoredAccount[]> {
@@ -20,28 +32,21 @@ export const AccountService = {
       if (accError) throw accError;
 
       // 2. Fetch Related Data (Attendance, Hisaab, Adjustments) - parallel, with individual try/catch
-      const [attendanceRes, hisaabRes, adjustmentsRes, ownerPrevRes] = await Promise.allSettled([
-        supabase.from('attendance').select('*').eq('user_id', user.id),
-        supabase.from('hisaab_days').select('*').eq('user_id', user.id),
-        supabase.from('adjustments').select('*').eq('user_id', user.id),
-        supabase.from('owner_previous_entries').select('*').eq('user_id', user.id),
+      const [attendanceRes, hisaabRes, adjustmentsRes, ownerPrevRes, farmerDetailsMap] = await Promise.all([
+        supabase.from('attendance').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
+        supabase.from('hisaab_days').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
+        supabase.from('adjustments').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
+        supabase.from('owner_previous_entries').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
+        readFarmerDetailsMap().catch(() => ({} as Record<string, FarmerProfileDetails>)),
       ]);
 
-      const attendanceData = attendanceRes.status === 'fulfilled' && !attendanceRes.value.error 
-        ? attendanceRes.value.data || [] 
-        : [];
-      const hisaabData = hisaabRes.status === 'fulfilled' && !hisaabRes.value.error 
-        ? hisaabRes.value.data || [] 
-        : [];
-      const adjustmentsData = adjustmentsRes.status === 'fulfilled' && !adjustmentsRes.value.error 
-        ? adjustmentsRes.value.data || [] 
-        : [];
-      const ownerPrevData = ownerPrevRes.status === 'fulfilled' && !ownerPrevRes.value.error 
-        ? ownerPrevRes.value.data || [] 
-        : [];
+      const attendanceData = !attendanceRes.value.error ? attendanceRes.value.data || [] : [];
+      const hisaabData = !hisaabRes.value.error ? hisaabRes.value.data || [] : [];
+      const adjustmentsData = !adjustmentsRes.value.error ? adjustmentsRes.value.data || [] : [];
+      const ownerPrevData = !ownerPrevRes.value.error ? ownerPrevRes.value.data || [] : [];
 
-      if (ownerPrevRes.status === 'rejected' || (ownerPrevRes.status === 'fulfilled' && ownerPrevRes.value.error)) {
-        console.warn('owner_previous_entries fetch failed:', ownerPrevRes.status === 'rejected' ? ownerPrevRes.reason : ownerPrevRes.value.error);
+      if (ownerPrevRes.value.error) {
+        console.warn('owner_previous_entries fetch failed:', ownerPrevRes.value.error);
       }
 
       // 3. Map to Frontend Structure
@@ -88,6 +93,20 @@ export const AccountService = {
                 }))
             : [];
 
+        const savedFarmer = farmerDetailsMap[accName] || {};
+        const farmerFields =
+          acc.type === 'supplier'
+            ? {
+                phone: (acc.phone as string) || savedFarmer.phone || undefined,
+                address: (acc.address as string) || savedFarmer.address || undefined,
+                acres:
+                  acc.acres != null && acc.acres !== ''
+                    ? Number(acc.acres)
+                    : savedFarmer.acres,
+                dateCutter: (acc.date_cutter as string) || savedFarmer.dateCutter || undefined,
+              }
+            : {};
+
         return {
           name: acc.name,
           type: acc.type as AccountType,
@@ -95,7 +114,8 @@ export const AccountService = {
           attendance: attendanceMap,
           hisaabDays: hisaabMap,
           manualAdjustments: adjustments,
-          ...(acc.type === 'partner' ? { ownerPreviousEntries } : {})
+          ...(acc.type === 'partner' ? { ownerPreviousEntries } : {}),
+          ...farmerFields,
         };
       });
     } catch (error) {
@@ -104,23 +124,89 @@ export const AccountService = {
     }
   },
 
-  async create(name: string, type: AccountType, rate?: number): Promise<void> {
+  async create(
+    name: string,
+    type: AccountType,
+    rate?: number,
+    details?: FarmerProfileDetails
+  ): Promise<void> {
     const user = await getCachedUser();
     if (!user) {
       console.warn("create: No authenticated user, skipping");
       return;
     }
 
-    const { error } = await supabase
-      .from('accounts')
-      .insert({
+    const baseRow: Record<string, unknown> = {
+      user_id: user.id,
+      name,
+      type,
+      rate,
+    };
+
+    if (type === 'supplier' && details) {
+      baseRow.phone = details.phone || null;
+      baseRow.address = details.address || null;
+      baseRow.acres = details.acres ?? null;
+      baseRow.date_cutter = details.dateCutter || null;
+    }
+
+    let { error } = await supabase.from('accounts').insert(baseRow);
+
+    // If farmer columns are missing on the remote DB, retry without them
+    if (error && type === 'supplier' && details) {
+      const retry = await supabase.from('accounts').insert({
         user_id: user.id,
         name,
         type,
-        rate
+        rate,
       });
-    
+      error = retry.error;
+    }
+
     if (error) throw error;
+
+    if (type === 'supplier' && details) {
+      const map = await readFarmerDetailsMap();
+      map[name] = {
+        phone: details.phone || undefined,
+        address: details.address || undefined,
+        acres: details.acres,
+        dateCutter: details.dateCutter || undefined,
+      };
+      await writeFarmerDetailsMap(map);
+    }
+  },
+
+  async updateFarmerDetails(accountName: string, details: FarmerProfileDetails): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn("updateFarmerDetails: No authenticated user, skipping");
+      return;
+    }
+
+    const map = await readFarmerDetailsMap();
+    map[accountName] = {
+      phone: details.phone || undefined,
+      address: details.address || undefined,
+      acres: details.acres,
+      dateCutter: details.dateCutter || undefined,
+    };
+    await writeFarmerDetailsMap(map);
+
+    const { error } = await supabase
+      .from('accounts')
+      .update({
+        phone: details.phone || null,
+        address: details.address || null,
+        acres: details.acres ?? null,
+        date_cutter: details.dateCutter || null,
+      })
+      .eq('name', accountName)
+      .eq('user_id', user.id);
+
+    if (error) {
+      console.warn('Farmer DB column update skipped:', error.message);
+    }
   },
 
   async rename(oldName: string, newName: string): Promise<void> {
@@ -156,6 +242,18 @@ export const AccountService = {
 
     // 7. Owner previous amounts
     await supabase.from('owner_previous_entries').update({ account_name: newName }).eq('account_name', oldName).eq('user_id', user.id);
+
+    // 8. Farmer profile map key
+    try {
+      const map = await readFarmerDetailsMap();
+      if (map[oldName]) {
+        map[newName] = map[oldName];
+        delete map[oldName];
+        await writeFarmerDetailsMap(map);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   /** Removes only the `accounts` row so the name disappears from Ledgers; transactions, stock, etc. stay. */
@@ -173,6 +271,16 @@ export const AccountService = {
       .eq('user_id', user.id);
 
     if (error) throw error;
+
+    try {
+      const map = await readFarmerDetailsMap();
+      if (map[accountName]) {
+        delete map[accountName];
+        await writeFarmerDetailsMap(map);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   // Attendance Operations

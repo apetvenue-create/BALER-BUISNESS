@@ -46,6 +46,18 @@ export interface StoredAccount {
   manualAdjustments?: ManualAdjustment[]; // Extra payables (Bonuses, Overtime)
   /** Partner (owner) accounts only — isolated from global transactions */
   ownerPreviousEntries?: OwnerPreviousEntry[];
+  /** Farmer (supplier) profile fields */
+  phone?: string;
+  address?: string;
+  acres?: number;
+  dateCutter?: string; // YYYY-MM-DD
+}
+
+export interface FarmerProfileDetails {
+  phone?: string;
+  address?: string;
+  acres?: number;
+  dateCutter?: string;
 }
 
 export interface DateFilter {
@@ -407,6 +419,13 @@ export interface Translation {
   supplierCreditModalTitle: string;
   supplierCreditHelp: string;
   supplierOption: string;
+  farmerPhoneLabel: string;
+  farmerAddressLabel: string;
+  farmerAcresLabel: string;
+  farmerDateCutterLabel: string;
+  farmerDetailsTitle: string;
+  saveFarmerDetailsBtn: string;
+  farmerDetailsSaved: string;
 
   
   // Other Income

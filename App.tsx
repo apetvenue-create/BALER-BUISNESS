@@ -10,7 +10,8 @@ import {
   DateFilter,
   StockMovement,
   ManualAdjustment,
-  OwnerPreviousEntry
+  OwnerPreviousEntry,
+  FarmerProfileDetails
 } from './types';
 import { TRANSLATIONS } from './constants';
 import { getDatesInRange, formatIndianCurrency, formatDisplayDate, formatISODateLocal, formatInputCurrency, parseCurrency } from './utils';
@@ -336,7 +337,12 @@ const FinancialApp: React.FC = () => {
 
   // --- Persistence Handlers (Optimistic) ---
 
-  const handleCreateAccount = async (name: string, type: AccountType, rate?: number) => {
+  const handleCreateAccount = async (
+      name: string,
+      type: AccountType,
+      rate?: number,
+      details?: FarmerProfileDetails
+  ) => {
       // Optimistic Check & Update
       if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) return;
 
@@ -357,7 +363,15 @@ const FinancialApp: React.FC = () => {
           attendance: {},
           hisaabDays: {},
           manualAdjustments: [],
-          ...(safeType === 'partner' ? { ownerPreviousEntries: [] as OwnerPreviousEntry[] } : {})
+          ...(safeType === 'partner' ? { ownerPreviousEntries: [] as OwnerPreviousEntry[] } : {}),
+          ...(safeType === 'supplier' && details
+            ? {
+                phone: details.phone,
+                address: details.address,
+                acres: details.acres,
+                dateCutter: details.dateCutter,
+              }
+            : {})
       };
 
       // Update State Immediately
@@ -365,11 +379,9 @@ const FinancialApp: React.FC = () => {
 
       // Sync
       try {
-          await AccountService.create(name, safeType, rate);
-          // Optional: Re-fetch ID or details if needed, but for simple accounts, name is ID often.
+          await AccountService.create(name, safeType, rate, details);
       } catch (e) {
           console.error("Create account failed", e);
-          // Rollback if needed
           setAccounts(prev => prev.filter(a => a.name !== name));
           alert("Failed to create account on server.");
       }
@@ -379,9 +391,16 @@ const FinancialApp: React.FC = () => {
       const canonicalOld = oldName.trim();
       const canonicalNew = newName.trim();
       if (!canonicalNew) return;
-      if (canonicalOld.toLowerCase() === canonicalNew.toLowerCase()) return;
+      // Allow capitalization-only changes (e.g. "ram" → "Ram"); skip only if identical
+      if (canonicalOld === canonicalNew) return;
 
-      if (accounts.some(a => a.name.trim().toLowerCase() === canonicalNew.toLowerCase())) {
+      // Conflict only if a *different* account already uses this name (ignore case)
+      const conflict = accounts.some(a => {
+          const n = a.name.trim();
+          if (n === canonicalOld) return false;
+          return n.toLowerCase() === canonicalNew.toLowerCase();
+      });
+      if (conflict) {
           alert(t.accountExists);
           return;
       }
@@ -430,7 +449,6 @@ const FinancialApp: React.FC = () => {
       } catch (e) {
           console.error("Rename failed", e);
           alert("Failed to update name on server. Please refresh.");
-          // In a real app, revert state here
       }
   };
 
@@ -539,7 +557,23 @@ const FinancialApp: React.FC = () => {
   };
 
   const handleUpdateAccount = async (updated: StoredAccount) => {
-      // Not typically used directly in UI, usually granular updates
+      const prev = accounts.find(a => a.name === updated.name);
+      setAccounts(list => list.map(a => (a.name === updated.name ? { ...a, ...updated } : a)));
+
+      if (updated.type === 'supplier') {
+          try {
+              await AccountService.updateFarmerDetails(updated.name, {
+                  phone: updated.phone,
+                  address: updated.address,
+                  acres: updated.acres,
+                  dateCutter: updated.dateCutter,
+              });
+          } catch (e) {
+              console.error('Update farmer details failed', e);
+              if (prev) setAccounts(list => list.map(a => (a.name === prev.name ? prev : a)));
+              alert('Failed to save farmer details.');
+          }
+      }
   };
 
   const handleAddTransaction = async (data: Omit<Transaction, 'id' | 'timestamp'>) => {

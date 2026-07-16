@@ -8,8 +8,6 @@ interface StockPageViewProps {
   t: Translation;
   currentStockKg: number;
   stockMovements: StockMovement[];
-  unit: 'KG' | 'QUINTAL';
-  onToggleUnit: () => void;
   
   // Dashboard Actions (Manual Adjustments)
   adjustQty: string;
@@ -56,8 +54,6 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
   t,
   currentStockKg,
   stockMovements,
-  unit,
-  onToggleUnit,
   
   adjustQty,
   setAdjustQty,
@@ -90,7 +86,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
   getTranslated
 }) => {
 
-  const displayStock = unit === 'KG' ? currentStockKg : (currentStockKg / 100);
+  const displayStock = currentStockKg / 100; // Quintal only
   const isLowStock = currentStockKg < 100;
 
   // Edit Modal State
@@ -114,7 +110,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
   const openEditModal = (m: StockMovement) => {
       setEditingMovement(m);
       setEditDate(m.date);
-      setEditQty(unit === 'KG' ? m.quantityKg.toString() : (m.quantityKg / 100).toString());
+      setEditQty((m.quantityKg / 100).toString());
       setEditRate(m.ratePerQuintal ? m.ratePerQuintal.toString() : '');
       setEditVehicle(m.vehicleNumber || '');
       setEditCustomer(m.accountName || '');
@@ -141,7 +137,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
       if (!validateEdit()) return;
       
       const qtyNum = parseFloat(editQty);
-      const qtyKg = unit === 'KG' ? qtyNum : qtyNum * 100;
+      const qtyKg = qtyNum * 100;
       let totalAmount = 0;
       let rate = 0;
 
@@ -189,7 +185,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
           return;
       }
       if (type === 'sub') {
-          const qtyKg = unit === 'KG' ? qty : qty * 100;
+          const qtyKg = qty * 100;
           if (currentStockKg < qtyKg) {
               setAdjustErrors(t.alertInsufficientStock);
               return;
@@ -236,11 +232,8 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                             <span className="text-5xl font-extrabold text-gray-900">
                                 {displayStock.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </span>
-                            <span className="text-xl font-bold text-gray-500">{unit === 'KG' ? t.unitKg : t.unitQuintal}</span>
+                            <span className="text-xl font-bold text-gray-500">{t.unitQuintal}</span>
                         </div>
-                        {unit === 'QUINTAL' && (
-                            <p className="text-sm text-gray-400 mt-1">= {currentStockKg.toLocaleString()} {t.unitKg}</p>
-                        )}
                         <div className="mt-3">
                             <button 
                                 onClick={() => setShowHistoryModal(true)}
@@ -259,43 +252,50 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-4 mt-4 md:mt-0">
-                        {/* Unit Toggle */}
-                        <div className="flex items-center bg-gray-100 rounded-lg p-1">
-                            <span className="text-xs font-bold text-gray-500 px-2">{t.unitToggleLabel}</span>
-                            <button 
-                                onClick={onToggleUnit}
-                                className={`px-3 py-1 rounded text-sm font-bold transition ${unit === 'KG' ? 'bg-white shadow text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                            >
-                                {t.unitKg}
-                            </button>
-                            <button 
-                                onClick={onToggleUnit}
-                                className={`px-3 py-1 rounded text-sm font-bold transition ${unit === 'QUINTAL' ? 'bg-white shadow text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-                            >
-                                {t.unitQuintal}
-                            </button>
-                        </div>
-
-                        {/* Actions Area */}
-                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mt-2">
-                            <p className="text-xs font-bold text-gray-500 mb-2 uppercase">{t.adjustStockTitle}</p>
-                            <div className="flex gap-2 items-center">
-                                <input 
-                                    type="number" 
-                                    placeholder="0" 
-                                    className={`w-24 px-2 py-1 border rounded focus:outline-none focus:ring-2 ${adjustErrors ? 'border-red-500 ring-1 ring-red-500' : 'focus:ring-blue-500'}`}
+                    <div className="flex flex-col items-stretch md:items-end gap-4 mt-4 md:mt-0 w-full md:w-auto md:min-w-[320px]">
+                        {/* Manual Adjust */}
+                        <div className="w-full rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+                                {t.quantityLabel}
+                            </label>
+                            <div className="relative mb-4">
+                                <input
+                                    type="number"
+                                    placeholder="0.00"
+                                    className={`w-full px-4 py-3.5 pr-20 rounded-xl border text-lg font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
+                                        adjustErrors
+                                            ? 'border-red-400 ring-1 ring-red-400'
+                                            : 'border-slate-200 focus:ring-blue-400/40 focus:border-blue-400'
+                                    }`}
                                     value={adjustQty}
                                     onChange={(e) => { setAdjustQty(e.target.value); setAdjustErrors(''); }}
                                 />
-                                <button onClick={() => handleAdjustClick('add')} className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
-                                    {t.addStockBtn}
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-wide text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
+                                    {t.unitQuintal}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => handleAdjustClick('add')}
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl shadow-sm font-bold text-sm transition flex items-center justify-center gap-1.5"
+                                >
+                                    <span className="text-base leading-none">+</span>
+                                    {t.addStockBtn.replace(/^\+\s*/, '')}
                                 </button>
-                                <button onClick={() => handleAdjustClick('sub')} className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded shadow font-bold text-sm">
-                                    {t.subtractStockBtn}
+                                <button
+                                    type="button"
+                                    onClick={() => handleAdjustClick('sub')}
+                                    className="bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl shadow-sm font-bold text-sm transition flex items-center justify-center gap-1.5"
+                                >
+                                    <span className="text-base leading-none">−</span>
+                                    {t.subtractStockBtn.replace(/^-\s*/, '')}
                                 </button>
                             </div>
-                            {adjustErrors && <p className="text-red-500 text-xs mt-1 text-center font-semibold">{adjustErrors}</p>}
+                            {adjustErrors && (
+                                <p className="text-red-500 text-xs mt-3 text-center font-semibold">{adjustErrors}</p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -345,7 +345,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
                     {/* Quantity */}
                     <div>
-                        <label className="block text-sm font-semibold text-gray-600 mb-1">{t.quantityLabel} ({unit === 'KG' ? t.unitKg : t.unitQuintal})</label>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">{t.quantityLabel} ({t.unitQuintal})</label>
                         <input 
                             type="number"
                             placeholder="0.00"
@@ -354,9 +354,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                             className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:outline-none text-lg font-mono ${dispatchErrors.qty ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}
                         />
                         {dispatchErrors.qty && <p className="text-red-500 text-xs mt-1">{dispatchErrors.qty}</p>}
-                        {unit === 'QUINTAL' && dispatchTotalKg > 0 && !dispatchErrors.qty && (
-                            <p className="text-xs text-gray-500 mt-1">{t.convertedWeightLabel} {dispatchTotalKg} {t.unitKg}</p>
-                        )}
+
                     </div>
 
                     {/* Rate */}
@@ -403,7 +401,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                 <th className="p-3 text-right">{t.colQty}</th>
                                 <th className="p-3 text-right">{t.colRate}</th>
                                 <th className="p-3 text-right">{t.totalPriceLabel}</th>
-                                <th className="p-3 text-right">{t.colRemaining} ({t.unitKg})</th>
+                                <th className="p-3 text-right">{t.colRemaining} ({t.unitQuintal})</th>
                                 <th className="p-3 text-right">{t.actionHeader}</th>
                             </tr>
                         </thead>
@@ -429,7 +427,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                     <td className="p-3 uppercase text-gray-600">{move.vehicleNumber || '-'}</td>
                                     <td className="p-3 text-right font-mono">
                                         {move.type === 'out' || move.type === 'adjust_sub' ? '-' : '+'}
-                                        {unit === 'KG' ? move.quantityKg : (move.quantityKg / 100).toFixed(2)} {unit === 'KG' ? t.unitKg : t.unitQuintal}
+                                        {(move.quantityKg / 100).toFixed(2)} {t.unitQuintal}
                                     </td>
                                     <td className="p-3 text-right text-gray-500">
                                         {move.ratePerQuintal ? `₹${move.ratePerQuintal}` : '-'}
@@ -438,7 +436,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                         {move.totalAmount ? `₹${formatIndianCurrency(move.totalAmount)}` : '-'}
                                     </td>
                                     <td className="p-3 text-right font-mono text-blue-600 bg-blue-50/50">
-                                        {move.remainingStockKg.toLocaleString()}
+                                        {(move.remainingStockKg / 100).toFixed(2)}
                                     </td>
                                     <td className="p-3 text-right flex justify-end gap-2">
                                         <button 
@@ -494,7 +492,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                        </div>
 
                        <div>
-                           <label className="block text-sm font-semibold text-gray-600">{t.quantityLabel} ({unit === 'KG' ? t.unitKg : t.unitQuintal})</label>
+                           <label className="block text-sm font-semibold text-gray-600">{t.quantityLabel} ({t.unitQuintal})</label>
                            <input 
                                type="number"
                                value={editQty}
@@ -622,17 +620,17 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                         </td>
                                         
                                         <td className="p-3 text-right font-mono text-gray-600 bg-gray-50/50">
-                                            {unit === 'KG' ? row.prevStockKg.toLocaleString() : (row.prevStockKg / 100).toFixed(2)}
+                                            {(row.prevStockKg / 100).toFixed(2)}
                                         </td>
                                         
                                         <td className="p-3 text-center">
                                             <span className={`inline-block px-2 py-1 rounded font-bold ${row.isAdd ? 'text-green-600 bg-green-100' : 'text-red-600 bg-red-100'}`}>
-                                                {row.isAdd ? '+' : '-'} {unit === 'KG' ? row.quantityKg : (row.quantityKg / 100).toFixed(2)}
+                                                {row.isAdd ? '+' : '-'} {(row.quantityKg / 100).toFixed(2)}
                                             </span>
                                         </td>
                                         
                                         <td className="p-3 text-right font-mono font-bold text-blue-700 bg-blue-50/50">
-                                            {unit === 'KG' ? row.remainingStockKg.toLocaleString() : (row.remainingStockKg / 100).toFixed(2)}
+                                            {(row.remainingStockKg / 100).toFixed(2)}
                                         </td>
                                     </tr>
                                 ))}

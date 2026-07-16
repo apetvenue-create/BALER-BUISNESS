@@ -46,6 +46,10 @@ create table if not exists public.accounts (
   name text not null,
   type text not null,
   rate numeric,
+  phone text,
+  address text,
+  acres numeric,
+  date_cutter date,
   created_at timestamptz default now(),
   unique (user_id, name)
 );

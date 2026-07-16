@@ -227,6 +227,13 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditModalTitle: "Receive Money from Farmer",
     supplierCreditHelp: "This will be recorded as Income/Credit",
     supplierOption: "Farmer",
+    farmerPhoneLabel: "Phone Number",
+    farmerAddressLabel: "Address",
+    farmerAcresLabel: "Acres",
+    farmerDateCutterLabel: "Date Cutter",
+    farmerDetailsTitle: "Farmer Details",
+    saveFarmerDetailsBtn: "Save Details",
+    farmerDetailsSaved: "Farmer details saved",
 
     
     otherIncomeOption: "Other Income",
@@ -506,6 +513,13 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditModalTitle: "किसान से पैसा प्राप्त",
     supplierCreditHelp: "यह आय/क्रेडिट के रूप में दर्ज होगा",
     supplierOption: "किसान",
+    farmerPhoneLabel: "फ़ोन नंबर",
+    farmerAddressLabel: "पता",
+    farmerAcresLabel: "एकड़",
+    farmerDateCutterLabel: "कटिंग की तारीख",
+    farmerDetailsTitle: "किसान विवरण",
+    saveFarmerDetailsBtn: "विवरण सहेजें",
+    farmerDetailsSaved: "किसान विवरण सहेजा गया",
 
     
     otherIncomeOption: "अन्य आय",
@@ -785,6 +799,13 @@ export const TRANSLATIONS: Record<Language, Translation> = {
     supplierCreditModalTitle: "ਕਿਸਾਨ ਤੋਂ ਪੈਸੇ ਪ੍ਰਾਪਤ",
     supplierCreditHelp: "ਇਹ ਆਮਦਨ/ਕ੍ਰੈਡਿਟ ਵਜੋਂ ਦਰਜ ਹੋਵੇਗਾ",
     supplierOption: "ਕਿਸਾਨ",
+    farmerPhoneLabel: "ਫੋਨ ਨੰਬਰ",
+    farmerAddressLabel: "ਪਤਾ",
+    farmerAcresLabel: "ਏਕੜ",
+    farmerDateCutterLabel: "ਕਟਿੰਗ ਦੀ ਤਾਰੀਖ",
+    farmerDetailsTitle: "ਕਿਸਾਨ ਵੇਰਵਾ",
+    saveFarmerDetailsBtn: "ਵੇਰਵਾ ਸੇਵ ਕਰੋ",
+    farmerDetailsSaved: "ਕਿਸਾਨ ਵੇਰਵਾ ਸੇਵ ਹੋ ਗਿਆ",
 
     
     otherIncomeOption: "ਹੋਰ ਆਮਦਨ",

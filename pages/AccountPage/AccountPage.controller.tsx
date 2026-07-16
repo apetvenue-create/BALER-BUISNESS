@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry } from '../../types';
+import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry, FarmerProfileDetails } from '../../types';
 import { AccountPageView } from './AccountPage.view';
 import { formatMonthYear, getDatesInRange, formatISODateLocal } from '../../utils';
 import { PDFGenerator } from '../../services/pdfGenerator';
@@ -13,7 +13,7 @@ interface AccountPageControllerProps {
   accounts: StoredAccount[];
   /** Hidden from Ledgers list only; does not delete underlying data. */
   hiddenLedgerAccountNames?: string[];
-  onAddAccount: (name: string, type: AccountType, rate?: number) => void;
+  onAddAccount: (name: string, type: AccountType, rate?: number, details?: FarmerProfileDetails) => void;
   onUpdateAccount: (account: StoredAccount) => void;
   onOpenTransactionModal: (mode: TransactionType, defaults?: { category?: string, accountName?: string }) => void;
   initialTab?: AccountTab;
@@ -66,6 +66,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccountName, setSelectedAccountName] = useState<string | null>(null);
+  const [isCreatingFarmer, setIsCreatingFarmer] = useState(false);
   const selectedAccountNameRef = useRef<string | null>(null);
   const pushedDetailHistoryRef = useRef(false);
 
@@ -75,27 +76,29 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   // Esc (laptop): go back from detail view to list
   useEffect(() => {
-    if (!selectedAccountName) return;
+    if (!selectedAccountName && !isCreatingFarmer) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         setSelectedAccountName(null);
+        setIsCreatingFarmer(false);
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedAccountName]);
+  }, [selectedAccountName, isCreatingFarmer]);
 
   // Mobile back button (browser back): go back from detail view to list
   useEffect(() => {
     const onPopState = () => {
-      if (selectedAccountNameRef.current) {
+      if (selectedAccountNameRef.current || isCreatingFarmer) {
         setSelectedAccountName(null);
+        setIsCreatingFarmer(false);
       }
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [isCreatingFarmer]);
 
   // When entering a detail screen, push a history entry so "Back" returns to list instead of exiting the app.
   useEffect(() => {
@@ -135,6 +138,10 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [newAccountName, setNewAccountName] = useState('');
   const [newAccountRate, setNewAccountRate] = useState<string>('400'); // Default rate
+  const [newFarmerPhone, setNewFarmerPhone] = useState('');
+  const [newFarmerAddress, setNewFarmerAddress] = useState('');
+  const [newFarmerAcres, setNewFarmerAcres] = useState('');
+  const [newFarmerDateCutter, setNewFarmerDateCutter] = useState('');
 
   // Custom Serial Order State
   const [accountOrder, setAccountOrder] = useState<Record<string, number>>({});
@@ -354,11 +361,18 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
            const notHidden = !hiddenSet.has(name.trim().toLowerCase());
            return matchesType && matchesSearch && notHidden;
         })
-        .map(([name, data]) => ({ 
-            name, 
-            balance: data.balance,
-            serial: accountOrder[name] // May be undefined
-        }))
+        .map(([name, data]) => {
+            const stored = accounts.find(a => a.name === name);
+            return {
+              name,
+              balance: data.balance,
+              serial: accountOrder[name],
+              phone: stored?.phone,
+              address: stored?.address,
+              acres: stored?.acres,
+              dateCutter: stored?.dateCutter,
+            };
+        })
         .sort((a, b) => {
             // Sort by Serial if both exist
             if (a.serial !== undefined && b.serial !== undefined) return a.serial - b.serial;
@@ -369,7 +383,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
             // Default alphabetic
             return a.name.localeCompare(b.name);
         });
-  }, [accountMap, activeTab, searchQuery, getTranslated, accountOrder, hiddenSet]);
+  }, [accountMap, activeTab, searchQuery, getTranslated, accountOrder, hiddenSet, accounts]);
 
 
   // 3. Prepare Detailed Data for Selected Account
@@ -693,19 +707,67 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   const handleBack = () => {
       setSelectedAccountName(null);
+      setIsCreatingFarmer(false);
   };
 
   const handleAccountSelect = (name: string) => {
+      setIsCreatingFarmer(false);
       setSelectedAccountName(name);
   };
 
   const handleCreateAccount = () => {
       if (newAccountName) {
-          onAddAccount(newAccountName.trim(), activeTab, parseFloat(newAccountRate) || 0);
+          const farmerDetails =
+            activeTab === 'supplier'
+              ? {
+                  phone: newFarmerPhone.trim() || undefined,
+                  address: newFarmerAddress.trim() || undefined,
+                  acres: newFarmerAcres ? parseFloat(newFarmerAcres) : undefined,
+                  dateCutter: newFarmerDateCutter || undefined,
+                }
+              : undefined;
+          onAddAccount(newAccountName.trim(), activeTab, parseFloat(newAccountRate) || 0, farmerDetails);
           setIsAddModalOpen(false);
           setNewAccountName('');
           setNewAccountRate('400');
+          setNewFarmerPhone('');
+          setNewFarmerAddress('');
+          setNewFarmerAcres('');
+          setNewFarmerDateCutter('');
       }
+  };
+
+  const handleOpenAddAccount = () => {
+    if (activeTab === 'supplier') {
+      setSelectedAccountName(null);
+      setIsCreatingFarmer(true);
+      return;
+    }
+    setIsAddModalOpen(true);
+  };
+
+  const handleCreateFarmerFromDetails = (name: string, details: FarmerProfileDetails) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    onAddAccount(trimmed, 'supplier', 0, details);
+    setIsCreatingFarmer(false);
+    setSelectedAccountName(null);
+  };
+
+  const selectedFarmerAccount = useMemo(() => {
+    if (activeTab !== 'supplier' || !selectedAccountName) return undefined;
+    return accounts.find(a => a.name === selectedAccountName);
+  }, [activeTab, selectedAccountName, accounts]);
+
+  const handleSaveFarmerDetails = (details: FarmerProfileDetails) => {
+    if (!selectedFarmerAccount) return;
+    onUpdateAccount({
+      ...selectedFarmerAccount,
+      phone: details.phone,
+      address: details.address,
+      acres: details.acres,
+      dateCutter: details.dateCutter,
+    });
   };
 
   // Nav Handlers
@@ -837,7 +899,11 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
     <AccountPageView 
       t={t}
       activeTab={activeTab}
-      onTabChange={setActiveTab}
+      onTabChange={(tab) => {
+        setIsCreatingFarmer(false);
+        setSelectedAccountName(null);
+        setActiveTab(tab);
+      }}
       searchQuery={searchQuery}
       onSearchChange={setSearchQuery}
       
@@ -851,17 +917,34 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       labourData={labourData}
       customerData={customerData}
       supplierData={supplierData}
+      selectedFarmerAccount={selectedFarmerAccount}
+      isCreatingFarmer={isCreatingFarmer}
+      onSaveFarmerDetails={handleSaveFarmerDetails}
+      onCreateFarmer={handleCreateFarmerFromDetails}
 
-
-      onOpenAddAccount={() => setIsAddModalOpen(true)}
+      onOpenAddAccount={handleOpenAddAccount}
       isAddModalOpen={isAddModalOpen}
       newAccountName={newAccountName}
       onNewAccountNameChange={setNewAccountName}
       onConfirmAddAccount={handleCreateAccount}
-      onCancelAddAccount={() => setIsAddModalOpen(false)}
+      onCancelAddAccount={() => {
+        setIsAddModalOpen(false);
+        setNewFarmerPhone('');
+        setNewFarmerAddress('');
+        setNewFarmerAcres('');
+        setNewFarmerDateCutter('');
+      }}
       
       newAccountRate={newAccountRate}
       onNewAccountRateChange={setNewAccountRate}
+      newFarmerPhone={newFarmerPhone}
+      onNewFarmerPhoneChange={setNewFarmerPhone}
+      newFarmerAddress={newFarmerAddress}
+      onNewFarmerAddressChange={setNewFarmerAddress}
+      newFarmerAcres={newFarmerAcres}
+      onNewFarmerAcresChange={setNewFarmerAcres}
+      newFarmerDateCutter={newFarmerDateCutter}
+      onNewFarmerDateCutterChange={setNewFarmerDateCutter}
       
       onToggleAttendance={handleSetAttendance}
       onToggleHisaab={handleToggleHisaab}

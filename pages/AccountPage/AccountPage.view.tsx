@@ -1,7 +1,7 @@
 
 
-import React, { useState } from 'react';
-import { Translation, PartnerSummary, LabourSummary, AccountTab, CustomerSummary, SupplierSummary, Transaction, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { Translation, PartnerSummary, LabourSummary, AccountTab, CustomerSummary, SupplierSummary, Transaction, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry, StoredAccount, FarmerProfileDetails } from '../../types';
 import { formatIndianCurrency, formatDisplayDate, formatInputCurrency, parseCurrency } from '../../utils';
 import { TransactionModal } from '../../components/TransactionModal'; 
 import { DateInput } from '../../components/DateInput';
@@ -40,6 +40,312 @@ const CheckCircleIcon: React.FC<{ className?: string; strokeWidth?: number }> = 
   </svg>
 );
 
+const FarmerDetailsPanel: React.FC<{
+  t: Translation;
+  farmer?: StoredAccount;
+  mode?: 'edit' | 'create';
+  getTranslated: (text?: string) => string;
+  onBack: () => void;
+  onRenameAccount?: (oldName: string, newName: string) => void;
+  onDeleteAccount?: (name: string) => void;
+  onSaveFarmerDetails?: (details: FarmerProfileDetails) => void;
+  onCreateFarmer?: (name: string, details: FarmerProfileDetails) => void;
+  openRenameModal: (currentName: string) => void;
+}> = ({
+  t,
+  farmer,
+  mode = 'edit',
+  getTranslated,
+  onBack,
+  onRenameAccount,
+  onDeleteAccount,
+  onSaveFarmerDetails,
+  onCreateFarmer,
+  openRenameModal,
+}) => {
+  const isCreate = mode === 'create';
+  const [name, setName] = useState(farmer?.name || '');
+  const [phone, setPhone] = useState(farmer?.phone || '');
+  const [address, setAddress] = useState(farmer?.address || '');
+  const [acres, setAcres] = useState(farmer?.acres != null ? String(farmer.acres) : '');
+  const [dateCutter, setDateCutter] = useState(farmer?.dateCutter || '');
+  const [savedFlash, setSavedFlash] = useState(false);
+  const [nameError, setNameError] = useState('');
+
+  useEffect(() => {
+    if (isCreate) return;
+    setName(farmer?.name || '');
+    setPhone(farmer?.phone || '');
+    setAddress(farmer?.address || '');
+    setAcres(farmer?.acres != null ? String(farmer.acres) : '');
+    setDateCutter(farmer?.dateCutter || '');
+  }, [isCreate, farmer?.name, farmer?.phone, farmer?.address, farmer?.acres, farmer?.dateCutter]);
+
+  const handleSave = () => {
+    const details: FarmerProfileDetails = {
+      phone: phone.trim() || undefined,
+      address: address.trim() || undefined,
+      acres: acres.trim() ? parseFloat(acres) : undefined,
+      dateCutter: dateCutter || undefined,
+    };
+
+    if (isCreate) {
+      const trimmed = name.trim();
+      if (!trimmed) {
+        setNameError(t.errRequired);
+        return;
+      }
+      setNameError('');
+      setSavedFlash(true);
+      onCreateFarmer?.(trimmed, details);
+      window.setTimeout(() => onBack(), 350);
+      return;
+    }
+
+    onSaveFarmerDetails?.(details);
+    setSavedFlash(true);
+    window.setTimeout(() => {
+      onBack();
+    }, 450);
+  };
+
+  const formatPhoneDisplay = (raw: string) => {
+    const digits = raw.replace(/\D/g, '').slice(0, 10);
+    if (digits.length <= 5) return digits;
+    return `${digits.slice(0, 5)} ${digits.slice(5)}`;
+  };
+
+  return (
+    <div className="animate-fade-in space-y-6">
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-10 h-10 rounded-full flex items-center justify-center text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 font-black text-2xl leading-none shadow-sm"
+          aria-label={t.backToAccounts}
+          title={t.backToAccounts}
+        >
+          ←
+        </button>
+      </div>
+
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+        <div className="relative px-6 py-7 bg-gradient-to-br from-slate-800 via-indigo-900 to-indigo-700">
+          <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 0, transparent 40%), radial-gradient(circle at 80% 0%, #a5b4fc 0, transparent 35%)' }} />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-indigo-200 text-[11px] font-semibold uppercase tracking-[0.2em]">
+                {isCreate ? t.addSupplierAccount.replace(/^\+\s*/, '') : t.farmerDetailsTitle}
+              </p>
+              {!isCreate && onRenameAccount && farmer ? (
+                <button
+                  type="button"
+                  onClick={() => openRenameModal(farmer.name)}
+                  className="group mt-2 text-left max-w-full"
+                  title="Click to rename"
+                >
+                  <h2 className="text-3xl font-semibold text-white tracking-tight truncate inline-flex items-center gap-2 border-b border-transparent group-hover:border-white/50 transition">
+                    {getTranslated(farmer.name)}
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-4 h-4 text-white/50 group-hover:text-white shrink-0 transition">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                    </svg>
+                  </h2>
+                </button>
+              ) : (
+                <h2 className="text-3xl font-semibold text-white mt-2 tracking-tight truncate">
+                  {isCreate ? t.creatingSupplierAccount : getTranslated(farmer?.name)}
+                </h2>
+              )}
+            </div>
+
+            {!isCreate && (
+              <div className="flex items-center gap-2 shrink-0">
+                {onRenameAccount && farmer && (
+                  <button
+                    type="button"
+                    onClick={() => openRenameModal(farmer.name)}
+                    className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 text-white flex items-center justify-center transition backdrop-blur-sm"
+                    title="Rename"
+                    aria-label="Rename"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+                    </svg>
+                  </button>
+                )}
+                {onDeleteAccount && farmer && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteAccount(farmer.name)}
+                    className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 border border-white/25 text-white flex items-center justify-center transition backdrop-blur-sm"
+                    title={t.deleteAccountBtn}
+                    aria-label={t.deleteAccountBtn}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{t.nameLabel}</label>
+            {isCreate ? (
+              <div>
+                <input
+                  autoFocus
+                  type="text"
+                  value={name}
+                  onChange={e => {
+                    setName(e.target.value);
+                    if (nameError) setNameError('');
+                  }}
+                  placeholder={t.enterAccountName}
+                  className={`w-full px-4 py-3.5 rounded-xl border bg-white text-slate-800 font-semibold text-lg focus:ring-2 focus:outline-none transition ${
+                    nameError
+                      ? 'border-red-400 focus:ring-red-300'
+                      : 'border-violet-100 focus:ring-violet-400/40 focus:border-violet-400'
+                  }`}
+                />
+                {nameError && <p className="text-red-500 text-xs mt-1 font-medium">{nameError}</p>}
+              </div>
+            ) : onRenameAccount && farmer ? (
+              <button
+                type="button"
+                onClick={() => openRenameModal(farmer.name)}
+                className="w-full text-left px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800 font-semibold text-lg hover:bg-white hover:border-violet-200 hover:shadow-sm transition group flex items-center justify-between gap-3"
+                title="Click to rename"
+              >
+                <span className="truncate">{getTranslated(farmer.name)}</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-violet-600 opacity-70 group-hover:opacity-100 shrink-0">
+                  Edit
+                </span>
+              </button>
+            ) : (
+              <div className="px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800 font-semibold text-lg">
+                {getTranslated(farmer?.name)}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="group relative rounded-2xl border border-emerald-100/80 bg-gradient-to-b from-emerald-50/80 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-700/80">{t.farmerPhoneLabel}</p>
+                  <p className="text-[10px] text-emerald-600/70 font-medium">Contact</p>
+                </div>
+              </div>
+              <input
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={e => setPhone(formatPhoneDisplay(e.target.value))}
+                placeholder="98765 43210"
+                className="w-full px-3 py-3 rounded-xl border border-emerald-100 bg-white/90 text-slate-900 font-semibold tracking-wide text-lg focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+              />
+            </div>
+
+            <div className="group relative rounded-2xl border border-amber-100/80 bg-gradient-to-b from-amber-50/80 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm shadow-amber-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m0-18c2.5 2 5 4.5 5 8.5S14.5 17 12 21c-2.5-4-5-6.5-5-9.5S9.5 5 12 3z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 14h16" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-amber-800/80">{t.farmerAcresLabel}</p>
+                  <p className="text-[10px] text-amber-700/70 font-medium">Land size</p>
+                </div>
+              </div>
+              <div className="relative">
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={acres}
+                  onChange={e => setAcres(e.target.value.replace(/[^\d.]/g, ''))}
+                  placeholder="0.0"
+                  className="w-full px-3 py-3 pr-16 rounded-xl border border-amber-100 bg-white/90 text-slate-900 font-semibold text-lg focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-wide text-amber-700/70 bg-amber-50 px-2 py-1 rounded-md">
+                  acres
+                </span>
+              </div>
+            </div>
+
+            <div className="group relative rounded-2xl border border-sky-100/80 bg-gradient-to-b from-sky-50/80 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-sm shadow-sky-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-sky-800/80">{t.farmerDateCutterLabel}</p>
+                  <p className="text-[10px] text-sky-700/70 font-medium">Cutting day</p>
+                </div>
+              </div>
+              <DateInput
+                value={dateCutter}
+                onChange={setDateCutter}
+                className="[&_input]:rounded-xl [&_input]:border-sky-100 [&_input]:py-3 [&_input]:font-semibold [&_input]:text-slate-900 [&_input]:bg-white/90 [&_input]:focus:ring-sky-400/40 [&_input]:focus:border-sky-400"
+              />
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-violet-100/80 bg-gradient-to-b from-violet-50/70 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm shadow-violet-200">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-violet-800/80">{t.farmerAddressLabel}</p>
+                <p className="text-[10px] text-violet-700/70 font-medium">Location</p>
+              </div>
+            </div>
+            <textarea
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+              rows={3}
+              placeholder="Village / City / Road"
+              className="w-full px-3.5 py-3 rounded-xl border border-violet-100 bg-white/90 text-slate-800 font-medium leading-relaxed focus:ring-2 focus:ring-violet-400/40 focus:border-violet-400 focus:outline-none resize-y transition placeholder:text-slate-300 placeholder:font-normal"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            className={`w-full py-3.5 rounded-xl font-bold shadow-md transition tracking-wide ${
+              savedFlash
+                ? 'bg-violet-500 hover:bg-violet-500 text-white'
+                : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
+            }`}
+          >
+            {savedFlash
+              ? t.farmerDetailsSaved
+              : isCreate
+                ? t.createBtn
+                : t.saveFarmerDetailsBtn}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 interface AccountPageViewProps {
   t: Translation;
   activeTab: AccountTab;
@@ -47,7 +353,15 @@ interface AccountPageViewProps {
   searchQuery: string;
   onSearchChange: (q: string) => void;
   // List Mode
-  accountList: { name: string; balance: number; serial?: number }[]; 
+  accountList: {
+    name: string;
+    balance: number;
+    serial?: number;
+    phone?: string;
+    address?: string;
+    acres?: number;
+    dateCutter?: string;
+  }[]; 
   onAccountSelect: (name: string) => void;
   // Detail Mode
   selectedAccountName: string | null;
@@ -56,6 +370,10 @@ interface AccountPageViewProps {
   labourData?: LabourSummary;
   customerData?: CustomerSummary;
   supplierData?: SupplierSummary;
+  selectedFarmerAccount?: StoredAccount;
+  isCreatingFarmer?: boolean;
+  onSaveFarmerDetails?: (details: FarmerProfileDetails) => void;
+  onCreateFarmer?: (name: string, details: FarmerProfileDetails) => void;
   // Actions & Modal
   onOpenAddAccount: () => void;
   isAddModalOpen: boolean;
@@ -67,6 +385,16 @@ interface AccountPageViewProps {
   // Rate logic
   newAccountRate: string;
   onNewAccountRateChange: (val: string) => void;
+
+  // Farmer create fields
+  newFarmerPhone?: string;
+  onNewFarmerPhoneChange?: (val: string) => void;
+  newFarmerAddress?: string;
+  onNewFarmerAddressChange?: (val: string) => void;
+  newFarmerAcres?: string;
+  onNewFarmerAcresChange?: (val: string) => void;
+  newFarmerDateCutter?: string;
+  onNewFarmerDateCutterChange?: (val: string) => void;
 
   // Attendance
   onToggleAttendance?: (date: string, isPresent: boolean | null) => void;
@@ -129,6 +457,10 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   labourData,
   customerData,
   supplierData,
+  selectedFarmerAccount,
+  isCreatingFarmer = false,
+  onSaveFarmerDetails,
+  onCreateFarmer,
   
   onOpenAddAccount,
   isAddModalOpen,
@@ -139,6 +471,14 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   
   newAccountRate,
   onNewAccountRateChange,
+  newFarmerPhone = '',
+  onNewFarmerPhoneChange,
+  newFarmerAddress = '',
+  onNewFarmerAddressChange,
+  newFarmerAcres = '',
+  onNewFarmerAcresChange,
+  newFarmerDateCutter = '',
+  onNewFarmerDateCutterChange,
   onToggleAttendance,
   
   labourStartDate,
@@ -396,7 +736,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             <input
               autoFocus
               type="text"
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none focus:ring-blue-500 border-gray-300"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none border-gray-300 ${
+                activeTab === 'supplier' ? 'focus:ring-violet-500' : 'focus:ring-blue-500'
+              }`}
               value={renameNewName}
               onChange={(e) => setRenameNewName(e.target.value)}
               onKeyDown={(e) => {
@@ -417,7 +759,11 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
               onRenameAccount(renameOldName, next);
               setIsRenameModalOpen(false);
             }}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-bold transition"
+            className={`w-full text-white py-2.5 rounded-lg font-bold transition ${
+              activeTab === 'supplier'
+                ? 'bg-violet-600 hover:bg-violet-700 shadow-sm shadow-violet-200'
+                : 'bg-blue-600 hover:bg-blue-700'
+            }`}
           >
             {t.updateBtn}
           </button>
@@ -583,7 +929,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   );
 
   // --- RENDER DETAIL VIEW IF SELECTED ---
-  if (selectedAccountName) {
+  if (selectedAccountName || isCreatingFarmer) {
       if (activeTab === 'customer' && customerData) {
           return (
               <div className="animate-fade-in space-y-6">
@@ -802,128 +1148,23 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                   {renameModal}
               </div>
           );
-      } else if (activeTab === 'supplier' && supplierData) {
+      } else if (activeTab === 'supplier' && (selectedFarmerAccount || isCreatingFarmer)) {
           return (
-              <div className="animate-fade-in space-y-6">
-                  {/* HEADER & NAV */}
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                      <div className="flex items-center gap-4">
-                          <button
-                            type="button"
-                            onClick={onBack}
-                            className="w-10 h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-2xl leading-none shadow-sm"
-                            aria-label={t.backToAccounts}
-                            title={t.backToAccounts}
-                          >
-                            ←
-                          </button>
-                      </div>
-                      
-                      <div className="flex gap-4 items-center flex-wrap">
-                          {renderReportControls()}
-                          <button 
-                             onClick={() => openAccountOnlyReceivedModal('supplier')}
-                             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition"
-                          >
-                             {t.receiveRefundBtn}
-                          </button>
-                      </div>
-                  </div>
-
-                  {/* SUPPLIER SUMMARY CARD */}
-                  <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-600">
-                       <div className="flex justify-between items-start items-center">
-                           <div className="flex items-center gap-3">
-                               <h2 className="text-2xl font-bold text-gray-800">{getTranslated(supplierData.name)}</h2>
-                               <button
-                                   type="button"
-                                   onClick={() => onRenameAccount && openRenameModal(supplierData.name)}
-                                   className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
-                                   title="Rename Account"
-                               >
-                                   ✎
-                               </button>
-                               {onDeleteAccount && (
-                                 <button
-                                   type="button"
-                                   onClick={() => onDeleteAccount(supplierData.name)}
-                                   className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
-                                   title={t.deleteAccountBtn}
-                                   aria-label={t.deleteAccountBtn}
-                                 >
-                                   <LedgerRemoveTrashIcon />
-                                 </button>
-                               )}
-                           </div>
-                           <div className="text-right">
-                               <p className="text-xs uppercase font-bold text-gray-500">{t.netPaidBalance}</p>
-                               <div className="text-3xl font-bold text-gray-800">
-                                   ₹{formatIndianCurrency(supplierData.netBalance)}
-                               </div>
-                              {/* removed per request */}
-                           </div>
-                       </div>
-                       
-                       <div className="grid grid-cols-2 gap-4 mt-6 border-t pt-4">
-                           <div>
-                               <p className="text-xs text-gray-500 uppercase font-bold">{t.totalPaidToSupplier}</p>
-                               <p className="text-xl font-bold text-red-600">₹{formatIndianCurrency(supplierData.totalPaid)}</p>
-                           </div>
-                           <div className="text-right">
-                               <p className="text-xs text-gray-500 uppercase font-bold">{t.totalReceivedFromSupplier}</p>
-                               <p className="text-xl font-bold text-green-600">₹{formatIndianCurrency(supplierData.totalReceived)}</p>
-                           </div>
-                       </div>
-                  </div>
-
-                  {/* STRICT SUPPLIER LEDGER */}
-                  <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-                       <table className="w-full text-sm">
-                           <thead className="bg-gray-100 text-gray-700 font-bold uppercase border-b">
-                               <tr>
-                                   <th className="px-4 py-3 text-left">{t.dateHeader}</th>
-                                   <th className="px-4 py-3 text-left w-1/3">{t.detailsHeader}</th>
-                                   <th className="px-4 py-3 text-center bg-red-50 text-red-700">{t.colPaymentMade}</th>
-                                   <th className="px-4 py-3 text-center bg-green-50 text-green-700">{t.colRefundReceived}</th>
-                                   <th className="px-4 py-3 text-center">{t.netPaidBalance}</th>
-                               </tr>
-                           </thead>
-                           <tbody className="divide-y divide-gray-100">
-                               {supplierData.ledger.map(row => (
-                                   <tr key={row.id} className="hover:bg-gray-50 transition-colors">
-                                       <td className="px-4 py-3 font-medium text-gray-700 whitespace-nowrap">
-                                           {formatDisplayDate(row.date)}
-                                       </td>
-                                       <td className="px-4 py-3 text-gray-600">
-                                           {getTranslated(row.description)}
-                                           <div className="text-[10px] text-gray-400 mt-1 uppercase tracking-wide">
-                                               {row.debitAmount > 0 ? t.sourceExpense : t.sourceManual}
-                                           </div>
-                                       </td>
-                                       <td className="px-4 py-3 text-center bg-red-50/30">
-                                           {row.debitAmount > 0 ? (
-                                               <span className="font-bold text-red-600">₹{formatIndianCurrency(row.debitAmount)}</span>
-                                           ) : <span className="text-gray-300">-</span>}
-                                       </td>
-                                       <td className="px-4 py-3 text-center bg-green-50/30">
-                                           {row.creditAmount > 0 ? (
-                                               <span className="font-bold text-green-600">₹{formatIndianCurrency(row.creditAmount)}</span>
-                                           ) : <span className="text-gray-300">-</span>}
-                                       </td>
-                                       <td className="px-4 py-3 text-center font-bold text-gray-800">
-                                           ₹{formatIndianCurrency(row.runningBalance)}
-                                       </td>
-                                   </tr>
-                               ))}
-                               {supplierData.ledger.length === 0 && (
-                                   <tr><td colSpan={5} className="p-8 text-center text-gray-400">{t.noRecords}</td></tr>
-                                )}
-                           </tbody>
-                       </table>
-                  </div>
-                  {accountOnlyModal}
-                  {renameModal}
-              </div>
+              <>
+                <FarmerDetailsPanel
+                  t={t}
+                  farmer={selectedFarmerAccount}
+                  mode={isCreatingFarmer ? 'create' : 'edit'}
+                  getTranslated={getTranslated}
+                  onBack={onBack}
+                  onRenameAccount={onRenameAccount}
+                  onDeleteAccount={onDeleteAccount}
+                  onSaveFarmerDetails={onSaveFarmerDetails}
+                  onCreateFarmer={onCreateFarmer}
+                  openRenameModal={openRenameModal}
+                />
+                {renameModal}
+              </>
           );
 
       } else if (activeTab === 'partner' && partnerData) {
@@ -1696,7 +1937,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                  activeTab === 'labour' 
                     ? 'bg-yellow-500 hover:bg-yellow-600' 
                     : (activeTab === 'customer' ? 'bg-purple-600 hover:bg-purple-700' : 
-                      (activeTab === 'supplier' ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-blue-500 hover:bg-blue-600'))
+                      (activeTab === 'supplier' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-blue-500 hover:bg-blue-600'))
              }`}
          >
              {activeTab === 'labour' ? t.addLabourAccount : 
@@ -1712,15 +1953,17 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                <div 
                   key={acc.name} 
                   onClick={() => onAccountSelect(acc.name)}
-                  className="border rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow bg-white flex flex-col justify-between h-32 group"
+                  className={`border rounded-xl p-4 cursor-pointer hover:shadow-md transition-all bg-white flex flex-col justify-between group ${
+                    activeTab === 'supplier' ? 'min-h-[10.5rem] border-indigo-100 hover:border-indigo-200' : 'h-32'
+                  }`}
                >
                   <div className="flex justify-between items-start">
-                     <div className="flex items-center gap-2">
+                     <div className="flex items-center gap-2 min-w-0">
                         {/* Serial Number Badge - CLICKABLE */}
                         <span 
                             onClick={(e) => handleEditSerial(e, acc.name, acc.serial)}
                             title="Click to set custom order"
-                            className={`text-xs font-bold w-8 h-8 rounded-full border cursor-pointer inline-flex items-center justify-center hover:scale-110 transition-transform ${
+                            className={`text-xs font-bold w-8 h-8 shrink-0 rounded-full border cursor-pointer inline-flex items-center justify-center hover:scale-110 transition-transform ${
                                 acc.serial !== undefined 
                                    ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
                                    : 'bg-transparent text-gray-500 border-gray-300 hover:bg-gray-50'
@@ -1728,16 +1971,58 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         >
                             {acc.serial !== undefined ? acc.serial : index + 1}
                         </span>
-                        <h3 className="font-bold text-lg text-gray-800 group-hover:text-blue-600 transition-colors">{getTranslated(acc.name)}</h3>
+                        <h3 className={`font-bold text-lg truncate transition-colors ${
+                          activeTab === 'supplier' ? 'text-slate-800 group-hover:text-indigo-700' : 'text-gray-800 group-hover:text-blue-600'
+                        }`}>{getTranslated(acc.name)}</h3>
                      </div>
-                     <span className="text-gray-300">➔</span>
+                     <span className={`shrink-0 ${activeTab === 'supplier' ? 'text-indigo-300 group-hover:text-indigo-500' : 'text-gray-300'}`}>➔</span>
                   </div>
-                  <div>
-                      <p className="text-xs text-gray-500 uppercase font-semibold">{t.accountBalance}</p>
-                      <p className={`text-xl font-bold ${acc.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                         ₹{formatIndianCurrency(acc.balance)}
-                      </p>
-                  </div>
+                  {activeTab === 'supplier' ? (
+                    <div className="mt-3 grid grid-cols-1 gap-1.5">
+                      <div className="flex items-center gap-2.5 rounded-lg bg-emerald-50/80 border border-emerald-100/80 px-2.5 py-1.5">
+                        <span className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                          </svg>
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/70 leading-none">{t.farmerPhoneLabel}</p>
+                          <p className="text-sm font-semibold text-slate-800 truncate mt-0.5 tracking-wide">{acc.phone || '—'}</p>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        <div className="flex items-center gap-2 rounded-lg bg-amber-50/80 border border-amber-100/80 px-2.5 py-1.5">
+                          <span className="w-6 h-6 rounded-md bg-amber-600 text-white flex items-center justify-center shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m0-18c2.5 2 5 4.5 5 8.5S14.5 17 12 21c-2.5-4-5-6.5-5-9.5S9.5 5 12 3z" />
+                            </svg>
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800/70 leading-none">{t.farmerAcresLabel}</p>
+                            <p className="text-sm font-semibold text-slate-800 mt-0.5">{acc.acres != null ? acc.acres : '—'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 rounded-lg bg-sky-50/80 border border-sky-100/80 px-2.5 py-1.5">
+                          <span className="w-6 h-6 rounded-md bg-sky-600 text-white flex items-center justify-center shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                            </svg>
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-800/70 leading-none">{t.farmerDateCutterLabel}</p>
+                            <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{acc.dateCutter ? formatDisplayDate(acc.dateCutter) : '—'}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                        <p className="text-xs text-gray-500 uppercase font-semibold">{t.accountBalance}</p>
+                        <p className={`text-xl font-bold ${acc.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                           ₹{formatIndianCurrency(acc.balance)}
+                        </p>
+                    </div>
+                  )}
                </div>
             ))}
             {accountList.length === 0 && (
@@ -1797,7 +2082,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       {/* --- ADD ACCOUNT MODAL --- */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in relative">
+            <div className={`bg-white rounded-lg p-6 w-full shadow-xl transform transition-all animate-fade-in relative ${
+              activeTab === 'supplier' ? 'max-w-md max-h-[90vh] overflow-y-auto' : 'max-w-sm'
+            }`}>
                 <button
                   type="button"
                   onClick={onCancelAddAccount}
@@ -1852,9 +2139,55 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     </div>
                 )}
 
+                {/* Farmer profile fields */}
+                {activeTab === 'supplier' && (
+                  <div className="space-y-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">{t.farmerPhoneLabel}</label>
+                      <input
+                        type="tel"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        placeholder="e.g. 98765 43210"
+                        value={newFarmerPhone}
+                        onChange={e => onNewFarmerPhoneChange?.(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">{t.farmerAddressLabel}</label>
+                      <textarea
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-y"
+                        rows={2}
+                        placeholder="Village / City / Road"
+                        value={newFarmerAddress}
+                        onChange={e => onNewFarmerAddressChange?.(e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">{t.farmerAcresLabel}</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                        placeholder="e.g. 5.5"
+                        value={newFarmerAcres}
+                        onChange={e => onNewFarmerAcresChange?.(e.target.value.replace(/[^\d.]/g, ''))}
+                      />
+                    </div>
+                    <div>
+                      <DateInput
+                        label={t.farmerDateCutterLabel}
+                        value={newFarmerDateCutter}
+                        onChange={d => onNewFarmerDateCutterChange?.(d)}
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <button 
                     onClick={handleConfirmAddAccountClick} 
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold transition"
+                    className={`w-full text-white py-2.5 rounded-lg font-semibold transition ${
+                      activeTab === 'supplier' ? 'bg-violet-600 hover:bg-violet-700 shadow-sm shadow-violet-200' : 'bg-blue-600 hover:bg-blue-700'
+                    }`}
                 >
                     {t.createBtn}
                 </button>
