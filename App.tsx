@@ -1279,7 +1279,6 @@ const FinancialApp: React.FC = () => {
     let expense = 0;
     let labour = 0;
     let oil = 0;
-    let clOil = 0;
     let partnerIn = 0;
     let electricity = 0;
     
@@ -1293,9 +1292,6 @@ const FinancialApp: React.FC = () => {
                 if (t.category === 'oil') {
                     oil += t.amount;
                 }
-                if (t.category === 'cl_oil') {
-                    clOil += t.amount;
-                }
                 if (t.category === 'electricity') {
                     electricity += t.amount;
                 }
@@ -1304,19 +1300,9 @@ const FinancialApp: React.FC = () => {
             }
         }
     });
-
-    let dispatchedKg = 0;
-    stockMovements.forEach(m => {
-        if (m.date >= statsStartDate && m.date <= statsEndDate && m.type === 'out') {
-            dispatchedKg += m.quantityKg;
-        }
-    });
-
-    const dispatchedQuintal = dispatchedKg / 100;
-    const labourPerQuintal = dispatchedQuintal > 0 ? (labour / dispatchedQuintal) : 0;
     
-    return { expense, labour, oil, clOil, electricity, partnerIn, dispatchedQuintal, labourPerQuintal };
-  }, [transactions, stockMovements, statsStartDate, statsEndDate]);
+    return { expense, labour, oil, electricity, partnerIn };
+  }, [transactions, statsStartDate, statsEndDate]);
 
   // Helpers
   const getCategoryLabel = (cat: string) => {
@@ -1327,6 +1313,7 @@ const FinancialApp: React.FC = () => {
       if (cat === 'oil') return t.oilOption;
       if (cat === 'cl_oil') return t.clOilOption;
       if (cat === 'electricity') return t.electricityOption;
+      if (cat === 'food') return t.foodOption;
       if (cat === 'supplier') return t.supplierOption;
 
       if (cat === 'cash_conversion') return "ONLINE -> CASH";
@@ -1720,7 +1707,7 @@ const FinancialApp: React.FC = () => {
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                               {/* Total Expense */}
                               <div className="p-5 bg-red-50 rounded-lg border border-red-100 shadow-sm">
                                    <p className="text-xs uppercase tracking-wide font-bold text-red-500 mb-1">{t.statsTotalExpense}</p>
@@ -1736,24 +1723,10 @@ const FinancialApp: React.FC = () => {
                                    <p className="text-xs uppercase tracking-wide font-bold text-yellow-600 mb-1">{t.statsOilExpense}</p>
                                    <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.oil)}</p>
                               </div>
-                              {/* CL Oil Expense */}
-                              <div className="p-5 bg-green-50 rounded-lg border border-green-100 shadow-sm">
-                                   <p className="text-xs uppercase tracking-wide font-bold text-green-700 mb-1">{t.statsClOilExpense}</p>
-                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.clOil)}</p>
-                              </div>
                               {/* Thread Expense */}
                               <div className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
                                       <p className="text-xs uppercase tracking-wide font-bold text-blue-600 mb-1">{t.statsElectricityExpense}</p>
                                       <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.electricity)}</p>
-                              </div>
-                              {/* Dispatch / Labour Cost */}
-                              <div className="p-5 bg-purple-50 rounded-lg border border-purple-100 shadow-sm md:col-span-2 lg:col-span-1">
-                                       <p className="text-xs uppercase tracking-wide font-bold text-purple-600 mb-1">{t.statsLabourPerQuintal}</p>
-                                       <div className="flex items-baseline gap-2">
-                                           <p className="text-2xl font-bold text-gray-800">₹{stats.labourPerQuintal.toFixed(2)}</p>
-                                           <span className="text-xs text-gray-500">/ Quintal</span>
-                                       </div>
-                                       <p className="text-[10px] text-gray-400 mt-1">({stats.dispatchedQuintal.toFixed(2)} Q Dispatched)</p>
                               </div>
                           </div>
                       </div>

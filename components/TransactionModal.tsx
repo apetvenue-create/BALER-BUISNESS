@@ -84,7 +84,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         if (mode === 'income') {
           setCategory(defaultCategory || 'customer');
         } else {
-          setCategory(defaultCategory || 'shop');
+          setCategory(defaultCategory || 'oil');
         }
         
         setAccountName(defaultAccountName || '');
@@ -273,14 +273,23 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   </>
                 ) : (
                   <>
-                    <option value="shop">{t.shopOption}</option>
+                    {(category === 'shop' || defaultCategory === 'shop') && (
+                      <option value="shop">{t.shopOption}</option>
+                    )}
                     <option value="oil">{t.oilOption}</option>
-                    <option value="cl_oil">{t.clOilOption}</option>
+                    {(category === 'cl_oil' || defaultCategory === 'cl_oil') && (
+                      <option value="cl_oil">{t.clOilOption}</option>
+                    )}
                     <option value="electricity">{t.electricityOption}</option>
+                    <option value="food">{t.foodOption}</option>
                     <option value="labour">{t.labourOption}</option>
                     <option value="partner">{t.partnerOption}</option>
-                    <option value="customer">{t.customerOption}</option>
-                    <option value="supplier">{t.supplierOption}</option>
+                    {(category === 'customer' || defaultCategory === 'customer') && (
+                      <option value="customer">{t.customerOption}</option>
+                    )}
+                    {(category === 'supplier' || defaultCategory === 'supplier') && (
+                      <option value="supplier">{t.supplierOption}</option>
+                    )}
 
                     <option value="custom">{t.customOption}</option>
                     {/* Cash Conversion Option - Only available in Expense mode */}

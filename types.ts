@@ -309,7 +309,8 @@ export interface Translation {
   oilOption: string;
   clOilOption: string;
   electricityOption: string; 
-  statsElectricityExpense: string; 
+  statsElectricityExpense: string;
+  foodOption: string; 
 
   // Detailed Report Keys
   viewDetailedReport: string;
