@@ -35,8 +35,8 @@ interface StockPageViewProps {
   dispatchTotalKg: number;
   dispatchTotalPrice: number;
   
-  // Dispatch Action
-  onDispatch: () => void;
+  // Dispatch Action — returns true when saved
+  onDispatch: () => boolean;
   
   // Edit/Delete Actions
   onUpdateStockMovement: (m: StockMovement) => void;
@@ -104,6 +104,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
   // Validation States
   const [dispatchErrors, setDispatchErrors] = useState<Record<string, string>>({});
+  const [dispatchSuccess, setDispatchSuccess] = useState(false);
   const [adjustErrors, setAdjustErrors] = useState<string>('');
   const [editErrors, setEditErrors] = useState<string>('');
 
@@ -173,9 +174,13 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
   };
 
   const handleDispatchClick = () => {
+      if (dispatchSuccess) return;
       if (!validateDispatch()) return;
-      onDispatch();
+      const saved = onDispatch();
+      if (!saved) return;
       setDispatchErrors({});
+      setDispatchSuccess(true);
+      window.setTimeout(() => setDispatchSuccess(false), 1600);
   };
 
   const handleAdjustClick = (type: 'add' | 'sub') => {
@@ -375,88 +380,197 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                              <span className="text-sm font-bold text-gray-500">{t.totalPriceLabel}</span>
                              <span className="text-xl font-bold text-green-600">₹{formatIndianCurrency(dispatchTotalPrice)}</span>
                          </div>
+                         {(dispatchErrors.customer || dispatchErrors.qty) && (
+                             <p className="text-red-500 text-xs font-semibold mb-2 text-center">
+                                 {dispatchErrors.qty || dispatchErrors.customer}
+                             </p>
+                         )}
                          <button 
+                             type="button"
                              onClick={handleDispatchClick}
-                             className="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2 rounded-lg shadow transition active:transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                             disabled={dispatchSuccess}
+                             className={`w-full text-white font-bold py-2.5 rounded-lg shadow transition active:transform active:scale-95 disabled:cursor-default ${
+                                 dispatchSuccess
+                                     ? 'bg-emerald-600 hover:bg-emerald-600'
+                                     : 'bg-orange-600 hover:bg-orange-700'
+                             }`}
                          >
-                             {t.dispatchBtn}
+                             {dispatchSuccess ? `✓ ${t.dispatchBtn}` : t.dispatchBtn}
                          </button>
                     </div>
                 </div>
             </div>
 
             {/* SECTION 3: HISTORY */}
-            <div className="bg-white rounded-lg shadow-md overflow-hidden mb-10">
-                <div className="bg-gray-50 p-4 border-b">
-                    <h3 className="font-bold text-gray-700">{t.stockHistoryTitle}</h3>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-10">
+                <div className="flex items-center gap-3 px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                    <span className="hidden sm:block w-1.5 h-7 rounded-full bg-blue-500 shrink-0" aria-hidden />
+                    <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                        {t.stockHistoryTitle}
+                    </h3>
                 </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-100 text-gray-600 font-semibold border-b">
-                            <tr>
-                                <th className="p-3">{t.dateHeader}</th>
-                                <th className="p-3">Type</th>
-                                <th className="p-3">{t.tabCustomers} / Note</th>
-                                <th className="p-3">{t.colGadi}</th>
-                                <th className="p-3 text-right">{t.colQty}</th>
-                                <th className="p-3 text-right">{t.colRate}</th>
-                                <th className="p-3 text-right">{t.totalPriceLabel}</th>
-                                <th className="p-3 text-right">{t.colRemaining} ({t.unitQuintal})</th>
-                                <th className="p-3 text-right">{t.actionHeader}</th>
+
+                {/* Portrait / mobile: equal-field cards */}
+                <div className="md:hidden divide-y divide-slate-100">
+                    {stockMovements.length === 0 ? (
+                        <p className="px-4 py-12 text-center text-slate-400 text-base font-semibold">{t.noRecords}</p>
+                    ) : (
+                        [...stockMovements].reverse().map(move => {
+                            const isOut = move.type === 'out' || move.type === 'adjust_sub';
+                            return (
+                                <article key={move.id} className="p-4 sm:p-5 space-y-3.5">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-base font-bold text-slate-900 truncate">
+                                                {getTranslated(move.accountName || move.note) || '—'}
+                                            </p>
+                                            <p className="text-sm font-semibold text-slate-500 mt-1 tabular-nums">
+                                                {formatDisplayDate(move.date)}
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-1.5 shrink-0">
+                                            <button
+                                                type="button"
+                                                onClick={() => openEditModal(move)}
+                                                className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 w-10 h-10 rounded-lg flex items-center justify-center transition border border-slate-200 text-base font-bold"
+                                                aria-label={t.updateBtn}
+                                            >
+                                                ✎
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => onDeleteStockMovement(move.id)}
+                                                className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 w-10 h-10 rounded-lg flex items-center justify-center transition border border-slate-200 text-base font-bold"
+                                                aria-label={t.cancelBtn}
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2.5">
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{t.colGadi}</p>
+                                            <p className="text-base font-bold text-slate-800 uppercase truncate">
+                                                {move.vehicleNumber || '—'}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{t.colQty}</p>
+                                            <p className={`text-base font-extrabold font-mono tabular-nums ${isOut ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                                {isOut ? '−' : '+'}{(move.quantityKg / 100).toFixed(2)}{' '}
+                                                <span className="text-slate-400 font-sans text-xs font-bold">{t.unitQuintal}</span>
+                                            </p>
+                                        </div>
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{t.colRate}</p>
+                                            <p className="text-base font-bold text-slate-800 tabular-nums">
+                                                {move.ratePerQuintal ? `₹${move.ratePerQuintal}` : '—'}
+                                            </p>
+                                        </div>
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">{t.totalPriceLabel}</p>
+                                            <p className="text-base font-extrabold text-slate-900 tabular-nums">
+                                                {move.totalAmount ? `₹${formatIndianCurrency(move.totalAmount)}` : '—'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })
+                    )}
+                </div>
+
+                {/* Landscape / desktop: equal-width table */}
+                <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full table-fixed text-base">
+                        <colgroup>
+                            <col className="w-[14.28%]" />
+                            <col className="w-[14.28%]" />
+                            <col className="w-[14.28%]" />
+                            <col className="w-[14.28%]" />
+                            <col className="w-[14.28%]" />
+                            <col className="w-[14.28%]" />
+                            <col className="w-[14.28%]" />
+                        </colgroup>
+                        <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="px-3 lg:px-4 py-4 text-left text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                                    {t.dateHeader}
+                                </th>
+                                <th className="px-3 lg:px-4 py-4 text-left text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                                    {t.tabCustomers}
+                                </th>
+                                <th className="px-3 lg:px-4 py-4 text-left text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                                    {t.colGadi}
+                                </th>
+                                <th className="px-3 lg:px-4 py-4 text-center text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                                    {t.colQty}
+                                </th>
+                                <th className="px-3 lg:px-4 py-4 text-center text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                                    {t.colRate}
+                                </th>
+                                <th className="px-3 lg:px-4 py-4 text-center text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                                    {t.totalPriceLabel}
+                                </th>
+                                <th className="px-3 lg:px-4 py-4 text-center text-xs font-extrabold uppercase tracking-wider text-slate-600">
+                                    {t.actionHeader}
+                                </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-gray-100">
-                            {[...stockMovements].reverse().map(move => (
-                                <tr key={move.id} className="hover:bg-gray-50">
-                                    <td className="p-3 text-gray-600">{formatDisplayDate(move.date)}</td>
-                                    <td className="p-3">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                            move.type === 'in' || move.type === 'adjust_add' 
-                                                ? 'bg-green-100 text-green-700' 
-                                                : 'bg-red-100 text-red-700'
+                        <tbody className="divide-y divide-slate-100">
+                            {[...stockMovements].reverse().map(move => {
+                                const isOut = move.type === 'out' || move.type === 'adjust_sub';
+                                return (
+                                    <tr key={move.id} className="hover:bg-blue-50/40 transition-colors">
+                                        <td className="px-3 lg:px-4 py-4 text-slate-700 font-bold tabular-nums truncate">
+                                            {formatDisplayDate(move.date)}
+                                        </td>
+                                        <td className="px-3 lg:px-4 py-4 font-extrabold text-slate-900 truncate" title={getTranslated(move.accountName || move.note) || undefined}>
+                                            {getTranslated(move.accountName || move.note) || '—'}
+                                        </td>
+                                        <td className="px-3 lg:px-4 py-4 uppercase text-slate-700 font-bold tracking-wide truncate">
+                                            {move.vehicleNumber || '—'}
+                                        </td>
+                                        <td className={`px-3 lg:px-4 py-4 text-center font-mono tabular-nums font-extrabold text-lg ${
+                                            isOut ? 'text-rose-600' : 'text-emerald-600'
                                         }`}>
-                                            {move.type === 'out' 
-                                                ? t.dispatchTypeLabel 
-                                                : (move.type === 'adjust_add' ? t.stockAdded : t.stockSubtracted)
-                                            }
-                                        </span>
-                                    </td>
-                                    <td className="p-3 font-medium text-gray-800">
-                                        {getTranslated(move.accountName || move.note) || '-'}
-                                    </td>
-                                    <td className="p-3 uppercase text-gray-600">{move.vehicleNumber || '-'}</td>
-                                    <td className="p-3 text-right font-mono">
-                                        {move.type === 'out' || move.type === 'adjust_sub' ? '-' : '+'}
-                                        {(move.quantityKg / 100).toFixed(2)} {t.unitQuintal}
-                                    </td>
-                                    <td className="p-3 text-right text-gray-500">
-                                        {move.ratePerQuintal ? `₹${move.ratePerQuintal}` : '-'}
-                                    </td>
-                                    <td className="p-3 text-right font-bold text-gray-700">
-                                        {move.totalAmount ? `₹${formatIndianCurrency(move.totalAmount)}` : '-'}
-                                    </td>
-                                    <td className="p-3 text-right font-mono text-blue-600 bg-blue-50/50">
-                                        {(move.remainingStockKg / 100).toFixed(2)}
-                                    </td>
-                                    <td className="p-3 text-right flex justify-end gap-2">
-                                        <button 
-                                            onClick={() => openEditModal(move)}
-                                            className="text-blue-600 hover:bg-blue-100 p-1 rounded transition"
-                                        >
-                                            ✎
-                                        </button>
-                                        <button 
-                                            onClick={() => onDeleteStockMovement(move.id)}
-                                            className="text-red-600 hover:bg-red-100 p-1 rounded transition"
-                                        >
-                                            ✕
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
+                                            {isOut ? '−' : '+'}{(move.quantityKg / 100).toFixed(2)}
+                                            <span className="block text-xs font-sans font-bold text-slate-400 normal-case mt-0.5">
+                                                {t.unitQuintal}
+                                            </span>
+                                        </td>
+                                        <td className="px-3 lg:px-4 py-4 text-center text-slate-800 font-bold tabular-nums">
+                                            {move.ratePerQuintal ? `₹${move.ratePerQuintal}` : '—'}
+                                        </td>
+                                        <td className="px-3 lg:px-4 py-4 text-center font-extrabold text-slate-900 tabular-nums text-lg">
+                                            {move.totalAmount ? `₹${formatIndianCurrency(move.totalAmount)}` : '—'}
+                                        </td>
+                                        <td className="px-3 lg:px-4 py-4">
+                                            <div className="flex justify-center gap-1.5">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openEditModal(move)}
+                                                    className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 w-9 h-9 rounded-lg flex items-center justify-center transition border border-transparent hover:border-blue-100 text-base font-bold"
+                                                    aria-label={t.updateBtn}
+                                                >
+                                                    ✎
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => onDeleteStockMovement(move.id)}
+                                                    className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 w-9 h-9 rounded-lg flex items-center justify-center transition border border-transparent hover:border-rose-100 text-base font-bold"
+                                                    aria-label={t.cancelBtn}
+                                                >
+                                                    ✕
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {stockMovements.length === 0 && (
                                 <tr>
-                                    <td colSpan={9} className="p-8 text-center text-gray-400 italic">
+                                    <td colSpan={7} className="px-4 py-14 text-center text-slate-400 text-base font-semibold">
                                         {t.noRecords}
                                     </td>
                                 </tr>

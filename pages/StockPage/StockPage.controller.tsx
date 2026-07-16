@@ -42,10 +42,11 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
   // Stock State — Quintal only (stored internally as KG)
   const [adjustQty, setAdjustQty] = useState(''); 
 
-  // Derived Current Stock
+  // Derived Current Stock (use latest movement by id, not array order alone)
   const currentStockKg = useMemo(() => {
       if (stockMovements.length === 0) return 0;
-      return stockMovements[stockMovements.length - 1].remainingStockKg;
+      const latest = stockMovements.reduce((best, m) => (m.id > best.id ? m : best));
+      return Number(latest.remainingStockKg) || 0;
   }, [stockMovements]);
 
   // Derived Sales Stats
@@ -123,39 +124,39 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
       return weightInQuintal * r;
   }, [dispatchTotalKg, ratePerQuintal]);
 
-  const handleDispatch = () => {
-      if (!selectedCustomer) return; // Validation handled in View
-      
-      if (selectedCustomer === '__new__') {
-          const name = prompt(t.enterAccountName);
-          if (name) {
-              onAddAccount(name, 'customer');
-              setSelectedCustomer(name);
-          }
-          return; // Wait for re-render
-      }
-      
-      if (dispatchTotalKg <= 0 || dispatchTotalKg > currentStockKg) return; // Validation handled in View
+  const handleDispatch = (): boolean => {
+      let customerName = selectedCustomer.trim();
+      if (!customerName) return false;
 
-      // 1. Create Stock Movement (The Bill)
+      if (customerName === '__new__') {
+          const name = prompt(t.enterAccountName)?.trim();
+          if (!name) return false;
+          onAddAccount(name, 'customer');
+          customerName = name;
+      }
+
+      if (dispatchTotalKg <= 0 || dispatchTotalKg > currentStockKg) return false;
+
       const movement: StockMovement = {
           id: Date.now(),
           date: dispatchDate,
           type: 'out',
           quantityKg: dispatchTotalKg,
           remainingStockKg: currentStockKg - dispatchTotalKg,
-          accountName: selectedCustomer,
-          vehicleNumber: vehicleNumber,
+          accountName: customerName,
+          vehicleNumber: vehicleNumber.trim().toUpperCase() || undefined,
           ratePerQuintal: parseFloat(ratePerQuintal) || 0,
           totalAmount: Math.round(dispatchTotalPrice),
-          // transactionId is removed because we are not creating a cash transaction
       };
       onAddStockMovement(movement);
 
-      // Reset
-      setDispatchQty('');
+      // Clear dispatch form so fields disappear after save
+      setSelectedCustomer('');
       setVehicleNumber('');
-      // No alert needed, View can show success toast if desired, but not required by spec
+      setDispatchQty('');
+      setRatePerQuintal('');
+      setDispatchDate(new Date().toISOString().split('T')[0]);
+      return true;
   };
 
   // Filter Accounts for Dropdown

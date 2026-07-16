@@ -929,7 +929,7 @@ const FinancialApp: React.FC = () => {
 
   // Stock Handlers (Optimistic)
   const handleAddStockMovement = async (m: StockMovement) => {
-      // Optimistic
+      // Optimistic — show in history immediately
       setStockMovements(prev => [...prev, m]);
       
       // Sync
@@ -940,6 +940,7 @@ const FinancialApp: React.FC = () => {
       } catch (e) {
           console.error("Add stock failed", e);
           setStockMovements(prev => prev.filter(item => item.id !== m.id));
+          alert("Failed to save stock movement. Please try again.");
       }
   };
 
