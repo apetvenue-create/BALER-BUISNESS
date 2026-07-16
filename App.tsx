@@ -1425,31 +1425,31 @@ const FinancialApp: React.FC = () => {
                   <UserProfileHeader />
               </div>
               {/* Tabs */}
-              <div className="flex overflow-x-auto bg-gray-50 border-t">
-                  <button 
-                      onClick={() => setActiveTab('transactions')}
-                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'transactions' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                  >
-                      {t.tabTransactions}
-                  </button>
-                  <button 
-                      onClick={() => setActiveTab('accounts')}
-                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'accounts' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                  >
-                      {t.tabAccounts}
-                  </button>
-                  <button 
-                      onClick={() => setActiveTab('stock')}
-                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'stock' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                  >
-                      {t.tabStock}
-                  </button>
-                  <button 
-                      onClick={() => setActiveTab('reports')}
-                      className={`flex-1 py-3 px-4 font-bold text-sm whitespace-nowrap ${activeTab === 'reports' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:bg-gray-100'}`}
-                  >
-                      {t.tabReports}
-                  </button>
+              <div className="bg-slate-50 border-t border-slate-200 px-3 py-2.5 sm:px-4">
+                  <div className="flex gap-1.5 sm:gap-2 overflow-x-auto p-1 rounded-2xl bg-slate-200/60 border border-slate-200/80">
+                      {([
+                          { id: 'transactions' as const, label: t.tabTransactions },
+                          { id: 'accounts' as const, label: t.tabAccounts },
+                          { id: 'stock' as const, label: t.tabStock },
+                          { id: 'reports' as const, label: t.tabReports },
+                      ]).map(tab => {
+                          const isActive = activeTab === tab.id;
+                          return (
+                              <button
+                                  key={tab.id}
+                                  type="button"
+                                  onClick={() => setActiveTab(tab.id)}
+                                  className={`flex-1 min-w-[5.5rem] flex items-center justify-center text-center py-2.5 px-3 sm:px-4 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+                                      isActive
+                                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/25'
+                                          : 'bg-transparent text-slate-500 hover:text-slate-800 hover:bg-white/70'
+                                  }`}
+                              >
+                                  {tab.label}
+                              </button>
+                          );
+                      })}
+                  </div>
               </div>
           </header>
 

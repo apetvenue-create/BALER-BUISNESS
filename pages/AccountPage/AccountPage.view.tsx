@@ -1892,32 +1892,47 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   return (
     <div className="bg-white rounded-lg shadow h-full flex flex-col relative">
       {/* Account Type Tabs */}
-      <div className="flex border-b overflow-x-auto">
-         <button 
-            className={`flex-1 py-4 px-4 text-center font-bold transition-colors whitespace-nowrap ${activeTab === 'labour' ? 'border-b-4 border-yellow-500 text-yellow-700 bg-yellow-50' : 'text-gray-500 hover:bg-gray-50'}`}
-            onClick={() => onTabChange('labour')}
-         >
-            {t.tabLabour}
-         </button>
-         <button 
-            className={`flex-1 py-4 px-4 text-center font-bold transition-colors whitespace-nowrap ${activeTab === 'partner' ? 'border-b-4 border-blue-500 text-blue-700 bg-blue-50' : 'text-gray-500 hover:bg-gray-50'}`}
-            onClick={() => onTabChange('partner')}
-         >
-            {t.tabPartner}
-         </button>
-         <button 
-            className={`flex-1 py-4 px-4 text-center font-bold transition-colors whitespace-nowrap ${activeTab === 'customer' ? 'border-b-4 border-purple-500 text-purple-700 bg-purple-50' : 'text-gray-500 hover:bg-gray-50'}`}
-            onClick={() => onTabChange('customer')}
-         >
-            {t.tabCustomer}
-         </button>
-         <button 
-            className={`flex-1 py-4 px-4 text-center font-bold transition-colors whitespace-nowrap ${activeTab === 'supplier' ? 'border-b-4 border-indigo-500 text-indigo-700 bg-indigo-50' : 'text-gray-500 hover:bg-gray-50'}`}
-            onClick={() => onTabChange('supplier')}
-         >
-            {t.tabSupplier}
-         </button>
-
+      <div className="bg-slate-50 border-b border-slate-200 px-3 py-2.5 sm:px-4">
+        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto p-1 rounded-2xl bg-slate-200/60 border border-slate-200/80">
+          {([
+            {
+              id: 'labour' as const,
+              label: t.tabLabour,
+              active: 'bg-amber-400 text-amber-950 shadow-sm shadow-amber-400/30',
+            },
+            {
+              id: 'partner' as const,
+              label: t.tabPartner,
+              active: 'bg-sky-500 text-white shadow-sm shadow-sky-500/30',
+            },
+            {
+              id: 'customer' as const,
+              label: t.tabCustomer,
+              active: 'bg-purple-600 text-white shadow-sm shadow-purple-600/30',
+            },
+            {
+              id: 'supplier' as const,
+              label: t.tabSupplier,
+              active: 'bg-violet-600 text-white shadow-sm shadow-violet-600/30',
+            },
+          ]).map(tab => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => onTabChange(tab.id)}
+                className={`flex-1 min-w-[5.5rem] flex items-center justify-center text-center py-2.5 px-3 sm:px-4 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+                  isActive
+                    ? tab.active
+                    : 'bg-transparent text-slate-500 hover:text-slate-800 hover:bg-white/70'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Actions & Search */}
@@ -1933,11 +1948,14 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
          </div>
          <button 
              onClick={onOpenAddAccount}
-             className={`px-4 py-2 text-white font-semibold rounded-lg shadow transition ${
-                 activeTab === 'labour' 
-                    ? 'bg-yellow-500 hover:bg-yellow-600' 
-                    : (activeTab === 'customer' ? 'bg-purple-600 hover:bg-purple-700' : 
-                      (activeTab === 'supplier' ? 'bg-violet-600 hover:bg-violet-700' : 'bg-blue-500 hover:bg-blue-600'))
+             className={`px-4 py-2.5 font-semibold rounded-xl shadow-sm transition ${
+                 activeTab === 'labour'
+                    ? 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-amber-400/30'
+                    : activeTab === 'partner'
+                    ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-sky-500/30'
+                    : activeTab === 'customer'
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30'
+                    : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-600/30'
              }`}
          >
              {activeTab === 'labour' ? t.addLabourAccount : 
@@ -2185,8 +2203,14 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
                 <button 
                     onClick={handleConfirmAddAccountClick} 
-                    className={`w-full text-white py-2.5 rounded-lg font-semibold transition ${
-                      activeTab === 'supplier' ? 'bg-violet-600 hover:bg-violet-700 shadow-sm shadow-violet-200' : 'bg-blue-600 hover:bg-blue-700'
+                    className={`w-full py-2.5 rounded-xl font-semibold transition shadow-sm ${
+                      activeTab === 'labour'
+                        ? 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-amber-400/30'
+                        : activeTab === 'partner'
+                        ? 'bg-sky-500 hover:bg-sky-600 text-white shadow-sky-500/30'
+                        : activeTab === 'customer'
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/30'
+                        : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-600/30'
                     }`}
                 >
                     {t.createBtn}
