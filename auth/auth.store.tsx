@@ -34,7 +34,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const initAuth = async () => {
       try {
-        const session = await AuthService.restoreSession();
+        const session = await Promise.race([
+          AuthService.restoreSession(),
+          new Promise<null>((resolve) => {
+            setTimeout(() => resolve(null), 8000);
+          }),
+        ]);
         if (mounted) {
           setState(prev => ({
             ...prev,

@@ -1,12 +1,21 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-const PROJECT_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const API_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const PROJECT_URL = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+const API_KEY = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-if (!PROJECT_URL || !API_KEY) {
-  console.warn('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY environment variables');
+export const isSupabaseConfigured = Boolean(
+  PROJECT_URL &&
+    API_KEY &&
+    !PROJECT_URL.includes('placeholder.supabase.co')
+);
+
+if (!isSupabaseConfigured) {
+  console.error(
+    'Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY. Set them in Vercel Project Settings → Environment Variables, then redeploy.'
+  );
 }
+
+const REQUEST_TIMEOUT_MS = 12_000;
 
 const parseRetryAfterMs = (response: Response, fallbackMs: number): number => {
   const header = response.headers.get('Retry-After');
@@ -25,11 +34,6 @@ const parseRetryAfterMs = (response: Response, fallbackMs: number): number => {
   return fallbackMs;
 };
 
-/**
- * Custom fetch for Supabase.
- * Native fetch only throws on network failure — HTTP error statuses must be
- * returned so supabase-js can read the body. We only retry transient failures.
- */
 const isAuthRequest = (input: URL | RequestInfo): boolean => {
   const url =
     typeof input === 'string'
@@ -40,63 +44,98 @@ const isAuthRequest = (input: URL | RequestInfo): boolean => {
   return /\/auth\/v1\//i.test(url);
 };
 
+const fetchWithTimeout = async (
+  input: URL | RequestInfo,
+  init?: RequestInit
+): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    const parentSignal = init?.signal;
+    if (parentSignal) {
+      if (parentSignal.aborted) {
+        controller.abort();
+      } else {
+        parentSignal.addEventListener('abort', () => controller.abort(), { once: true });
+      }
+    }
+
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+/**
+ * Custom fetch for Supabase.
+ * Native fetch only throws on network failure — HTTP error statuses must be
+ * returned so supabase-js can read the body. We only retry transient failures.
+ */
 const retryFetch = async (
   input: URL | RequestInfo,
   init?: RequestInit,
-  retries = 3,
-  delay = 1500
+  retries = 2,
+  delay = 800
 ): Promise<Response> => {
-  // Auth: keep retrying quietly so users can attempt unlimited times.
   const authCall = isAuthRequest(input);
-  const maxRetries = authCall ? Math.max(retries, 8) : retries;
-  const waitBase = authCall ? Math.min(delay, 300) : delay;
+  // Auth should fail fast on production so the UI doesn't spin forever.
+  const maxRetries = authCall ? Math.min(retries, 2) : retries;
+  const waitBase = authCall ? Math.min(delay, 400) : delay;
 
   try {
-    const response = await fetch(input, init);
+    const response = await fetchWithTimeout(input, init);
 
-    // Rate limited / temporarily unavailable — wait briefly, then retry (no user-facing block)
     if ((response.status === 429 || response.status === 503) && maxRetries > 0) {
       const waitMs = authCall
-        ? Math.min(parseRetryAfterMs(response, waitBase), 800)
+        ? Math.min(parseRetryAfterMs(response, waitBase), 1000)
         : parseRetryAfterMs(response, waitBase);
       await new Promise(resolve => setTimeout(resolve, waitMs));
-      return retryFetch(input, init, maxRetries - 1, Math.min(waitBase * 2, authCall ? 1000 : 15000));
+      return retryFetch(input, init, maxRetries - 1, Math.min(waitBase * 2, authCall ? 1200 : 8000));
     }
 
     if (response.status === 401 || response.status === 403) {
-      // Clear local user cache only — do NOT signOut here (avoids fetch loops)
       cachedUser = null;
       pendingUserPromise = null;
       userCacheTimestamp = 0;
     }
 
-    // Always return the Response (including 4xx/5xx) for supabase-js to handle
     return response;
   } catch (error) {
-    // Network / CORS failures only — keep retrying auth quietly
     if (maxRetries > 0) {
       await new Promise(resolve => setTimeout(resolve, waitBase));
-      return retryFetch(input, init, maxRetries - 1, Math.min(waitBase * 2, authCall ? 1000 : 15000));
+      return retryFetch(input, init, maxRetries - 1, Math.min(waitBase * 2, authCall ? 1200 : 8000));
     }
+
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Request timed out. Check your connection and try again.');
+    }
+
     throw error;
   }
 };
 
-export const supabase = createClient(PROJECT_URL || 'https://placeholder.supabase.co', API_KEY || 'placeholder', {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-  },
-  global: {
-    fetch: retryFetch,
-  },
-});
+export const supabase = createClient(
+  PROJECT_URL || 'https://placeholder.supabase.co',
+  API_KEY || 'placeholder',
+  {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+    global: {
+      fetch: retryFetch,
+    },
+  }
+);
 
-// Cache user to avoid multiple auth lookups in parallel
 let cachedUser: any = null;
 let userCacheTimestamp = 0;
-const USER_CACHE_TTL = 60_000; // 60 seconds — JWT is valid much longer
+const USER_CACHE_TTL = 60_000;
 let pendingUserPromise: Promise<any> | null = null;
 
 /**
@@ -125,7 +164,6 @@ export const getCachedUser = async () => {
       userCacheTimestamp = Date.now();
       return cachedUser;
     } catch (err) {
-      // Transient errors: keep existing cache if present; never sign out here
       console.warn('getCachedUser failed:', err);
       return cachedUser;
     } finally {

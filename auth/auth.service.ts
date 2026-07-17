@@ -1,12 +1,24 @@
 
 import { AuthSession, SignUpResult } from './auth.contract';
-import { supabase, clearCachedUser } from '../services/supabase';
+import { supabase, clearCachedUser, isSupabaseConfigured } from '../services/supabase';
+
+const CONFIG_ERROR =
+  'App is not connected to Supabase. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.';
+
+const assertConfigured = () => {
+  if (!isSupabaseConfigured) {
+    throw new Error(CONFIG_ERROR);
+  }
+};
 
 const friendlyAuthError = (message: string): string => {
   const lower = (message || '').toLowerCase();
   // Ignore rate-limit / wait messages so the user can retry freely.
   if (lower.includes('429') || lower.includes('rate limit') || lower.includes('too many')) {
     return '';
+  }
+  if (lower.includes('failed to fetch') || lower.includes('network') || lower.includes('timed out') || lower.includes('timeout')) {
+    return 'Could not reach the server. Check your internet connection and try again.';
   }
   if (lower.includes('email not confirmed') || lower.includes('confirm')) {
     return 'Email confirmation is still enabled in Supabase. Turn OFF "Confirm email" under Authentication → Providers → Email, then sign up again for instant access.';
@@ -22,6 +34,7 @@ const friendlyAuthError = (message: string): string => {
 
 export const AuthService = {
   async signIn(email: string, pass: string): Promise<AuthSession> {
+    assertConfigured();
     const normalizedEmail = email.trim().toLowerCase();
     const { data, error } = await supabase.auth.signInWithPassword({
       email: normalizedEmail,
@@ -45,6 +58,7 @@ export const AuthService = {
    * opens immediately after signup. Requires Supabase "Confirm email" OFF.
    */
   async signUp(email: string, pass: string, name: string): Promise<SignUpResult> {
+    assertConfigured();
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedName = name.trim();
 

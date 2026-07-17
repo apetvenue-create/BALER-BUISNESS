@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './auth.store';
+import { isSupabaseConfigured } from '../services/supabase';
 
 export const AuthPage: React.FC = () => {
   const {
@@ -11,6 +12,9 @@ export const AuthPage: React.FC = () => {
     notice: authNotice,
     clearMessages,
   } = useAuth();
+  const configError = isSupabaseConfigured
+    ? null
+    : 'App is not connected to Supabase. Redeploy after setting VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.';
 
   useEffect(() => {
     const previousBodyOverflow = document.body.style.overflowY;
@@ -208,11 +212,11 @@ export const AuthPage: React.FC = () => {
                 </div>
             )}
 
-            {/* Global API Error */}
-            {authError && (
+            {/* Config / Global API Error */}
+            {(configError || authError) && (
               <div role="alert" className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
                 <span aria-hidden="true">⚠</span>
-                <span>{authError}</span>
+                <span>{configError || authError}</span>
               </div>
             )}
 
@@ -225,7 +229,7 @@ export const AuthPage: React.FC = () => {
 
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || Boolean(configError)}
               className="flex w-full items-center justify-center rounded-lg bg-blue-600 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {submitting ? (
