@@ -39,30 +39,89 @@ import { SettingsService } from './services/settings.service';
 // --- AUTH HEADER COMPONENT ---
 const UserProfileHeader: React.FC = () => {
   const { session, signOut } = useAuth();
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
   
   if (!session) return null;
 
+  const accountName = session.name?.trim() || session.email.split('@')[0] || session.email;
+  const initial = accountName.charAt(0).toUpperCase();
+
   return (
-    <div className="flex items-center gap-3">
-        <div className="text-right hidden sm:block">
-            <p className="text-xs text-gray-400 font-semibold uppercase tracking-wider">Logged in as</p>
-            <p className="text-sm font-semibold text-gray-700">{session.name || session.email}</p>
-        </div>
-        <button 
-            type="button"
-            onClick={() => {
-                if(window.confirm("Are you sure you want to logout?")) {
-                    signOut();
-                }
-            }}
-            className="text-gray-400 hover:text-red-600 hover:bg-red-50 p-2.5 rounded-xl transition-all cursor-pointer"
-            title="Logout"
+    <>
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        <div
+          className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 sm:px-3"
+          title={session.email}
         >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.75} stroke="currentColor" className="w-5 h-5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
-            </svg>
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white shadow-sm">
+            {initial}
+          </span>
+          <span className="max-w-24 truncate text-xs font-bold text-slate-700 sm:max-w-40 sm:text-sm">
+            {accountName}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setIsLogoutConfirmOpen(true)}
+          className="flex shrink-0 items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-2.5 py-2 text-xs font-bold text-red-600 transition hover:border-red-200 hover:bg-red-100 sm:px-3 sm:text-sm"
+          title="Logout"
+          aria-label="Logout"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.9} stroke="currentColor" className="h-4 w-4">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+          </svg>
+          <span className="hidden sm:inline">Logout</span>
         </button>
-    </div>
+      </div>
+
+      {isLogoutConfirmOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-[2px]"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsLogoutConfirmOpen(false);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="logout-confirm-title"
+            className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6"
+          >
+            <div className="mb-4 flex items-start gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="h-5 w-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z" />
+                </svg>
+              </span>
+              <div>
+                <h2 id="logout-confirm-title" className="text-base font-bold text-slate-900 sm:text-lg">
+                  Confirm logout
+                </h2>
+                <p className="mt-1 text-sm leading-5 text-slate-500">
+                  Are you sure you want to log out of {accountName}?
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsLogoutConfirmOpen(false)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
+              >
+                Yes, logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -371,6 +430,12 @@ const FinancialApp: React.FC = () => {
                 acres: details.acres,
                 dateCutter: details.dateCutter,
               }
+            : {}),
+          ...(safeType === 'labour' && details
+            ? { phone: details.phone?.replace(/\D/g, '').slice(0, 10) || undefined }
+            : {}),
+          ...(safeType === 'customer' && details
+            ? { phone: details.phone?.replace(/\D/g, '').slice(0, 10) || undefined }
             : {})
       };
 
@@ -556,9 +621,16 @@ const FinancialApp: React.FC = () => {
       }
   };
 
-  const handleUpdateAccount = async (updated: StoredAccount) => {
-      const prev = accounts.find(a => a.name === updated.name);
-      setAccounts(list => list.map(a => (a.name === updated.name ? { ...a, ...updated } : a)));
+  const handleUpdateAccount = async (updated: StoredAccount, previousName?: string) => {
+      const matchName = (previousName || updated.name).trim().toLowerCase();
+      const prev = accounts.find(a => a.name.trim().toLowerCase() === matchName);
+      setAccounts(list =>
+        list.map(a =>
+          a.name.trim().toLowerCase() === matchName
+            ? { ...a, ...updated, name: updated.name }
+            : a
+        )
+      );
 
       if (updated.type === 'supplier') {
           try {
@@ -572,6 +644,38 @@ const FinancialApp: React.FC = () => {
               console.error('Update farmer details failed', e);
               if (prev) setAccounts(list => list.map(a => (a.name === prev.name ? prev : a)));
               alert('Failed to save farmer details.');
+          }
+      }
+
+      if (updated.type === 'labour') {
+          try {
+              await AccountService.updateLabourDetails(updated.name, {
+                  rate: updated.rate,
+                  phone: updated.phone,
+              });
+          } catch (e) {
+              console.error('Update labour details failed', e);
+              if (prev) {
+                setAccounts(list =>
+                  list.map(a =>
+                    a.name.trim().toLowerCase() === updated.name.trim().toLowerCase() ||
+                    a.name.trim().toLowerCase() === matchName
+                      ? { ...prev, name: updated.name, phone: updated.phone ?? prev.phone, rate: updated.rate ?? prev.rate }
+                      : a
+                  )
+                );
+              }
+              alert('Failed to save labour details.');
+          }
+      }
+
+      if (updated.type === 'customer') {
+          try {
+              await AccountService.updateCustomerDetails(updated.name, updated.phone);
+          } catch (e) {
+              console.error('Update customer details failed', e);
+              if (prev) setAccounts(list => list.map(a => (a.name === prev.name ? prev : a)));
+              alert('Failed to save customer details.');
           }
       }
   };
@@ -882,26 +986,56 @@ const FinancialApp: React.FC = () => {
       return () => window.removeEventListener('keydown', handler);
   }, [activeTab, isModalOpen]);
 
-  // Opening Balance Modal Handlers
-  const openBalanceModal = () => {
+  // Net of income/expense before the current filter start date (excludes stored opening balance).
+  const getPriorTxNets = () => {
+      const startDate = dateFilter.mode === 'single' ? dateFilter.singleDate : dateFilter.fromDate;
+      let cash = 0;
+      let online = 0;
+      for (const t of transactions) {
+          if (t.date >= startDate) continue;
+          if (t.type === 'income') {
+              if (t.paymentType === 'cash') cash += t.amount;
+              else online += t.amount;
+          } else {
+              if (t.paymentType === 'cash') cash -= t.amount;
+              else online -= t.amount;
+          }
+      }
+      return { cash, online };
+  };
+
+  // Edit the amounts shown on the Previous Balance card (opening + prior txs).
+  const openBalanceModal = (e?: React.MouseEvent | React.PointerEvent) => {
+      e?.preventDefault();
+      e?.stopPropagation();
+      openingBalanceSubmittingRef.current = false;
+      const prior = getPriorTxNets();
+      const displayCash = (initialOpeningBalance.cash || 0) + prior.cash;
+      const displayOnline = (initialOpeningBalance.online || 0) + prior.online;
       setTempOpeningBalance({
-          cash: formatInputCurrency(initialOpeningBalance.cash.toString()),
-          online: formatInputCurrency(initialOpeningBalance.online.toString())
+          cash: formatInputCurrency(String(displayCash)),
+          online: formatInputCurrency(String(displayOnline))
       });
       setIsBalanceModalOpen(true);
   };
 
   const saveOpeningBalance = async () => {
-      const newVal = {
-          cash: parseCurrency(tempOpeningBalance.cash) || 0,
-          online: parseCurrency(tempOpeningBalance.online) || 0
-      };
-      // Optimistic
-      setInitialOpeningBalance(newVal);
-      setIsBalanceModalOpen(false);
-      
-      // Sync
-      SettingsService.set('openingBalanceData', newVal);
+      try {
+          const prior = getPriorTxNets();
+          // Back out prior txs so stored value stays the true opening balance.
+          const newVal = {
+              cash: (parseCurrency(tempOpeningBalance.cash) || 0) - prior.cash,
+              online: (parseCurrency(tempOpeningBalance.online) || 0) - prior.online
+          };
+          setInitialOpeningBalance(newVal);
+          setIsBalanceModalOpen(false);
+          await SettingsService.set('openingBalanceData', newVal);
+      } catch (error) {
+          console.error('Save opening balance failed', error);
+          alert('Failed to save opening balance. Please try again.');
+      } finally {
+          openingBalanceSubmittingRef.current = false;
+      }
   };
 
   // Enter key should save the Opening Balance modal reliably.
@@ -1043,7 +1177,7 @@ const FinancialApp: React.FC = () => {
   };
 
   const handleUpdateAdjustment = async (adj: ManualAdjustment) => {
-     // Optimistic Update
+     const previousAccounts = accounts;
      setAccounts(prevAccounts => prevAccounts.map(acc => {
          if (acc.manualAdjustments?.some(a => a.id === adj.id)) {
              return {
@@ -1054,8 +1188,13 @@ const FinancialApp: React.FC = () => {
          return acc;
      }));
 
-     // Sync
-     AccountService.updateAdjustment(adj);
+     try {
+         await AccountService.updateAdjustment(adj);
+     } catch (error) {
+         console.error('Update previous balance failed', error);
+         setAccounts(previousAccounts);
+         alert('Failed to update previous balance.');
+     }
   };
 
   const handleDeleteAdjustment = async (id: number) => {
@@ -1316,6 +1455,7 @@ const FinancialApp: React.FC = () => {
     let oil = 0;
     let partnerIn = 0;
     let electricity = 0;
+    let machineRepair = 0;
     
     transactions.forEach(t => {
         if (t.date >= statsStartDate && t.date <= statsEndDate) {
@@ -1330,13 +1470,16 @@ const FinancialApp: React.FC = () => {
                 if (t.category === 'electricity') {
                     electricity += t.amount;
                 }
+                if (t.category === 'machine_repair') {
+                    machineRepair += t.amount;
+                }
             } else if (t.type === 'income' && t.category === 'partner') {
                 partnerIn += t.amount;
             }
         }
     });
     
-    return { expense, labour, oil, electricity, partnerIn };
+    return { expense, labour, oil, electricity, machineRepair, partnerIn };
   }, [transactions, statsStartDate, statsEndDate]);
 
   // Helpers
@@ -1349,6 +1492,7 @@ const FinancialApp: React.FC = () => {
       if (cat === 'cl_oil') return t.clOilOption;
       if (cat === 'electricity') return t.electricityOption;
       if (cat === 'food') return t.foodOption;
+      if (cat === 'machine_repair') return t.machineRepairOption;
       if (cat === 'supplier') return t.supplierOption;
 
       if (cat === 'cash_conversion') return "ONLINE -> CASH";
@@ -1503,16 +1647,20 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* PREVIOUS BALANCE CARD */}
-                      <div className="w-full max-w-3xl mx-auto bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md px-3 py-3 sm:px-5 sm:py-5 md:px-6 md:py-6 text-white relative">
+                      <div className="w-full max-w-3xl mx-auto bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md px-3 py-3 sm:px-5 sm:py-5 md:px-6 md:py-6 text-white relative isolate">
                             <button 
+                                type="button"
                                 onClick={openBalanceModal}
-                                className="absolute top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 bg-white/20 hover:bg-white/30 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg transition text-sm sm:text-base"
+                                className="absolute top-1.5 right-1.5 z-30 bg-white/25 hover:bg-white/40 active:bg-white/50 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded transition border border-white/40"
                                 title={t.editOpeningBalanceTitle}
+                                aria-label={t.editOpeningBalanceTitle}
                             >
-                                ✎
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="w-3 h-3 pointer-events-none">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                                </svg>
                             </button>
 
-                            <h2 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-wider mb-2.5 sm:mb-4 pr-10 sm:pr-12 text-center opacity-95">{t.prevBalTitle}</h2>
+                            <h2 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-wider mb-2.5 sm:mb-4 pr-7 sm:pr-9 text-center opacity-95">{t.prevBalTitle}</h2>
                             <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
                                 <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
                                     <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.cashBalLabel}</p>
@@ -1824,7 +1972,7 @@ const FinancialApp: React.FC = () => {
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 md:gap-6">
+                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
                               {/* Total Expense */}
                               <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-red-50 rounded-lg border border-red-100 shadow-sm">
                                    <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-red-500 mb-0.5 sm:mb-1">{t.statsTotalExpense}</p>
@@ -1844,6 +1992,11 @@ const FinancialApp: React.FC = () => {
                               <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
                                       <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-blue-600 mb-0.5 sm:mb-1">{t.statsElectricityExpense}</p>
                                       <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.electricity)}</p>
+                              </div>
+                              {/* Machine Repair */}
+                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-teal-50 rounded-lg border border-teal-100 shadow-sm">
+                                      <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-teal-700 mb-0.5 sm:mb-1">{t.statsMachineRepairExpense}</p>
+                                      <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.machineRepair)}</p>
                               </div>
                           </div>
                       </div>
@@ -1922,12 +2075,26 @@ const FinancialApp: React.FC = () => {
 
           {/* Opening Balance Modal */}
           {isBalanceModalOpen && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
-                  <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl animate-fade-in relative max-h-[92vh] overflow-y-auto">
+              <div
+                className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-2 sm:p-4"
+                onClick={(e) => {
+                  if (e.target === e.currentTarget) {
+                    openingBalanceSubmittingRef.current = false;
+                    setIsBalanceModalOpen(false);
+                  }
+                }}
+              >
+                  <div
+                    className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl animate-fade-in relative max-h-[92vh] overflow-y-auto"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                       <button
                         type="button"
-                        onClick={() => setIsBalanceModalOpen(false)}
-                        className="absolute top-2 right-2 sm:top-3 sm:right-3 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center transition"
+                        onClick={() => {
+                          openingBalanceSubmittingRef.current = false;
+                          setIsBalanceModalOpen(false);
+                        }}
+                        className="absolute top-2 right-2 sm:top-3 sm:right-3 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center transition text-sm"
                         aria-label={t.cancelBtn}
                         title={t.cancelBtn}
                       >
@@ -1938,6 +2105,7 @@ const FinancialApp: React.FC = () => {
                         ref={openingBalanceFormRef}
                         onSubmit={(e) => {
                           e.preventDefault();
+                          e.stopPropagation();
                           if (openingBalanceSubmittingRef.current) return;
                           openingBalanceSubmittingRef.current = true;
                           void saveOpeningBalance();
@@ -1948,6 +2116,7 @@ const FinancialApp: React.FC = () => {
                             <input
                                 type="text"
                                 inputMode="numeric"
+                                autoFocus
                                 value={tempOpeningBalance.cash}
                                 onChange={(e) =>
                                   setTempOpeningBalance(prev => ({ ...prev, cash: formatInputCurrency(e.target.value) }))
@@ -1967,12 +2136,24 @@ const FinancialApp: React.FC = () => {
                                 className="w-full px-3 py-1.5 sm:py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm sm:text-base"
                             />
                         </div>
-                        <button
-                            type="submit"
-                            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition text-sm sm:text-base"
-                        >
-                            {t.saveBtn}
-                        </button>
+                        <div className="flex gap-2">
+                          <button
+                              type="button"
+                              onClick={() => {
+                                openingBalanceSubmittingRef.current = false;
+                                setIsBalanceModalOpen(false);
+                              }}
+                              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 rounded-lg font-semibold transition text-sm sm:text-base"
+                          >
+                              {t.cancelBtn}
+                          </button>
+                          <button
+                              type="submit"
+                              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition text-sm sm:text-base"
+                          >
+                              {t.saveBtn}
+                          </button>
+                        </div>
                       </form>
                   </div>
               </div>

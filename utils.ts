@@ -92,3 +92,11 @@ export function formatMonthYear(date: Date): string {
   const year = date.getFullYear();
   return `${month}-${year}`;
 }
+
+/** Display phone in short Indian style: 98765 43210 */
+export function formatPhoneShort(raw?: string): string {
+  if (!raw?.trim()) return '—';
+  const digits = raw.replace(/\D/g, '').slice(-10);
+  if (digits.length === 10) return `${digits.slice(0, 5)} ${digits.slice(5)}`;
+  return raw.trim();
+}

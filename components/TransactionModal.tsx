@@ -282,6 +282,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     )}
                     <option value="electricity">{t.electricityOption}</option>
                     <option value="food">{t.foodOption}</option>
+                    <option value="machine_repair">{t.machineRepairOption}</option>
                     <option value="labour">{t.labourOption}</option>
                     <option value="partner">{t.partnerOption}</option>
                     {(category === 'customer' || defaultCategory === 'customer') && (

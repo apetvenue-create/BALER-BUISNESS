@@ -1,8 +1,8 @@
 
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
-import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourTimelineRow, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry, FarmerProfileDetails } from '../../types';
+import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourLedgerItem, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry, FarmerProfileDetails } from '../../types';
 import { AccountPageView } from './AccountPage.view';
-import { formatMonthYear, getDatesInRange, formatISODateLocal } from '../../utils';
+import { formatMonthYear, formatISODateLocal } from '../../utils';
 import { PDFGenerator } from '../../services/pdfGenerator';
 import { SettingsService } from '../../services/settings.service';
 
@@ -14,7 +14,7 @@ interface AccountPageControllerProps {
   /** Hidden from Ledgers list only; does not delete underlying data. */
   hiddenLedgerAccountNames?: string[];
   onAddAccount: (name: string, type: AccountType, rate?: number, details?: FarmerProfileDetails) => void;
-  onUpdateAccount: (account: StoredAccount) => void;
+  onUpdateAccount: (account: StoredAccount, previousName?: string) => void;
   onOpenTransactionModal: (mode: TransactionType, defaults?: { category?: string, accountName?: string }) => void;
   initialTab?: AccountTab;
   getTranslated: (text?: string) => string;
@@ -142,8 +142,10 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const [newFarmerAddress, setNewFarmerAddress] = useState('');
   const [newFarmerAcres, setNewFarmerAcres] = useState('');
   const [newFarmerDateCutter, setNewFarmerDateCutter] = useState('');
+  const [newLabourPhone, setNewLabourPhone] = useState('');
+  const [newCustomerPhone, setNewCustomerPhone] = useState('');
 
-  // Custom Serial Order State
+  const isLegacyWageAdjustment = (note?: string) => note?.trim().toLowerCase() === 'wage';
   const [accountOrder, setAccountOrder] = useState<Record<string, number>>({});
 
   // Load Order on Mount
@@ -194,13 +196,13 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
          if (type === 'labour') {
              tabType = 'labour';
-             // For Labour: Balance = Total Wages + Adjustments (We subtract payments later)
-             const rate = acc.rate || 0;
-             // Only count explicit presence (true) for wages
-             const presentDays = acc.attendance ? Object.values(acc.attendance).filter(v => v === true).length : 0;
-             const totalWages = presentDays * rate;
-             const totalAdjustments = acc.manualAdjustments ? acc.manualAdjustments.reduce((sum, a) => sum + a.amount, 0) : 0;
-             initialBalance = totalWages + totalAdjustments;
+             const wage = acc.rate || 0;
+             const adjTotal = acc.manualAdjustments
+               ? acc.manualAdjustments
+                   .filter(a => a.note?.trim().toLowerCase() !== 'wage')
+                   .reduce((sum, a) => sum + a.amount, 0)
+               : 0;
+             initialBalance = wage + adjTotal;
          }
          else if (type === 'partner') {
              tabType = 'partner';
@@ -242,9 +244,6 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
         // Apply Logic Based on Account Type
         if (current.type === 'labour') {
-            // Labour Balance = Payable Amount
-            // Expense (Payment) REDUCES Payable
-            // Income INCREASES Payable (Recovery/Return) - Rare but mathematically consistent with Ledger
             if (tr.type === 'expense') current.balance -= tr.amount;
             else if (tr.type === 'income') current.balance += tr.amount;
         } 
@@ -521,13 +520,14 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
      return {
          name: selectedAccountName,
+         phone: accounts.find(a => a.name === selectedAccountName)?.phone,
          totalStockKg,
          totalBilled,
          totalReceived,
          balance: runningBalance,
          ledger: displayLedger
      };
-  }, [selectedAccountName, activeTab, stockMovements, transactions, t]);
+  }, [selectedAccountName, activeTab, stockMovements, transactions, accounts, t]);
 
   const supplierData: SupplierSummary | undefined = useMemo(() => {
       if (activeTab !== 'supplier' || !selectedAccountName) return undefined;
@@ -613,94 +613,72 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const labourData: LabourSummary | undefined = useMemo(() => {
     if (activeTab !== 'labour' || !selectedAccountName) return undefined;
 
-    // 1. Get Account Details
     const account = accounts.find(a => a.name === selectedAccountName);
     const rate = account?.rate || 0;
-    const attendance = account?.attendance || {};
-    const hisaabDays = account?.hisaabDays || {};
-    const adjustments = account?.manualAdjustments || [];
-
-    // 2. Get Payments (Expenses)
+    const phone = account?.phone;
+    const adjustments = (account?.manualAdjustments || []).filter(a => !isLegacyWageAdjustment(a.note));
     const payments = transactions.filter(t => t.accountName === selectedAccountName && t.type === 'expense');
-    const totalPaidLifetime = payments.reduce((sum, t) => sum + t.amount, 0);
 
-    // 3. Calculate Lifetime Earnings
-    // Iterate all attendance entries - only count 'true'
-    const presentDates = Object.keys(attendance).filter(d => attendance[d] === true);
-    const totalWorkDaysLifetime = presentDates.length;
-    const baseEarningsLifetime = totalWorkDaysLifetime * rate;
-    const totalAdjustmentsLifetime = adjustments.reduce((sum, a) => sum + a.amount, 0);
-    
-    const totalPayableLifetime = baseEarningsLifetime + totalAdjustmentsLifetime;
+    const totalPaidLifetime = payments.reduce((sum, t) => sum + t.amount, 0);
+    const totalAdjustments = adjustments.reduce((sum, a) => sum + a.amount, 0);
+    const totalPayableLifetime = rate + totalAdjustments;
     const lifetimeBalance = totalPayableLifetime - totalPaidLifetime;
 
-    // 4. Calculate Opening Balance (Prior to selected Range)
     const startOfRange = labourStartDate;
-    
-    // Attendance before start date
-    const daysBefore = Object.keys(attendance).filter(d => d < startOfRange && attendance[d] === true).length;
-    const wagesBefore = daysBefore * rate;
+    const endOfRange = labourEndDate;
 
-    // Adjustments before start date
     const adjsBefore = adjustments.filter(a => a.date < startOfRange).reduce((sum, a) => sum + a.amount, 0);
-
-    // Payments before start date
     const paidBefore = payments.filter(t => t.date < startOfRange).reduce((sum, t) => sum + t.amount, 0);
+    const openingBalance = rate + adjsBefore - paidBefore;
 
-    const openingBalance = (wagesBefore + adjsBefore) - paidBefore;
+    const rangeAdjustments = adjustments.filter(a => a.date >= startOfRange && a.date <= endOfRange);
 
-    // 5. Build Timeline for Selected Month/Range
-    const dates = getDatesInRange(labourStartDate, labourEndDate);
-    const dateRows: LabourTimelineRow[] = dates.map(date => {
-        // Explicitly get the boolean or undefined from the map
-        const isPresent = attendance[date]; // true, false, or undefined
-        const isHisaabDay = !!hisaabDays[date];
-        const dayTxs = payments.filter(t => t.date === date);
-        const dayAdjs = adjustments.filter(a => a.date === date);
+    const events = rangeAdjustments
+      .map(adj => ({ date: adj.date, order: adj.id, adj }))
+      .sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order);
 
-        return {
-            date,
-            isPresent,
-            isHisaabDay,
-            dailyWage: isPresent === true ? rate : 0,
-            transactions: dayTxs,
-            adjustments: dayAdjs
-        };
-    });
-
-    // 6. Month Stats (Derived only from the visible range rows)
-    const monthAttendanceDays = dateRows.filter(r => r.isPresent === true).length;
-    const monthWage = monthAttendanceDays * rate;
-    const monthAdjustments = dateRows.reduce((sum, r) => sum + r.adjustments.reduce((s, a) => s + a.amount, 0), 0);
-    const monthPayable = monthWage + monthAdjustments;
-    const monthPaid = dateRows.reduce((sum, r) => sum + r.transactions.reduce((s, t) => s + t.amount, 0), 0);
-
-    // 7. Inject Opening Balance Row at the Top
-    const timeline: LabourTimelineRow[] = [
-        {
-            date: 'Opening Balance', // Special marker
-            isPresent: undefined,
-            isHisaabDay: false,
-            dailyWage: 0,
-            adjustments: [],
-            transactions: [],
-            isOpeningBalance: true,
-            balance: openingBalance
-        },
-        ...dateRows
+    const ledger: LabourLedgerItem[] = [
+      {
+        id: 'opening',
+        date: startOfRange,
+        type: 'opening',
+        description: 'Opening Balance',
+        creditAmount: 0,
+        debitAmount: 0,
+        runningBalance: openingBalance,
+        isOpeningBalance: true,
+      },
     ];
 
+    let running = openingBalance;
+    events.forEach(ev => {
+        const adj = ev.adj;
+        running += adj.amount;
+        ledger.push({
+          id: `adj-${adj.id}`,
+          date: adj.date,
+          type: 'adjustment',
+          description: getTranslated(adj.note) || 'Adjustment',
+          creditAmount: adj.amount > 0 ? adj.amount : 0,
+          debitAmount: adj.amount < 0 ? Math.abs(adj.amount) : 0,
+          runningBalance: running,
+          adjustmentId: adj.id,
+          adjustment: adj,
+        });
+    });
+
     return {
-        name: selectedAccountName,
-        rate,
-        lifetimeBalance,
-        viewMonthName: `${formatMonthYear(new Date(labourStartDate))}`,
-        monthAttendanceDays,
-        monthPayable,
-        monthPaid,
-        timeline: timeline // Opening Balance + Normal Calendar Order
+      name: selectedAccountName,
+      rate,
+      phone,
+      lifetimeBalance,
+      lifetimePaid: totalPaidLifetime,
+      lifetimePayable: totalPayableLifetime,
+      rangePaid: 0,
+      viewMonthName: `${formatMonthYear(new Date(labourStartDate))}`,
+      ledger,
     };
-  }, [selectedAccountName, activeTab, transactions, accounts, labourStartDate, labourEndDate]);
+  }, [selectedAccountName, activeTab, transactions, accounts, labourStartDate, labourEndDate, getTranslated]);
 
 
   // --- Actions ---
@@ -725,6 +703,14 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
                   acres: newFarmerAcres ? parseFloat(newFarmerAcres) : undefined,
                   dateCutter: newFarmerDateCutter || undefined,
                 }
+              : activeTab === 'labour'
+              ? {
+                  phone: newLabourPhone.replace(/\D/g, '').slice(0, 10) || undefined,
+                }
+              : activeTab === 'customer'
+              ? {
+                  phone: newCustomerPhone.replace(/\D/g, '').slice(0, 10) || undefined,
+                }
               : undefined;
           onAddAccount(newAccountName.trim(), activeTab, parseFloat(newAccountRate) || 0, farmerDetails);
           setIsAddModalOpen(false);
@@ -734,6 +720,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
           setNewFarmerAddress('');
           setNewFarmerAcres('');
           setNewFarmerDateCutter('');
+          setNewLabourPhone('');
+          setNewCustomerPhone('');
       }
   };
 
@@ -807,6 +795,43 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       if (selectedAccountName && onAddAdjustment) {
           onAddAdjustment(selectedAccountName, adj);
       }
+  };
+
+  const handleUpdateLabourWage = (wage: number) => {
+      if (!selectedAccountName) return;
+      const account = accounts.find(a => a.name === selectedAccountName);
+      if (!account) return;
+      onUpdateAccount({ ...account, rate: wage });
+  };
+
+  const handleUpdateLabourProfile = (oldName: string, newName: string, phone: string) => {
+      const trimmedName = newName.trim();
+      if (!trimmedName) return;
+      const digits = phone.replace(/\D/g, '').slice(0, 10);
+      if (digits.length !== 10) return;
+
+      const account = accounts.find(a => a.name === oldName);
+      if (!account) return;
+
+      // Save phone on current account name first (reliable match), then rename if needed
+      onUpdateAccount({
+          ...account,
+          phone: digits,
+      });
+      if (trimmedName !== oldName.trim()) {
+          handleRenameLocal(oldName, trimmedName);
+      }
+  };
+
+  const handleUpdateCustomerProfile = (oldName: string, newName: string, phone: string) => {
+      const trimmedName = newName.trim();
+      const digits = phone.replace(/\D/g, '').slice(0, 10);
+      if (!trimmedName || digits.length !== 10) return;
+      const account = accounts.find(a => a.name === oldName);
+      if (!account) return;
+
+      onUpdateAccount({ ...account, phone: digits });
+      if (trimmedName !== oldName.trim()) handleRenameLocal(oldName, trimmedName);
   };
 
   const handlePayLabour = () => {
@@ -933,6 +958,8 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
         setNewFarmerAddress('');
         setNewFarmerAcres('');
         setNewFarmerDateCutter('');
+        setNewLabourPhone('');
+        setNewCustomerPhone('');
       }}
       
       newAccountRate={newAccountRate}
@@ -945,8 +972,14 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
       onNewFarmerAcresChange={setNewFarmerAcres}
       newFarmerDateCutter={newFarmerDateCutter}
       onNewFarmerDateCutterChange={setNewFarmerDateCutter}
+      newLabourPhone={newLabourPhone}
+      onNewLabourPhoneChange={setNewLabourPhone}
+      newCustomerPhone={newCustomerPhone}
+      onNewCustomerPhoneChange={setNewCustomerPhone}
       
-      onToggleAttendance={handleSetAttendance}
+      onUpdateLabourWage={handleUpdateLabourWage}
+      onUpdateLabourProfile={handleUpdateLabourProfile}
+      onUpdateCustomerProfile={handleUpdateCustomerProfile}
       onToggleHisaab={handleToggleHisaab}
       onAddAdjustment={handleAddAdjustmentLocal}
       onUpdateAdjustment={onUpdateAdjustment}

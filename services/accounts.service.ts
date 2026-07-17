@@ -5,6 +5,8 @@ import { StoredAccount, AccountType, ManualAdjustment, OwnerPreviousEntry, Farme
 import { SettingsService } from './settings.service';
 
 const FARMER_DETAILS_KEY = 'farmerDetailsByName';
+const LABOUR_DETAILS_KEY = 'labourDetailsByName';
+const CUSTOMER_DETAILS_KEY = 'customerDetailsByName';
 
 const readFarmerDetailsMap = async (): Promise<Record<string, FarmerProfileDetails>> => {
   const raw = await SettingsService.get(FARMER_DETAILS_KEY);
@@ -13,6 +15,26 @@ const readFarmerDetailsMap = async (): Promise<Record<string, FarmerProfileDetai
 
 const writeFarmerDetailsMap = async (map: Record<string, FarmerProfileDetails>) => {
   await SettingsService.set(FARMER_DETAILS_KEY, map);
+};
+
+type LabourDetails = { phone?: string };
+
+const readLabourDetailsMap = async (): Promise<Record<string, LabourDetails>> => {
+  const raw = await SettingsService.get(LABOUR_DETAILS_KEY);
+  return raw && typeof raw === 'object' ? raw : {};
+};
+
+const writeLabourDetailsMap = async (map: Record<string, LabourDetails>) => {
+  await SettingsService.set(LABOUR_DETAILS_KEY, map);
+};
+
+const readCustomerDetailsMap = async (): Promise<Record<string, LabourDetails>> => {
+  const raw = await SettingsService.get(CUSTOMER_DETAILS_KEY);
+  return raw && typeof raw === 'object' ? raw : {};
+};
+
+const writeCustomerDetailsMap = async (map: Record<string, LabourDetails>) => {
+  await SettingsService.set(CUSTOMER_DETAILS_KEY, map);
 };
 
 export const AccountService = {
@@ -32,12 +54,14 @@ export const AccountService = {
       if (accError) throw accError;
 
       // 2. Fetch Related Data (Attendance, Hisaab, Adjustments) - parallel, with individual try/catch
-      const [attendanceRes, hisaabRes, adjustmentsRes, ownerPrevRes, farmerDetailsMap] = await Promise.all([
+      const [attendanceRes, hisaabRes, adjustmentsRes, ownerPrevRes, farmerDetailsMap, labourDetailsMap, customerDetailsMap] = await Promise.all([
         supabase.from('attendance').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
         supabase.from('hisaab_days').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
         supabase.from('adjustments').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
         supabase.from('owner_previous_entries').select('*').eq('user_id', user.id).then(r => ({ status: 'fulfilled' as const, value: r })),
         readFarmerDetailsMap().catch(() => ({} as Record<string, FarmerProfileDetails>)),
+        readLabourDetailsMap().catch(() => ({} as Record<string, LabourDetails>)),
+        readCustomerDetailsMap().catch(() => ({} as Record<string, LabourDetails>)),
       ]);
 
       const attendanceData = !attendanceRes.value.error ? attendanceRes.value.data || [] : [];
@@ -106,6 +130,16 @@ export const AccountService = {
                 dateCutter: (acc.date_cutter as string) || savedFarmer.dateCutter || undefined,
               }
             : {};
+        const savedLabour = labourDetailsMap[accName] || {};
+        const labourFields =
+          acc.type === 'labour'
+            ? { phone: (acc.phone as string) || savedLabour.phone || undefined }
+            : {};
+        const savedCustomer = customerDetailsMap[accName] || {};
+        const customerFields =
+          acc.type === 'customer'
+            ? { phone: (acc.phone as string) || savedCustomer.phone || undefined }
+            : {};
 
         return {
           name: acc.name,
@@ -116,6 +150,8 @@ export const AccountService = {
           manualAdjustments: adjustments,
           ...(acc.type === 'partner' ? { ownerPreviousEntries } : {}),
           ...farmerFields,
+          ...labourFields,
+          ...customerFields,
         };
       });
     } catch (error) {
@@ -150,6 +186,7 @@ export const AccountService = {
       baseRow.date_cutter = details.dateCutter || null;
     }
 
+    // Labour: never put phone on insert (column may be missing). Save phone after create.
     let { error } = await supabase.from('accounts').insert(baseRow);
 
     // If farmer columns are missing on the remote DB, retry without them
@@ -174,6 +211,35 @@ export const AccountService = {
         dateCutter: details.dateCutter || undefined,
       };
       await writeFarmerDetailsMap(map);
+    }
+
+    if (type === 'labour' && details?.phone) {
+      const digits = details.phone.replace(/\D/g, '').slice(0, 10);
+      if (digits) {
+        const map = await readLabourDetailsMap();
+        map[name] = { phone: digits };
+        await writeLabourDetailsMap(map);
+        // Best-effort DB phone column
+        await supabase
+          .from('accounts')
+          .update({ phone: digits })
+          .eq('name', name)
+          .eq('user_id', user.id);
+      }
+    }
+
+    if (type === 'customer' && details?.phone) {
+      const digits = details.phone.replace(/\D/g, '').slice(0, 10);
+      if (digits) {
+        const map = await readCustomerDetailsMap();
+        map[name] = { phone: digits };
+        await writeCustomerDetailsMap(map);
+        await supabase
+          .from('accounts')
+          .update({ phone: digits })
+          .eq('name', name)
+          .eq('user_id', user.id);
+      }
     }
   },
 
@@ -207,6 +273,75 @@ export const AccountService = {
     if (error) {
       console.warn('Farmer DB column update skipped:', error.message);
     }
+  },
+
+  async updateLabourDetails(
+    accountName: string,
+    details: { rate?: number; phone?: string }
+  ): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn('updateLabourDetails: No authenticated user, skipping');
+      return;
+    }
+
+    // Always persist phone in settings (works even if accounts.phone column is missing)
+    if (details.phone !== undefined) {
+      const map = await readLabourDetailsMap();
+      if (details.phone) {
+        map[accountName] = { phone: details.phone };
+      } else {
+        delete map[accountName];
+      }
+      await writeLabourDetailsMap(map);
+    }
+
+    const payload: Record<string, unknown> = {};
+    if (details.rate != null) payload.rate = details.rate;
+    if (details.phone !== undefined) payload.phone = details.phone || null;
+
+    if (Object.keys(payload).length === 0) return;
+
+    const { error } = await supabase
+      .from('accounts')
+      .update(payload)
+      .eq('name', accountName)
+      .eq('user_id', user.id);
+
+    // If phone column is missing, still try to save rate alone
+    if (error) {
+      console.warn('Labour DB update skipped/retrying without phone:', error.message);
+      if (details.rate != null) {
+        const retry = await supabase
+          .from('accounts')
+          .update({ rate: details.rate })
+          .eq('name', accountName)
+          .eq('user_id', user.id);
+        if (retry.error) throw retry.error;
+      }
+      // Phone is already saved in settings — do not throw
+    }
+  },
+
+  async updateCustomerDetails(accountName: string, phone?: string): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) {
+      console.warn('updateCustomerDetails: No authenticated user, skipping');
+      return;
+    }
+
+    const map = await readCustomerDetailsMap();
+    if (phone) map[accountName] = { phone };
+    else delete map[accountName];
+    await writeCustomerDetailsMap(map);
+
+    const { error } = await supabase
+      .from('accounts')
+      .update({ phone: phone || null })
+      .eq('name', accountName)
+      .eq('user_id', user.id);
+
+    if (error) console.warn('Customer DB phone update skipped:', error.message);
   },
 
   async rename(oldName: string, newName: string): Promise<void> {
@@ -254,6 +389,30 @@ export const AccountService = {
     } catch {
       // ignore
     }
+
+    // 9. Labour phone map key
+    try {
+      const map = await readLabourDetailsMap();
+      if (map[oldName]) {
+        map[newName] = map[oldName];
+        delete map[oldName];
+        await writeLabourDetailsMap(map);
+      }
+    } catch {
+      // ignore
+    }
+
+    // 10. Customer phone map key
+    try {
+      const map = await readCustomerDetailsMap();
+      if (map[oldName]) {
+        map[newName] = map[oldName];
+        delete map[oldName];
+        await writeCustomerDetailsMap(map);
+      }
+    } catch {
+      // ignore
+    }
   },
 
   /** Removes only the `accounts` row so the name disappears from Ledgers; transactions, stock, etc. stay. */
@@ -277,6 +436,26 @@ export const AccountService = {
       if (map[accountName]) {
         delete map[accountName];
         await writeFarmerDetailsMap(map);
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      const labourMap = await readLabourDetailsMap();
+      if (labourMap[accountName]) {
+        delete labourMap[accountName];
+        await writeLabourDetailsMap(labourMap);
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      const customerMap = await readCustomerDetailsMap();
+      if (customerMap[accountName]) {
+        delete customerMap[accountName];
+        await writeCustomerDetailsMap(customerMap);
       }
     } catch {
       // ignore
@@ -368,13 +547,16 @@ export const AccountService = {
       console.warn("updateAdjustment: No authenticated user, skipping");
       return;
     }
-    await supabase.from('adjustments')
+    const { error } = await supabase.from('adjustments')
       .update({
         date: adj.date,
         amount: adj.amount,
         note: adj.note
       })
-      .eq('id', adj.id);
+      .eq('id', adj.id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
   },
 
   async deleteAdjustment(id: number): Promise<void> {

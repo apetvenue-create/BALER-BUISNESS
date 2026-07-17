@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Translation, PartnerSummary, LabourSummary, AccountTab, CustomerSummary, SupplierSummary, Transaction, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry, StoredAccount, FarmerProfileDetails } from '../../types';
-import { formatIndianCurrency, formatDisplayDate, formatInputCurrency, parseCurrency } from '../../utils';
+import { formatIndianCurrency, formatDisplayDate, formatInputCurrency, parseCurrency, formatPhoneShort } from '../../utils';
 import { TransactionModal } from '../../components/TransactionModal'; 
 import { DateInput } from '../../components/DateInput';
 
@@ -21,22 +21,6 @@ const LedgerRemoveTrashIcon: React.FC = () => (
       strokeLinejoin="round"
       d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"
     />
-  </svg>
-);
-
-const CheckCircleIcon: React.FC<{ className?: string; strokeWidth?: number }> = ({ className, strokeWidth = 3.5 }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={strokeWidth}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className ?? "w-5 h-5"}
-    aria-hidden
-  >
-    <path d="M20 6L9 17l-5-5" />
   </svg>
 );
 
@@ -395,9 +379,14 @@ interface AccountPageViewProps {
   onNewFarmerAcresChange?: (val: string) => void;
   newFarmerDateCutter?: string;
   onNewFarmerDateCutterChange?: (val: string) => void;
+  newLabourPhone?: string;
+  onNewLabourPhoneChange?: (val: string) => void;
+  newCustomerPhone?: string;
+  onNewCustomerPhoneChange?: (val: string) => void;
 
-  // Attendance
-  onToggleAttendance?: (date: string, isPresent: boolean | null) => void;
+  onUpdateLabourWage?: (wage: number) => void;
+  onUpdateLabourProfile?: (oldName: string, newName: string, phone: string) => void;
+  onUpdateCustomerProfile?: (oldName: string, newName: string, phone: string) => void;
   
   // Labour Specific
   labourStartDate?: string;
@@ -479,13 +468,18 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   onNewFarmerAcresChange,
   newFarmerDateCutter = '',
   onNewFarmerDateCutterChange,
-  onToggleAttendance,
-  
+  newLabourPhone = '',
+  onNewLabourPhoneChange,
+  newCustomerPhone = '',
+  onNewCustomerPhoneChange,
+  onUpdateLabourWage,
+  onUpdateLabourProfile,
+  onUpdateCustomerProfile,
+
   labourStartDate,
   setLabourStartDate,
   labourEndDate,
   setLabourEndDate,
-  onToggleHisaab,
   onAddAdjustment,
   onUpdateAdjustment,
   onDeleteAdjustment,
@@ -526,6 +520,13 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   // Validation States
   const [accountErrors, setAccountErrors] = useState<string>('');
   const [bonusErrors, setBonusErrors] = useState<Record<string, string>>({});
+  const [labourWageDraft, setLabourWageDraft] = useState('');
+
+  useEffect(() => {
+    if (labourData) {
+      setLabourWageDraft(labourData.rate ? String(labourData.rate) : '');
+    }
+  }, [labourData?.name, labourData?.rate]);
 
   const [isOwnerPrevModalOpen, setIsOwnerPrevModalOpen] = useState(false);
   const [ownerPrevForm, setOwnerPrevForm] = useState<{
@@ -710,12 +711,177 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
   const [renameOldName, setRenameOldName] = useState<string>('');
   const [renameNewName, setRenameNewName] = useState<string>('');
+  const [isLabourEditModalOpen, setIsLabourEditModalOpen] = useState(false);
+  const [labourEditOldName, setLabourEditOldName] = useState('');
+  const [labourEditName, setLabourEditName] = useState('');
+  const [labourEditPhone, setLabourEditPhone] = useState('');
+  const [labourEditErrors, setLabourEditErrors] = useState<{ name?: string; phone?: string }>({});
+  const [isCustomerEditModalOpen, setIsCustomerEditModalOpen] = useState(false);
+  const [customerEditOldName, setCustomerEditOldName] = useState('');
+  const [customerEditName, setCustomerEditName] = useState('');
+  const [customerEditPhone, setCustomerEditPhone] = useState('');
+  const [customerEditErrors, setCustomerEditErrors] = useState<{ name?: string; phone?: string }>({});
 
   const openRenameModal = (currentName: string) => {
     setRenameOldName(currentName);
     setRenameNewName(currentName);
     setIsRenameModalOpen(true);
   };
+
+  const openLabourEditModal = (currentName: string, phone?: string) => {
+    setLabourEditOldName(currentName);
+    setLabourEditName(currentName);
+    const digits = (phone || '').replace(/\D/g, '').slice(0, 10);
+    setLabourEditPhone(digits.length === 10 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits);
+    setLabourEditErrors({});
+    setIsLabourEditModalOpen(true);
+  };
+
+  const labourEditModal =
+    isLabourEditModalOpen && onUpdateLabourProfile ? (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in max-h-[92vh] overflow-y-auto relative">
+          <button
+            type="button"
+            onClick={() => setIsLabourEditModalOpen(false)}
+            className="absolute top-3 right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition font-extrabold"
+            aria-label={t.cancelBtn}
+            title={t.cancelBtn}
+          >
+            ✕
+          </button>
+          <h3 className="text-xl font-bold mb-4 text-gray-800">{t.editBtn}</h3>
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.nameLabel}</label>
+            <input
+              autoFocus
+              type="text"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none ${labourEditErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+              value={labourEditName}
+              onChange={(e) => {
+                setLabourEditName(e.target.value);
+                setLabourEditErrors(prev => ({ ...prev, name: undefined }));
+              }}
+            />
+            {labourEditErrors.name && <p className="text-red-500 text-xs mt-1">{labourEditErrors.name}</p>}
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.farmerPhoneLabel}</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none ${labourEditErrors.phone ? 'border-red-500' : 'border-gray-300'}`}
+              placeholder="98765 43210"
+              value={labourEditPhone}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                const formatted = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+                setLabourEditPhone(formatted);
+                setLabourEditErrors(prev => ({ ...prev, phone: undefined }));
+              }}
+            />
+            {labourEditErrors.phone && <p className="text-red-500 text-xs mt-1">{labourEditErrors.phone}</p>}
+            <p className="text-[10px] text-slate-400 mt-1">10 digits required</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const nextName = labourEditName.trim();
+              const digits = labourEditPhone.replace(/\D/g, '');
+              const errors: { name?: string; phone?: string } = {};
+              if (!nextName) errors.name = t.errRequired;
+              if (digits.length !== 10) errors.phone = t.errPhoneTenDigits;
+              if (Object.keys(errors).length > 0) {
+                setLabourEditErrors(errors);
+                return;
+              }
+              onUpdateLabourProfile(labourEditOldName, nextName, digits);
+              setIsLabourEditModalOpen(false);
+            }}
+            className="w-full bg-amber-600 hover:bg-amber-700 text-white py-2.5 rounded-lg font-bold transition"
+          >
+            {t.updateBtn}
+          </button>
+        </div>
+      </div>
+    ) : null;
+
+  const openCustomerEditModal = (currentName: string, phone?: string) => {
+    setCustomerEditOldName(currentName);
+    setCustomerEditName(currentName);
+    const digits = (phone || '').replace(/\D/g, '').slice(0, 10);
+    setCustomerEditPhone(digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits);
+    setCustomerEditErrors({});
+    setIsCustomerEditModalOpen(true);
+  };
+
+  const customerEditModal =
+    isCustomerEditModalOpen && onUpdateCustomerProfile ? (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-xl p-4 sm:p-6 w-full max-w-sm shadow-xl animate-fade-in relative">
+          <button
+            type="button"
+            onClick={() => setIsCustomerEditModalOpen(false)}
+            className="absolute top-3 right-3 text-gray-700 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center font-extrabold"
+          >
+            ✕
+          </button>
+          <h3 className="text-xl font-bold mb-4 text-gray-800">{t.editBtn}</h3>
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.nameLabel}</label>
+            <input
+              autoFocus
+              type="text"
+              value={customerEditName}
+              onChange={(e) => {
+                setCustomerEditName(e.target.value);
+                setCustomerEditErrors(prev => ({ ...prev, name: undefined }));
+              }}
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none ${customerEditErrors.name ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {customerEditErrors.name && <p className="text-red-500 text-xs mt-1">{customerEditErrors.name}</p>}
+          </div>
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.farmerPhoneLabel}</label>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              value={customerEditPhone}
+              onChange={(e) => {
+                const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                setCustomerEditPhone(digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits);
+                setCustomerEditErrors(prev => ({ ...prev, phone: undefined }));
+              }}
+              placeholder="98765 43210"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none ${customerEditErrors.phone ? 'border-red-500' : 'border-gray-300'}`}
+            />
+            {customerEditErrors.phone && <p className="text-red-500 text-xs mt-1">{customerEditErrors.phone}</p>}
+            <p className="text-[10px] text-slate-400 mt-1">10 digits required</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const nextName = customerEditName.trim();
+              const digits = customerEditPhone.replace(/\D/g, '');
+              const errors: { name?: string; phone?: string } = {};
+              if (!nextName) errors.name = t.errRequired;
+              if (digits.length !== 10) errors.phone = t.errPhoneTenDigits;
+              if (Object.keys(errors).length) {
+                setCustomerEditErrors(errors);
+                return;
+              }
+              onUpdateCustomerProfile(customerEditOldName, nextName, digits);
+              setIsCustomerEditModalOpen(false);
+            }}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2.5 rounded-lg font-bold transition"
+          >
+            {t.updateBtn}
+          </button>
+        </div>
+      </div>
+    ) : null;
 
   const renameModal =
     isRenameModalOpen && onRenameAccount ? (
@@ -877,6 +1043,14 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
           setAccountErrors(t.enterAccountName);
           return;
       }
+      if (activeTab === 'labour' || activeTab === 'customer') {
+          const rawPhone = activeTab === 'labour' ? newLabourPhone : newCustomerPhone;
+          const digits = (rawPhone || '').replace(/\D/g, '');
+          if (digits.length !== 10) {
+              setAccountErrors(t.errPhoneTenDigits);
+              return;
+          }
+      }
       setAccountErrors('');
       onConfirmAddAccount();
   };
@@ -961,12 +1135,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                         <h2 className="text-lg sm:text-2xl md:text-3xl font-semibold text-white tracking-tight truncate">
                                             {getTranslated(customerData.name)}
                                         </h2>
-                                        {onRenameAccount && (
+                                        {onUpdateCustomerProfile && (
                                             <button
                                                 type="button"
-                                                onClick={() => openRenameModal(customerData.name)}
+                                                onClick={() => openCustomerEditModal(customerData.name, customerData.phone)}
                                                 className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/25 text-white flex items-center justify-center transition shrink-0"
-                                                title="Rename Account"
+                                                title={t.editBtn}
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-4 h-4">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
@@ -974,6 +1148,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                             </button>
                                         )}
                                     </div>
+                                    <p className="mt-1.5 text-[11px] sm:text-sm text-purple-100/90 tabular-nums tracking-wide">
+                                        {formatPhoneShort(customerData.phone)}
+                                    </p>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     {onDeleteAccount && (
@@ -1274,7 +1451,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                        </div>
                    )}
                   {accountOnlyModal}
-                  {renameModal}
+                  {customerEditModal}
               </div>
           );
       } else if (activeTab === 'supplier' && (selectedFarmerAccount || isCreatingFarmer)) {
@@ -1297,13 +1474,14 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
           );
 
       } else if (activeTab === 'partner' && partnerData) {
+        const isPositiveNet = partnerData.netBalance >= 0;
         return (
-          <div className="animate-fade-in space-y-2.5 sm:space-y-4">
-            <div className="flex justify-between items-center mb-1 sm:mb-2 gap-2 flex-wrap">
+          <div className="animate-fade-in space-y-3 sm:space-y-5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={onBack}
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-xl sm:text-2xl leading-none shadow-sm shrink-0"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-sky-700 hover:text-sky-900 hover:bg-sky-50 font-black text-xl sm:text-2xl leading-none shadow-sm shrink-0 border border-sky-100"
                   aria-label={t.backToAccounts}
                   title={t.backToAccounts}
                 >
@@ -1311,207 +1489,237 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                 </button>
                 {renderReportControls()}
             </div>
-            
-            {/* Partner Summary Card */}
-            <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-6 border-t-4 border-blue-500">
-              <div className="flex justify-between items-start gap-2">
-                 <div className="flex items-center gap-2 min-w-0">
-                    <h2 className="text-base sm:text-xl md:text-3xl font-bold text-gray-800 truncate">{getTranslated(partnerData.name)}</h2>
+
+            {/* Owner profile hero */}
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+              <div className="relative px-4 py-4 sm:px-6 sm:py-5 bg-gradient-to-br from-sky-900 via-blue-800 to-sky-700">
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 15% 20%, white 0, transparent 42%), radial-gradient(circle at 85% 0%, #7dd3fc 0, transparent 38%)' }} />
+                <div className="relative flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 border border-white/25 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.15em] text-sky-100 backdrop-blur-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 shrink-0" aria-hidden />
+                      {t.tabPartner}
+                    </span>
+                    <div className="mt-2.5 flex items-center gap-2 min-w-0">
+                      <h2 className="text-lg sm:text-2xl md:text-3xl font-semibold text-white tracking-tight truncate">
+                        {getTranslated(partnerData.name)}
+                      </h2>
+                      {onRenameAccount && (
+                        <button
+                          type="button"
+                          onClick={() => openRenameModal(partnerData.name)}
+                          className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/25 text-white flex items-center justify-center transition shrink-0"
+                          title="Rename Account"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {onDeleteAccount && (
                     <button
-                       type="button"
-                       onClick={() => onRenameAccount && openRenameModal(partnerData.name)}
-                       className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
-                       title="Rename Account"
+                      type="button"
+                      onClick={() => onDeleteAccount(partnerData.name)}
+                      className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/10 hover:bg-red-500/30 border border-white/25 text-white flex items-center justify-center transition shrink-0"
+                      title={t.deleteAccountBtn}
+                      aria-label={t.deleteAccountBtn}
                     >
-                       ✎
+                      <LedgerRemoveTrashIcon />
                     </button>
-                    {onDeleteAccount && (
+                  )}
+                </div>
+                <div className="relative mt-4 pt-3 border-t border-white/15 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-sky-200/90">{t.netPosition}</p>
+                    <p className="text-xl sm:text-3xl font-bold text-white tabular-nums mt-0.5">
+                      ₹{formatIndianCurrency(Math.abs(partnerData.netBalance))}
+                    </p>
+                  </div>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide border ${
+                    isPositiveNet
+                      ? 'bg-emerald-500/20 border-emerald-300/40 text-emerald-100'
+                      : 'bg-red-500/20 border-red-300/40 text-red-100'
+                  }`}>
+                    {isPositiveNet ? t.statusRecoverable : t.statusPayable}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 px-3 py-3 sm:px-4 sm:py-4 bg-slate-50 border-b border-slate-100">
+                <div className="rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-600/80 truncate">{t.moneyIn}</p>
+                  <p className="text-sm sm:text-xl font-bold text-emerald-700 tabular-nums mt-1 break-all">₹{formatIndianCurrency(partnerData.totalIn)}</p>
+                </div>
+                <div className="rounded-xl border border-red-100 bg-gradient-to-b from-red-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-red-500/80 truncate">{t.moneyOut}</p>
+                  <p className="text-sm sm:text-xl font-bold text-red-700 tabular-nums mt-1 break-all">₹{formatIndianCurrency(partnerData.totalOut)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Cashbook linked transactions */}
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="px-3 py-2.5 sm:px-4 sm:py-3 bg-slate-50 border-b border-slate-100">
+                <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">{t.ownerLinkedBookTitle}</h3>
+              </div>
+              <div className="flex flex-col md:flex-row gap-0 md:gap-0 md:divide-x md:divide-slate-100">
+                <div className="flex-1 flex flex-col min-h-[200px] sm:min-h-[240px] md:min-h-[320px] border-b md:border-b-0 border-slate-100">
+                  <div className="px-3 py-2 bg-emerald-50/80 border-b border-emerald-100 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" aria-hidden />
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-emerald-800">{t.moneyIn}</p>
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-2 sm:p-3 space-y-1.5 sm:space-y-2">
+                    {partnerData.transactionsIn.length === 0 ? (
+                      <p className="text-gray-400 text-center text-xs sm:text-sm py-6">{t.noRecords}</p>
+                    ) : (
+                      partnerData.transactionsIn.map(tr => (
+                        <div key={tr.id} className="rounded-lg border border-emerald-100/80 bg-emerald-50/40 px-2.5 py-2 sm:p-3 flex justify-between items-center gap-2">
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm sm:text-base text-slate-800 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 tabular-nums mt-0.5">{formatDisplayDate(tr.date)}</p>
+                          </div>
+                          <span className="shrink-0 inline-flex px-2 py-0.5 rounded-md bg-white border border-emerald-100 text-[10px] font-semibold uppercase text-emerald-700">
+                            {tr.paymentType}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 flex flex-col min-h-[200px] sm:min-h-[240px] md:min-h-[320px]">
+                  <div className="px-3 py-2 bg-red-50/80 border-b border-red-100 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" aria-hidden />
+                    <p className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-red-800">{t.moneyOut}</p>
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-2 sm:p-3 space-y-1.5 sm:space-y-2">
+                    {partnerData.transactionsOut.length === 0 ? (
+                      <p className="text-gray-400 text-center text-xs sm:text-sm py-6">{t.noRecords}</p>
+                    ) : (
+                      partnerData.transactionsOut.map(tr => (
+                        <div key={tr.id} className="rounded-lg border border-red-100/80 bg-red-50/40 px-2.5 py-2 sm:p-3 flex justify-between items-center gap-2">
+                          <div className="min-w-0">
+                            <p className="font-bold text-sm sm:text-base text-slate-800 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                            <p className="text-[10px] sm:text-xs text-slate-500 tabular-nums mt-0.5">{formatDisplayDate(tr.date)}</p>
+                            {getTranslated(tr.details) && (
+                              <p className="text-[10px] text-slate-400 truncate mt-0.5">{getTranslated(tr.details)}</p>
+                            )}
+                          </div>
+                          <span className="shrink-0 inline-flex px-2 py-0.5 rounded-md bg-white border border-red-100 text-[10px] font-semibold uppercase text-red-700">
+                            {tr.paymentType}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Owner-only previous amounts — compact, only expand when entries exist */}
+            {(() => {
+              const hasPrevEntries = partnerData.previousReceived.length > 0 || partnerData.previousPaid.length > 0;
+              return (
+                <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                  <div className="px-3 py-2 sm:px-4 sm:py-2.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-2">
+                    <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">{t.ownerPreviousSectionTitle}</h3>
+                    {(onAddOwnerPreviousEntry || onUpdateOwnerPreviousEntry) && (
                       <button
                         type="button"
-                        onClick={() => onDeleteAccount(partnerData.name)}
-                        className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
-                        title={t.deleteAccountBtn}
-                        aria-label={t.deleteAccountBtn}
+                        onClick={() => handleOpenOwnerPrevModal()}
+                        className="shrink-0 bg-sky-600 hover:bg-sky-700 text-white px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-md font-bold text-[10px] sm:text-xs shadow-sm transition"
                       >
-                        <LedgerRemoveTrashIcon />
+                        {t.addOwnerPreviousEntryBtn}
                       </button>
                     )}
-                 </div>
-                 <div className="text-right shrink-0">
-                    <p className="text-gray-500 text-[10px] sm:text-sm">{t.netPosition}</p>
-                    <p className={`text-sm sm:text-lg md:text-2xl font-bold tabular-nums ${partnerData.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ₹{formatIndianCurrency(Math.abs(partnerData.netBalance))} Rs
-                    </p>
-                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-3 sm:mt-6">
-                 <div className="bg-green-50 px-2 py-2 sm:p-3 rounded-lg">
-                    <p className="text-[10px] sm:text-xs text-gray-500">{t.moneyIn}</p>
-                    <p className="font-bold text-sm sm:text-base text-green-700 tabular-nums">₹{formatIndianCurrency(partnerData.totalIn)}</p>
-                 </div>
-                 <div className="bg-red-50 px-2 py-2 sm:p-3 rounded-lg">
-                    <p className="text-[10px] sm:text-xs text-gray-500">{t.moneyOut}</p>
-                    <p className="font-bold text-sm sm:text-base text-red-700 tabular-nums">₹{formatIndianCurrency(partnerData.totalOut)}</p>
-                 </div>
-              </div>
-            </div>
-
-            <h3 className="text-xs sm:text-sm font-bold text-gray-700 pt-1">{t.ownerLinkedBookTitle}</h3>
-
-            {/* Split View — cashbook-linked transactions only */}
-            <div className="flex flex-col md:flex-row gap-2 sm:gap-4 h-[45vh] sm:h-[50vh] md:h-[600px]">
-               {/* LEFT: IN */}
-               <div className="flex-1 bg-white rounded-lg shadow border border-gray-200 flex flex-col min-h-0">
-                  <div className="p-2 sm:p-3 bg-green-100 border-b border-green-200 font-bold text-green-800 text-xs sm:text-sm sticky top-0">
-                     {t.moneyIn}
                   </div>
-                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
-                     {partnerData.transactionsIn.length === 0 && <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>}
-                     {partnerData.transactionsIn.map(tr => (
-                        <div key={tr.id} className="p-2 sm:p-3 bg-green-50 rounded border border-green-100 flex justify-between items-center gap-2">
-                           <div className="min-w-0">
-                              <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
-                              <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(tr.date)}</p>
-                           </div>
-                           <div className="text-right shrink-0">
-                              <span className="text-[10px] sm:text-xs bg-white border px-1 rounded text-gray-600">{tr.paymentType}</span>
-                           </div>
+                  {hasPrevEntries ? (
+                    <div className="flex flex-col md:flex-row gap-0 md:divide-x md:divide-slate-100">
+                      {partnerData.previousReceived.length > 0 && (
+                        <div className="flex-1 flex flex-col min-h-[80px] sm:min-h-[100px] border-b md:border-b-0 border-slate-50">
+                          <div className="px-2.5 py-1.5 bg-emerald-50/60 border-b border-emerald-100/60">
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-700">{t.ownerPreviousKindReceived}</p>
+                          </div>
+                          <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1 sm:space-y-1.5">
+                            {partnerData.previousReceived.map((row) => (
+                              <div key={row.id} className="rounded-md border border-emerald-100/80 bg-emerald-50/30 px-2 py-1.5 sm:px-2.5 sm:py-2 flex justify-between items-start gap-1.5">
+                                <div className="min-w-0">
+                                  <p className="font-bold text-xs sm:text-sm text-slate-800 tabular-nums">₹{formatIndianCurrency(row.amount)}</p>
+                                  <p className="text-[9px] sm:text-[10px] text-slate-500 tabular-nums">{formatDisplayDate(row.date)}</p>
+                                  {row.note && <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 truncate">{getTranslated(row.note)}</p>}
+                                </div>
+                                <div className="flex shrink-0 gap-0.5">
+                                  {onUpdateOwnerPreviousEntry && (
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleOpenOwnerPrevModal({ ...row });
+                                      }}
+                                      className="w-5 h-5 inline-flex items-center justify-center rounded text-[10px] text-sky-700 border border-sky-100 hover:bg-sky-50 transition"
+                                      title={t.editBtn}
+                                      aria-label={t.editBtn}
+                                    >
+                                      ✎
+                                    </button>
+                                  )}
+                                  {onDeleteOwnerPreviousEntry && (
+                                    <button type="button" onClick={() => { if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id); }} className="text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold">{t.deleteBtn}</button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                     ))}
-                  </div>
-               </div>
-
-               {/* RIGHT: OUT */}
-               <div className="flex-1 bg-white rounded-lg shadow border border-gray-200 flex flex-col min-h-0">
-                  <div className="p-2 sm:p-3 bg-red-100 border-b border-red-200 font-bold text-red-800 text-xs sm:text-sm sticky top-0">
-                     {t.moneyOut}
-                  </div>
-                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
-                     {partnerData.transactionsOut.length === 0 && <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>}
-                     {partnerData.transactionsOut.map(tr => (
-                        <div key={tr.id} className="p-2 sm:p-3 bg-red-50 rounded border border-red-100 flex justify-between items-center gap-2">
-                           <div className="min-w-0">
-                              <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
-                              <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(tr.date)}</p>
-                           </div>
-                           <div className="text-right shrink-0 min-w-0">
-                              <p className="text-[10px] sm:text-xs text-gray-600 truncate max-w-[80px] sm:max-w-[100px]">{getTranslated(tr.details)}</p>
-                              <span className="text-[10px] sm:text-xs bg-white border px-1 rounded text-gray-600">{tr.paymentType}</span>
-                           </div>
+                      )}
+                      {partnerData.previousPaid.length > 0 && (
+                        <div className="flex-1 flex flex-col min-h-[80px] sm:min-h-[100px]">
+                          <div className="px-2.5 py-1.5 bg-red-50/60 border-b border-red-100/60">
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-red-700">{t.ownerPreviousKindPaid}</p>
+                          </div>
+                          <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1 sm:space-y-1.5">
+                            {partnerData.previousPaid.map((row) => (
+                              <div key={row.id} className="rounded-md border border-red-100/80 bg-red-50/30 px-2 py-1.5 sm:px-2.5 sm:py-2 flex justify-between items-start gap-1.5">
+                                <div className="min-w-0">
+                                  <p className="font-bold text-xs sm:text-sm text-slate-800 tabular-nums">₹{formatIndianCurrency(row.amount)}</p>
+                                  <p className="text-[9px] sm:text-[10px] text-slate-500 tabular-nums">{formatDisplayDate(row.date)}</p>
+                                  {row.note && <p className="text-[9px] sm:text-[10px] text-slate-400 mt-0.5 truncate">{getTranslated(row.note)}</p>}
+                                </div>
+                                <div className="flex shrink-0 gap-0.5">
+                                  {onUpdateOwnerPreviousEntry && (
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        handleOpenOwnerPrevModal({ ...row });
+                                      }}
+                                      className="w-5 h-5 inline-flex items-center justify-center rounded text-[10px] text-sky-700 border border-sky-100 hover:bg-sky-50 transition"
+                                      title={t.editBtn}
+                                      aria-label={t.editBtn}
+                                    >
+                                      ✎
+                                    </button>
+                                  )}
+                                  {onDeleteOwnerPreviousEntry && (
+                                    <button type="button" onClick={() => { if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id); }} className="text-red-600 hover:bg-red-50 px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold">{t.deleteBtn}</button>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                     ))}
-                  </div>
-               </div>
-            </div>
-
-            {/* Owner-only previous amounts */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 sm:p-4 space-y-2 sm:space-y-3">
-              {(onAddOwnerPreviousEntry || onUpdateOwnerPreviousEntry) && (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenOwnerPrevModal()}
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-bold text-xs sm:text-sm shadow transition"
-                  >
-                    {t.addOwnerPreviousEntryBtn}
-                  </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="px-3 py-4 text-center">
+                      <p className="text-xs text-slate-400">{t.noRecords}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-              <div className="flex flex-col md:flex-row gap-2 sm:gap-4 min-h-[140px] sm:min-h-[220px] md:h-[280px]">
-                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col min-h-[120px]">
-                  <div className="p-2 sm:p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-xs sm:text-sm sticky top-0">
-                    {t.ownerPreviousKindReceived}
-                  </div>
-                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
-                    {partnerData.previousReceived.length === 0 && (
-                      <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>
-                    )}
-                    {partnerData.previousReceived.map((row) => (
-                      <div
-                        key={row.id}
-                        className="p-2 sm:p-3 bg-green-50/80 rounded border border-green-100 flex justify-between items-start gap-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(row.amount)}</p>
-                          <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
-                          {row.note && (
-                            <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 truncate">{getTranslated(row.note)}</p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 gap-1">
-                          {onUpdateOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOwnerPrevModal(row)}
-                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.editBtn}
-                            </button>
-                          )}
-                          {onDeleteOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
-                              }}
-                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.deleteBtn}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col min-h-[120px]">
-                  <div className="p-2 sm:p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-xs sm:text-sm sticky top-0">
-                    {t.ownerPreviousKindPaid}
-                  </div>
-                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
-                    {partnerData.previousPaid.length === 0 && (
-                      <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>
-                    )}
-                    {partnerData.previousPaid.map((row) => (
-                      <div
-                        key={row.id}
-                        className="p-2 sm:p-3 bg-red-50/80 rounded border border-red-100 flex justify-between items-start gap-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(row.amount)}</p>
-                          <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
-                          {row.note && (
-                            <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 truncate">{getTranslated(row.note)}</p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 gap-1">
-                          {onUpdateOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOwnerPrevModal(row)}
-                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.editBtn}
-                            </button>
-                          )}
-                          {onDeleteOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
-                              }}
-                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.deleteBtn}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {isOwnerPrevModalOpen && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
@@ -1625,366 +1833,214 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
         );
       } else if (activeTab === 'labour' && labourData) {
         const isPayable = labourData.lifetimeBalance > 0;
+        const openingRow = labourData.ledger.find(r => r.isOpeningBalance);
+        const activityRows = labourData.ledger.filter(r => !r.isOpeningBalance);
         return (
-          <div className="animate-fade-in space-y-2.5 sm:space-y-4 font-sans">
-             <div className="flex flex-col gap-2 sm:gap-4 mb-1 sm:mb-2">
-                <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="animate-fade-in space-y-3 sm:space-y-5">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={onBack}
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-amber-700 hover:text-amber-900 hover:bg-amber-50 font-black text-xl sm:text-2xl leading-none shadow-sm shrink-0 border border-amber-100"
+                aria-label={t.backToAccounts}
+                title={t.backToAccounts}
+              >
+                ←
+              </button>
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end flex-1">
                 <button
                   type="button"
-                  onClick={onBack}
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-xl sm:text-2xl leading-none shadow-sm shrink-0"
-                  aria-label={t.backToAccounts}
-                  title={t.backToAccounts}
+                  onClick={() => handleOpenBonusModal()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-bold shadow-sm transition text-xs sm:text-sm"
                 >
-                  ←
+                  {t.addAdjustmentBtn}
                 </button>
-                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end flex-1">
-                    <button 
-                         onClick={() => handleOpenBonusModal()}
-                         className="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-bold shadow transition text-xs sm:text-sm"
-                    >
-                         {t.addAdjustmentBtn}
-                    </button>
-                    <button 
-                         onClick={onPayLabour}
-                         className="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg font-bold shadow transition text-xs sm:text-sm"
-                    >
-                         {t.payLabourBtn}
-                    </button>
-                    <div className="border-l pl-1.5 sm:pl-2 ml-0.5 sm:ml-2 flex items-center gap-1">
-                        <select 
-                            value={pdfLanguage}
-                            onChange={(e) => setPdfLanguage(e.target.value as Language)}
-                            className="bg-white border border-gray-300 rounded text-[10px] sm:text-xs py-1.5 sm:py-2 px-1 focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold text-gray-700"
+                <div className="border-l pl-1.5 sm:pl-2 ml-0.5 sm:ml-2 flex items-center gap-1">
+                  <select
+                    value={pdfLanguage}
+                    onChange={(e) => setPdfLanguage(e.target.value as Language)}
+                    className="bg-white border border-gray-300 rounded text-[10px] sm:text-xs py-1.5 sm:py-2 px-1 focus:outline-none focus:ring-1 focus:ring-amber-500 font-bold text-gray-700"
+                  >
+                    <option value="en">EN</option>
+                    <option value="hi">HI</option>
+                    <option value="pa">PA</option>
+                  </select>
+                  <button onClick={onDownloadPdf} className="text-white bg-gray-800 hover:bg-black flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded shadow transition">
+                    PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+              <div className="relative px-4 py-4 sm:px-6 sm:py-5 bg-gradient-to-br from-amber-900 via-orange-800 to-amber-700">
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 15% 20%, white 0, transparent 42%), radial-gradient(circle at 85% 0%, #fcd34d 0, transparent 38%)' }} />
+                <div className="relative flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 border border-white/25 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.15em] text-amber-100 backdrop-blur-sm">
+                      <span className="w-1.5 h-1.5 rounded-full bg-yellow-300 shrink-0" aria-hidden />
+                      {t.tabLabour}
+                    </span>
+                    <div className="mt-2.5 flex items-center gap-2 min-w-0">
+                      <h2 className="text-lg sm:text-2xl md:text-3xl font-semibold text-white tracking-tight truncate">
+                        {getTranslated(labourData.name)}
+                      </h2>
+                      {onUpdateLabourProfile && (
+                        <button
+                          type="button"
+                          onClick={() => openLabourEditModal(labourData.name, labourData.phone)}
+                          className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/25 text-white flex items-center justify-center transition shrink-0"
+                          title={t.editBtn}
+                          aria-label={t.editBtn}
                         >
-                            <option value="en">EN</option>
-                            <option value="hi">HI</option>
-                            <option value="pa">PA</option>
-                        </select>
-                        <button onClick={onDownloadPdf} className="text-white bg-gray-800 hover:bg-black flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded shadow transition">
-                           📄 PDF
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                          </svg>
                         </button>
+                      )}
                     </div>
-                </div>
-                </div>
-            </div>
-            
-            {/* Labour Summary Card */}
-            <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-6 border-l-4 border-yellow-500">
-                  <div className="flex justify-between items-start gap-2">
-                      <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                              <h2 className="text-base sm:text-xl md:text-3xl font-bold text-gray-900 truncate">{getTranslated(labourData.name)}</h2>
-                              <button
-                                   type="button"
-                                   onClick={() => onRenameAccount && openRenameModal(labourData.name)}
-                                   className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
-                                   title="Rename Account"
-                               >
-                                   ✎
-                               </button>
-                              {onDeleteAccount && (
-                                <button
-                                  type="button"
-                                  onClick={() => onDeleteAccount(labourData.name)}
-                                  className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
-                                  title={t.deleteAccountBtn}
-                                  aria-label={t.deleteAccountBtn}
-                                >
-                                  <LedgerRemoveTrashIcon />
-                                </button>
-                              )}
-                          </div>
-                          <span className="text-[10px] sm:text-xs font-bold bg-gray-900 text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded mt-1 inline-block uppercase tracking-wider">{t.labourCardLabel}</span>
-                      </div>
-                      <div className="text-right shrink-0">
-                          <p className="text-gray-500 text-[10px] sm:text-xs uppercase font-bold">{t.totalNetBalance}</p>
-                          <p className={`text-sm sm:text-xl md:text-3xl font-bold tabular-nums ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
-                            ₹{formatIndianCurrency(Math.abs(labourData.lifetimeBalance))}
-                          </p>
-                          <p className="text-[10px] sm:text-xs font-semibold text-gray-600">
-                             {isPayable ? t.statusPayable : t.statusRecoverable}
-                          </p>
-                      </div>
+                    {labourData.phone ? (
+                      <p className="mt-1.5 text-[11px] sm:text-sm text-amber-100/90 tabular-nums tracking-wide">
+                        {formatPhoneShort(labourData.phone)}
+                      </p>
+                    ) : (
+                      <p className="mt-1.5 text-[11px] sm:text-sm text-amber-200/60 tabular-nums">
+                        —
+                      </p>
+                    )}
                   </div>
-
-                  <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-8 mt-3 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
-                      <div className="text-center sm:text-left">
-                         <p className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold truncate">{t.monthDays}</p>
-                         <p className="font-bold text-sm sm:text-xl text-black tabular-nums">{labourData.monthAttendanceDays}</p>
-                         <p className="text-[9px] sm:text-[10px] text-gray-500 font-medium">@{labourData.rate}/day</p>
-                      </div>
-                      <div className="text-center sm:text-left sm:pl-0 pl-0 border-l sm:border-l-0 border-gray-100">
-                         <p className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold truncate">{t.monthPayable}</p>
-                         <p className="font-bold text-sm sm:text-xl text-black tabular-nums">₹{formatIndianCurrency(labourData.monthPayable)}</p>
-                      </div>
-                      <div className="text-center sm:text-left sm:pl-6 sm:border-l border-gray-200">
-                         <p className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold truncate">{t.monthPaid}</p>
-                         <p className="font-bold text-sm sm:text-xl text-blue-600 tabular-nums">₹{formatIndianCurrency(labourData.monthPaid)}</p>
-                      </div>
+                  {onDeleteAccount && (
+                    <button
+                      type="button"
+                      onClick={() => onDeleteAccount(labourData.name)}
+                      className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/10 hover:bg-red-500/30 border border-white/25 text-white flex items-center justify-center transition shrink-0"
+                      title={t.deleteAccountBtn}
+                      aria-label={t.deleteAccountBtn}
+                    >
+                      <LedgerRemoveTrashIcon />
+                    </button>
+                  )}
+                </div>
+                <div className="relative mt-4 pt-3 border-t border-white/15 flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-amber-200/90">{t.totalNetBalance}</p>
+                    <p className="text-xl sm:text-3xl font-bold text-white tabular-nums mt-0.5">
+                      ₹{formatIndianCurrency(Math.abs(labourData.lifetimeBalance))}
+                    </p>
                   </div>
+                  <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide border ${
+                    isPayable
+                      ? 'bg-red-500/20 border-red-300/40 text-red-100'
+                      : 'bg-emerald-500/20 border-emerald-300/40 text-emerald-100'
+                  }`}>
+                    {isPayable ? t.statusPayable : t.statusRecoverable}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 px-3 py-3 sm:px-4 sm:py-4 bg-slate-50 border-b border-slate-100">
+                <div className="rounded-xl border border-amber-100 bg-gradient-to-b from-amber-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-600/80 truncate">{t.labourWageLabel}</p>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={labourWageDraft}
+                    onChange={(e) => setLabourWageDraft(formatInputCurrency(e.target.value))}
+                    onBlur={() => {
+                      const val = parseCurrency(labourWageDraft) || 0;
+                      if (val !== labourData.rate) onUpdateLabourWage?.(val);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                    }}
+                    className="mt-1 w-full text-sm sm:text-xl font-bold text-amber-800 tabular-nums bg-white/70 border border-amber-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    aria-label={t.labourWageLabel}
+                  />
+                </div>
+                <div className="rounded-xl border border-red-100 bg-gradient-to-b from-red-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                  <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-red-500/80 truncate">{t.labourTotalGivenLabel}</p>
+                  <p className="mt-1 text-sm sm:text-xl font-bold text-red-700 tabular-nums">₹{formatIndianCurrency(labourData.lifetimePaid)}</p>
+                </div>
+              </div>
             </div>
 
-            {/* MONTH NAVIGATION + DATE RANGE */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4 bg-white px-2.5 py-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
-                 <div className="flex items-center gap-1 sm:gap-2 justify-center sm:justify-start">
-                     <button onClick={onPrevMonth} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition text-gray-600 font-bold text-sm" title={t.prevMonth}>
-                         &lt;
-                     </button>
-                     <button onClick={onNextMonth} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition text-gray-600 font-bold text-sm" title={t.nextMonth}>
-                         &gt;
-                     </button>
-                 </div>
-
-                 <div className="flex items-center gap-1.5 sm:gap-2 justify-center">
-                    <div className="flex-1 sm:w-32 min-w-0">
-                        <DateInput 
-                            value={labourStartDate || ''} 
-                            onChange={(d) => setLabourStartDate && setLabourStartDate(d)} 
-                        />
-                    </div>
-                    <span className="text-gray-400 text-xs">➜</span>
-                    <div className="flex-1 sm:w-32 min-w-0">
-                        <DateInput 
-                            value={labourEndDate || ''} 
-                            onChange={(d) => setLabourEndDate && setLabourEndDate(d)} 
-                        />
-                    </div>
-                 </div>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4 bg-white px-2.5 py-2 sm:p-3 rounded-xl shadow-sm border border-slate-200">
+              <div className="flex items-center gap-1 sm:gap-2 justify-center sm:justify-start">
+                <button onClick={onPrevMonth} className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-full transition text-slate-600 font-bold text-sm" title={t.prevMonth}>&lt;</button>
+                <button onClick={onNextMonth} className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-full transition text-slate-600 font-bold text-sm" title={t.nextMonth}>&gt;</button>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 justify-center">
+                <div className="flex-1 sm:w-32 min-w-0">
+                  <DateInput value={labourStartDate || ''} onChange={(d) => setLabourStartDate && setLabourStartDate(d)} />
+                </div>
+                <span className="text-slate-400 text-xs">➜</span>
+                <div className="flex-1 sm:w-32 min-w-0">
+                  <DateInput value={labourEndDate || ''} onChange={(d) => setLabourEndDate && setLabourEndDate(d)} />
+                </div>
+              </div>
             </div>
 
-            {/* MOBILE LEDGER CARDS */}
-            <div className="md:hidden bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden max-h-[55vh] overflow-y-auto divide-y divide-gray-100">
-                {labourData.timeline.length === 0 ? (
-                    <p className="p-6 text-center text-gray-400 text-sm italic">{t.noDaysInView}</p>
-                ) : (
-                    labourData.timeline.map((row) => {
-                        if (row.isOpeningBalance) {
-                            return (
-                                <article key="opening-bal" className="px-2.5 py-2 bg-gray-50">
-                                    <div className="flex justify-between items-center gap-2">
-                                        <p className="text-xs font-bold text-gray-700">Opening Balance</p>
-                                        <p className={`text-sm font-bold tabular-nums ${row.balance && row.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                            ₹{formatIndianCurrency(Math.abs(row.balance || 0))}
-                                        </p>
-                                    </div>
-                                </article>
-                            );
-                        }
-                        const isSunday = new Date(row.date).getDay() === 0;
-                        return (
-                            <article
-                                key={row.date}
-                                className={`px-2.5 py-2 ${isSunday ? 'bg-red-50/30' : ''} ${row.isHisaabDay ? 'bg-yellow-50' : ''}`}
-                            >
-                                <div className="flex items-center justify-between gap-2 mb-1">
-                                    <div
-                                        className="min-w-0 cursor-pointer"
-                                        onDoubleClick={() => onToggleHisaab && onToggleHisaab(row.date)}
-                                    >
-                                        <p className="text-sm font-semibold text-gray-800 tabular-nums">
-                                            {formatDisplayDate(row.date)}
-                                            {isSunday && <span className="ml-1 text-[10px] text-red-400 font-bold">{t.sundayLabel}</span>}
-                                            {row.isHisaabDay && <span className="ml-1">📌</span>}
-                                        </p>
-                                    </div>
-                                    <div
-                                        className="shrink-0 cursor-pointer"
-                                        onClick={() => onToggleAttendance && onToggleAttendance(row.date, true)}
-                                        onDoubleClick={() => onToggleAttendance && onToggleAttendance(row.date, false)}
-                                    >
-                                        {row.isPresent === true && (
-                                            <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center border border-green-200">
-                                                <CheckCircleIcon className="w-5 h-5 text-green-700" />
-                                            </div>
-                                        )}
-                                        {row.isPresent === false && (
-                                            <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-xs font-bold border border-red-200">❌</div>
-                                        )}
-                                        {(row.isPresent === undefined || row.isPresent === null) && (
-                                            <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 text-xs font-bold border border-gray-200">-</div>
-                                        )}
-                                    </div>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                                    {row.isPresent === true && (
-                                        <span className="font-bold text-gray-800 tabular-nums">₹{row.dailyWage}</span>
-                                    )}
-                                    {row.adjustments?.map(adj => {
-                                        const isNegative = adj.amount < 0;
-                                        return (
-                                            <span
-                                                key={adj.id}
-                                                className={`font-bold tabular-nums cursor-pointer ${isNegative ? 'text-red-600' : 'text-green-600'}`}
-                                                onClick={() => handleOpenBonusModal(adj)}
-                                            >
-                                                {isNegative ? '-' : '+'} ₹{Math.abs(adj.amount)}
-                                            </span>
-                                        );
-                                    })}
-                                </div>
-                                {row.transactions.length > 0 && (
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                        {row.transactions.map(tr => (
-                                            <span key={tr.id} className="inline-flex items-center bg-red-50 border border-red-100 px-1.5 py-0.5 rounded text-[10px] font-bold text-red-600 tabular-nums">
-                                                {t.paidPrefix} ₹{formatIndianCurrency(tr.amount)}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </article>
-                        );
-                    })
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="px-3 py-2.5 sm:px-4 sm:py-3 bg-slate-50 border-b border-slate-100">
+                <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">{t.labourLedgerTitle}</h3>
+              </div>
+              <div className="divide-y divide-slate-100 max-h-[55vh] sm:max-h-[60vh] overflow-y-auto">
+                {openingRow && (
+                  <div className="px-3 py-2.5 sm:px-4 sm:py-3 bg-slate-50/80 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-xs sm:text-sm font-bold text-slate-700">Opening Balance</p>
+                      <p className="text-[10px] text-slate-400">{formatDisplayDate(openingRow.date)}</p>
+                    </div>
+                    <span className={`text-sm sm:text-base font-bold tabular-nums ${openingRow.runningBalance > 0 ? 'text-red-600' : openingRow.runningBalance < 0 ? 'text-emerald-600' : 'text-slate-500'}`}>
+                      ₹{formatIndianCurrency(Math.abs(openingRow.runningBalance))}
+                    </span>
+                  </div>
                 )}
-            </div>
-
-            {/* UNIFIED LEDGER VIEW — desktop */}
-            <div className="hidden md:flex bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden flex-col h-[650px]">
-               {/* Header Row */}
-               <div className="flex bg-gray-100 border-b border-gray-300 text-gray-700 font-bold text-sm uppercase tracking-wide sticky top-0 z-20 shadow-sm">
-                   <div className="w-48 p-3 border-r border-gray-300 text-center">{t.dateHeader}</div>
-                   <div className="w-24 p-3 border-r border-gray-300 text-center">{t.statusHeader}</div>
-                   <div className="w-32 p-3 border-r border-gray-300 text-right">{t.workAmtHeader}</div>
-                   <div className="flex-1 p-3">{t.paymentDetailsHeader}</div>
-               </div>
-
-               {/* Scrollable Body */}
-               <div className="overflow-y-auto flex-1 bg-[linear-gradient(#f3f4f6_1px,transparent_1px)] bg-[length:100%_3rem]">
-                   {labourData.timeline.length === 0 && (
-                       <div className="p-10 text-center text-gray-400 italic">{t.noDaysInView}</div>
-                   )}
-                   {labourData.timeline.map((row, idx) => {
-                       // SPECIAL OPENING BALANCE ROW
-                       if (row.isOpeningBalance) {
-                           return (
-                               <div key="opening-bal" className="flex items-stretch border-b border-gray-200 min-h-[3rem] bg-gray-100 hover:bg-gray-200 transition-colors">
-                                   <div className="w-48 flex items-center justify-center border-r border-gray-200 text-sm font-bold text-gray-700">
-                                       Opening Balance
-                                   </div>
-                                   <div className="w-24 border-r border-gray-200 flex items-center justify-center text-xs text-gray-400 font-semibold uppercase tracking-wider">
-                                       B/F
-                                   </div>
-                                   <div className={`w-32 flex items-center justify-end pr-4 border-r border-gray-200 font-bold ${row.balance && row.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                       ₹{formatIndianCurrency(Math.abs(row.balance || 0))}
-                                   </div>
-                                   <div className="flex-1 px-4 flex items-center text-sm text-gray-500 italic">
-                                       Balance Carried Forward
-                                   </div>
-                               </div>
-                           );
-                       }
-
-                       const isSunday = new Date(row.date).getDay() === 0;
-                       
-                       return (
-                           <div 
-                                key={row.date} 
-                                className={`flex items-stretch border-b border-gray-200 min-h-[3rem] transition-colors hover:bg-blue-50 ${isSunday ? 'bg-red-50/30' : ''} ${row.isHisaabDay ? 'bg-yellow-50' : ''}`}
-                           >
-                                {/* DATE COLUMN */}
-                                <div 
-                                    className="w-48 flex items-center justify-center border-r border-gray-200 text-sm font-medium text-gray-600 relative cursor-pointer select-none"
-                                    onDoubleClick={() => onToggleHisaab && onToggleHisaab(row.date)}
-                                    title="Double click to mark Hisaab"
-                                >
-                                   {formatDisplayDate(row.date)}
-                                   {isSunday && <span className="ml-2 text-[10px] text-red-400 font-bold">{t.sundayLabel}</span>}
-                                   
-                                   {/* HISAAB MARKER */}
-                                   {row.isHisaabDay && (
-                                       <div className="absolute left-2 top-1/2 -translate-y-1/2 text-yellow-500 text-lg animate-bounce" title="Hisaab Marked">
-                                           📌
-                                       </div>
-                                   )}
-                                </div>
-
-                                {/* ATTENDANCE TOGGLE COLUMN */}
-                                <div
-                                  className="w-24 flex items-center justify-center border-r border-gray-200 cursor-pointer select-none"
-                                  onClick={() => {
-                                    if (!onToggleAttendance) return;
-                                    onToggleAttendance(row.date, true); // ✅ present (instant)
-                                  }}
-                                  onDoubleClick={() => {
-                                    if (!onToggleAttendance) return;
-                                    onToggleAttendance(row.date, false); // ❌ absent
-                                  }}
-                                  title="Single click = Present (✅), double click = Absent (❌)"
-                                >
-                                   {row.isPresent === true && (
-                                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shadow-sm border border-green-200">
-                                           <CheckCircleIcon className="w-6 h-6 text-green-700" />
-                                       </div>
-                                   )}
-                                   {row.isPresent === false && (
-                                       <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600 font-bold shadow-sm border border-red-200">
-                                           ❌
-                                       </div>
-                                   )}
-                                   {(row.isPresent === undefined || row.isPresent === null) && (
-                                       <div className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 font-bold hover:bg-gray-100 transition-colors">
-                                           -
-                                       </div>
-                                   )}
-                                </div>
-
-                                {/* WORK AMOUNT COLUMN (Includes Wages + Adjustments) */}
-                                <div className="w-32 flex flex-col justify-center items-end pr-4 border-r border-gray-200 font-mono text-sm">
-                                   {row.isPresent === true ? (
-                                       <span className="font-bold text-gray-800">₹{row.dailyWage}</span>
-                                   ) : null}
-                                   
-                                   {/* Extra Payables / Adjustments */}
-                                   {row.adjustments && row.adjustments.map(adj => {
-                                       const isNegative = adj.amount < 0;
-                                       return (
-                                           <div key={adj.id} className="flex items-center gap-1 group w-full justify-end">
-                                               <span 
-                                                   className={`text-xs font-bold cursor-pointer hover:underline text-right ${isNegative ? 'text-red-600' : 'text-green-600'}`}
-                                                   onClick={() => handleOpenBonusModal(adj)}
-                                               >
-                                                   {isNegative ? '-' : '+'} ₹{Math.abs(adj.amount)} <span className="text-[9px] text-gray-400 font-normal block">({getTranslated(adj.note)})</span>
-                                               </span>
-                                               <button 
-                                                   type="button"
-                                                   onClick={(e) => { 
-                                                       e.stopPropagation(); 
-                                                       if(window.confirm(t.confirmDelete) && onDeleteAdjustment) onDeleteAdjustment(adj.id); 
-                                                   }} 
-                                                   className="text-red-400 hover:text-red-600 font-bold p-1.5 rounded hover:bg-red-50 transition ml-2"
-                                                   title={t.deleteBtn}
-                                               >
-                                                   ✕
-                                               </button>
-                                           </div>
-                                       );
-                                   })}
-                                   
-                                   {row.isPresent !== true && (!row.adjustments || row.adjustments.length === 0) && (
-                                       <span className="text-gray-300">-</span>
-                                   )}
-                                </div>
-
-                                {/* PAYMENTS / LEDGER COLUMN */}
-                                <div className="flex-1 flex items-center px-4 overflow-x-auto">
-                                   {row.transactions.length > 0 ? (
-                                       <div className="flex gap-2">
-                                           {row.transactions.map(tr => (
-                                               <div key={tr.id} className="flex items-center bg-red-50 border border-red-100 px-3 py-1 rounded text-sm shadow-sm whitespace-nowrap">
-                                                   <span className="font-bold text-red-600 mr-2">{t.paidPrefix} ₹{formatIndianCurrency(tr.amount)}</span>
-                                                   <span className="text-xs text-gray-500">({tr.paymentType})</span>
-                                                   {tr.details && <span className="text-xs text-gray-400 ml-2 truncate max-w-[100px] border-l border-red-200 pl-2">{getTranslated(tr.details)}</span>}
-                                               </div>
-                                           ))}
-                                       </div>
-                                   ) : (
-                                       <span className="text-gray-300 text-xs italic"></span>
-                                   )}
-                                </div>
-                           </div>
-                       );
-                   })}
-               </div>
+                {activityRows.length === 0 ? (
+                  <p className="p-6 text-center text-slate-400 text-sm">{t.noRecords}</p>
+                ) : (
+                  activityRows.map((row) => {
+                    const canEdit = row.adjustmentId != null;
+                    return (
+                      <div
+                        key={row.id}
+                        className="px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between gap-2 sm:gap-4 bg-white"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-xs sm:text-sm font-semibold text-slate-800 tabular-nums">{formatDisplayDate(row.date)}</p>
+                            <span className="inline-flex px-1.5 py-0.5 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-wide border bg-emerald-50 text-emerald-700 border-emerald-100">
+                              {t.adjustmentTitle.split('/')[0].trim()}
+                            </span>
+                          </div>
+                          <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">{row.description}</p>
+                        </div>
+                        <div className="text-right shrink-0 flex items-center gap-2">
+                          {row.debitAmount > 0 && (
+                            <p className="text-sm sm:text-base font-bold text-red-600 tabular-nums">- ₹{formatIndianCurrency(row.debitAmount)}</p>
+                          )}
+                          {row.creditAmount > 0 && (
+                            <p className="text-sm sm:text-base font-bold text-emerald-700 tabular-nums">+ ₹{formatIndianCurrency(row.creditAmount)}</p>
+                          )}
+                          {canEdit && row.adjustment && (
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleOpenBonusModal({ ...row.adjustment! });
+                              }}
+                              className="w-5 h-5 inline-flex items-center justify-center rounded text-[10px] text-amber-700 border border-amber-100 hover:bg-amber-50 transition"
+                              title={t.editBtn}
+                              aria-label={t.editBtn}
+                            >
+                              ✎
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
 
             {/* ADJUSTMENT / BONUS MODAL */}
@@ -2092,7 +2148,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     </div>
                 </div>
             )}
-            {renameModal}
+            {labourEditModal}
           </div>
         );
       }
@@ -2200,13 +2256,23 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         >
                           {acc.serial !== undefined ? acc.serial : index + 1}
                         </span>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <h3 className="font-bold text-xs sm:text-sm text-slate-800 truncate group-hover:text-purple-800 transition-colors leading-tight">
                             {getTranslated(acc.name)}
                           </h3>
-                          <span className="inline-flex mt-0.5 px-1.5 py-0.5 rounded-md bg-purple-50 border border-purple-100 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-purple-600">
-                            {t.tabCustomer}
-                          </span>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex px-1.5 py-0.5 rounded-md bg-purple-50 border border-purple-100 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-purple-600">
+                              {t.tabCustomer}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:py-1 rounded-lg bg-white border border-purple-200/90 shadow-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 text-purple-600 shrink-0">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                              </svg>
+                              <span className="text-[10px] sm:text-xs font-bold text-slate-800 tabular-nums">
+                                {formatPhoneShort(acc.phone)}
+                              </span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <span className="shrink-0 text-purple-300 group-hover:text-purple-500 text-sm transition-colors">➔</span>
@@ -2223,17 +2289,101 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                     </div>
                   </div>
                </div>
+               ) : activeTab === 'partner' ? (
+               <div
+                  key={acc.name}
+                  onClick={() => onAccountSelect(acc.name)}
+                  className="relative overflow-hidden rounded-xl border border-sky-100/90 bg-white cursor-pointer hover:shadow-lg hover:border-sky-200 transition-all group shadow-sm"
+               >
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-sky-500 to-blue-600" aria-hidden />
+                  <div className="px-2.5 py-2.5 sm:px-3.5 sm:py-3 pl-3 sm:pl-4">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span
+                          onClick={(e) => handleEditSerial(e, acc.name, acc.serial)}
+                          title="Click to set custom order"
+                          className="text-[10px] sm:text-xs font-bold w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-lg bg-sky-100 text-sky-800 border border-sky-200/80 cursor-pointer inline-flex items-center justify-center hover:bg-sky-200 transition-colors shadow-sm"
+                        >
+                          {acc.serial !== undefined ? acc.serial : index + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-xs sm:text-sm text-slate-800 truncate group-hover:text-sky-800 transition-colors leading-tight">
+                            {getTranslated(acc.name)}
+                          </h3>
+                          <span className="inline-flex mt-0.5 px-1.5 py-0.5 rounded-md bg-sky-50 border border-sky-100 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-sky-600">
+                            {t.tabPartner}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-sky-300 group-hover:text-sky-500 text-sm transition-colors">➔</span>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-sky-50 flex items-center justify-between gap-2">
+                      <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400 truncate">{t.netPosition}</p>
+                      <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold tabular-nums border ${
+                        acc.balance >= 0
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                          : 'bg-red-50 text-red-700 border-red-100'
+                      }`}>
+                        ₹{formatIndianCurrency(Math.abs(acc.balance))}
+                      </span>
+                    </div>
+                  </div>
+               </div>
+               ) : activeTab === 'labour' ? (
+               <div
+                  key={acc.name}
+                  onClick={() => onAccountSelect(acc.name)}
+                  className="relative overflow-hidden rounded-xl border border-amber-100/90 bg-white cursor-pointer hover:shadow-lg hover:border-amber-200 transition-all group shadow-sm"
+               >
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-orange-600" aria-hidden />
+                  <div className="px-2.5 py-2.5 sm:px-3.5 sm:py-3 pl-3 sm:pl-4">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span
+                          onClick={(e) => handleEditSerial(e, acc.name, acc.serial)}
+                          title="Click to set custom order"
+                          className="text-[10px] sm:text-xs font-bold w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-lg bg-amber-100 text-amber-800 border border-amber-200/80 cursor-pointer inline-flex items-center justify-center hover:bg-amber-200 transition-colors shadow-sm"
+                        >
+                          {acc.serial !== undefined ? acc.serial : index + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-bold text-xs sm:text-sm text-slate-800 truncate group-hover:text-amber-800 transition-colors leading-tight">
+                            {getTranslated(acc.name)}
+                          </h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <span className="inline-flex px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-100 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-700">
+                              {t.tabLabour}
+                            </span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 sm:py-1 rounded-lg bg-white border border-amber-200/90 shadow-sm">
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-600 shrink-0">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                              </svg>
+                              <span className="text-[11px] sm:text-sm font-bold text-slate-800 tabular-nums tracking-wide">
+                                {formatPhoneShort(acc.phone)}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-amber-300 group-hover:text-amber-500 text-sm transition-colors">➔</span>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-amber-50 flex items-center justify-between gap-2">
+                      <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400 truncate">{t.totalNetBalance}</p>
+                      <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold tabular-nums border ${
+                        acc.balance > 0
+                          ? 'bg-red-50 text-red-700 border-red-100'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      }`}>
+                        ₹{formatIndianCurrency(Math.abs(acc.balance))}
+                      </span>
+                    </div>
+                  </div>
+               </div>
                ) : (
                <div 
                   key={acc.name} 
                   onClick={() => onAccountSelect(acc.name)}
-                  className={`border rounded-lg sm:rounded-xl px-2.5 py-2 sm:p-4 cursor-pointer hover:shadow-md transition-all bg-white flex flex-col justify-between group ${
-                    activeTab === 'labour'
-                      ? 'border-amber-100 hover:border-amber-200'
-                      : activeTab === 'partner'
-                      ? 'border-sky-100 hover:border-sky-200'
-                      : 'border-indigo-100 hover:border-indigo-200'
-                  }`}
+                  className="border rounded-lg sm:rounded-xl px-2.5 py-2 sm:p-4 cursor-pointer hover:shadow-md transition-all bg-white flex flex-col justify-between group border-indigo-100 hover:border-indigo-200"
                >
                   <div className="flex justify-between items-start gap-1">
                      <div className="flex items-center gap-1.5 min-w-0 flex-1">
@@ -2248,17 +2398,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         >
                             {acc.serial !== undefined ? acc.serial : index + 1}
                         </span>
-                        <h3 className={`font-bold text-xs sm:text-base truncate transition-colors leading-tight ${
-                          activeTab === 'supplier' ? 'text-slate-800 group-hover:text-indigo-700'
-                          : activeTab === 'labour' ? 'text-gray-800 group-hover:text-amber-700'
-                          : 'text-gray-800 group-hover:text-sky-700'
-                        }`}>{getTranslated(acc.name)}</h3>
+                        <h3 className="font-bold text-xs sm:text-base truncate transition-colors leading-tight text-slate-800 group-hover:text-indigo-700">{getTranslated(acc.name)}</h3>
                      </div>
-                     <span className={`shrink-0 text-xs sm:text-base ${
-                       activeTab === 'supplier' ? 'text-indigo-300 group-hover:text-indigo-500'
-                       : activeTab === 'labour' ? 'text-amber-300 group-hover:text-amber-500'
-                       : 'text-sky-300 group-hover:text-sky-500'
-                     }`}>➔</span>
+                     <span className="shrink-0 text-xs sm:text-base text-indigo-300 group-hover:text-indigo-500">➔</span>
                   </div>
                   {activeTab === 'supplier' ? (
                     <div className="mt-1.5 sm:mt-3 grid grid-cols-1 gap-1 sm:gap-1.5">
@@ -2405,12 +2547,13 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
                 {/* Optional Rate Field only for Labour */}
                 {activeTab === 'labour' && (
+                    <>
                     <div className="mb-4">
-                        <label className="block text-sm font-semibold text-gray-700 mb-1">{t.enterRate}</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1">{t.labourWageLabel}</label>
                         <input 
                             type="text"
                             inputMode="numeric"
-                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none border-gray-300"
+                            className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none border-gray-300"
                             placeholder="400"
                             value={newAccountRate}
                             onChange={e => onNewAccountRateChange(formatInputCurrency(e.target.value))}
@@ -2421,6 +2564,55 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                             }}
                         />
                     </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">{t.farmerPhoneLabel}</label>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={11}
+                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:outline-none ${accountErrors && activeTab === 'labour' ? 'border-red-500' : 'border-gray-300'}`}
+                        placeholder="98765 43210"
+                        value={newLabourPhone}
+                        onChange={e => {
+                          const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                          const formatted = digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits;
+                          onNewLabourPhoneChange?.(formatted);
+                          setAccountErrors('');
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter') return;
+                          e.preventDefault();
+                          handleConfirmAddAccountClick();
+                        }}
+                      />
+                      <p className="text-[10px] text-slate-400 mt-1">10 digits required</p>
+                    </div>
+                    </>
+                )}
+
+                {activeTab === 'customer' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-gray-700 mb-1">{t.farmerPhoneLabel}</label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={11}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none ${accountErrors ? 'border-red-500' : 'border-gray-300'}`}
+                      placeholder="98765 43210"
+                      value={newCustomerPhone}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        onNewCustomerPhoneChange?.(digits.length > 5 ? `${digits.slice(0, 5)} ${digits.slice(5)}` : digits);
+                        setAccountErrors('');
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Enter') return;
+                        e.preventDefault();
+                        handleConfirmAddAccountClick();
+                      }}
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">10 digits required</p>
+                  </div>
                 )}
 
                 {/* Farmer profile fields */}

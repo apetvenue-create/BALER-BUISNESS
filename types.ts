@@ -105,32 +105,30 @@ export interface PartnerSummary {
   previousPaid: OwnerPreviousEntry[];
 }
 
-export interface LabourTimelineRow {
+export interface LabourLedgerItem {
+  id: string;
   date: string;
-  isPresent: boolean | undefined; // true = Present, false = Absent, undefined = '-'
-  isHisaabDay: boolean; // Visual Marker
-  dailyWage: number; // 0 or rate
-  adjustments: ManualAdjustment[]; // Extra payables on this day
-  transactions: Transaction[];
-  // Opening Balance Row Support
+  type: 'opening' | 'wage' | 'adjustment' | 'payment';
+  description: string;
+  creditAmount: number;
+  debitAmount: number;
+  runningBalance: number;
+  adjustmentId?: number;
+  adjustment?: ManualAdjustment;
+  transaction?: Transaction;
   isOpeningBalance?: boolean;
-  balance?: number;
 }
 
 export interface LabourSummary {
   name: string;
-  rate: number; 
-  
-  // Lifetime Stats (For Net Balance)
-  lifetimeBalance: number; 
-  
-  // Monthly Stats (For the current view)
-  viewMonthName: string; // e.g., "October 2023" or "Custom Range"
-  monthAttendanceDays: number;
-  monthPayable: number;
-  monthPaid: number;
-  
-  timeline: LabourTimelineRow[]; // Rows for the specific month/range
+  rate: number;
+  phone?: string;
+  lifetimeBalance: number;
+  lifetimePaid: number;
+  lifetimePayable: number;
+  rangePaid: number;
+  viewMonthName: string;
+  ledger: LabourLedgerItem[];
 }
 
 export interface CustomerLedgerItem {
@@ -148,6 +146,7 @@ export interface CustomerLedgerItem {
 
 export interface CustomerSummary {
   name: string;
+  phone?: string;
   totalStockKg: number;
   totalBilled: number;
   totalReceived: number;
@@ -295,7 +294,13 @@ export interface Translation {
 
   nameLabel: string;
   createBtn: string;
-  payLabourBtn: string; 
+  payLabourBtn: string;
+  labourWageLabel: string;
+  labourTotalGivenLabel: string;
+  addWageBtn: string;
+  labourLedgerTitle: string;
+  errLabourWageNotSet: string;
+  errPhoneTenDigits: string;
   
   // Extra Payable / Internal Adjustment
   addBonusBtn: string; // Renamed concept in UI, but key kept for compatibility
@@ -322,7 +327,9 @@ export interface Translation {
   clOilOption: string;
   electricityOption: string; 
   statsElectricityExpense: string;
-  foodOption: string; 
+  foodOption: string;
+  machineRepairOption: string;
+  statsMachineRepairExpense: string; 
 
   // Detailed Report Keys
   viewDetailedReport: string;

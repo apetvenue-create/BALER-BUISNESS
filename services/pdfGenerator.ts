@@ -591,50 +591,47 @@ export class PDFGenerator {
           `${this._t('dateHeader', lang)}: ${this._s(data.viewMonthName)}`
       ], lang);
 
-      const rate = data.rate || 0;
-      const days = data.monthAttendanceDays || 0;
-      const payable = data.monthPayable || 0;
-      const paid = data.monthPaid || 0;
+      const wage = data.rate || 0;
+      const totalPaid = data.lifetimePaid || 0;
       const net = data.lifetimeBalance || 0;
 
       this.addSummarySection(doc, [
-          { label: this._t('ratePerDay', lang), value: this._c(rate) },
-          { label: this._t('monthDays', lang), value: String(days) },
-          { label: this._t('monthPayable', lang), value: this._c(payable) },
-          { label: this._t('monthPaid', lang), value: this._c(paid) },
+          { label: this._t('labourWageLabel', lang), value: this._c(wage) },
+          { label: this._t('labourTotalGivenLabel', lang), value: this._c(totalPaid) },
           { label: this._t('totalNetBalance', lang), value: this._c(net) }
       ], 60, fontName);
 
-      const body: TableRow[] = data.timeline.map(row => {
-          const payments = row.transactions.map(t => `Rs.${t.amount} (${t.paymentType})`).join(', ');
-          
-          // Calculate total earnings including extra bonuses
-          let earnings = row.isPresent ? (row.dailyWage || 0) : 0;
-          let notes: string[] = [];
-          
-          if(row.adjustments && row.adjustments.length > 0) {
-              row.adjustments.forEach(adj => {
-                  earnings += adj.amount;
-                  notes.push(`+${adj.amount} (${adj.note})`);
-              });
+      const body: TableRow[] = data.ledger.map(row => {
+          if (row.isOpeningBalance) {
+              return [
+                  this._s('Opening Balance'),
+                  this._s('B/F'),
+                  this._c(Math.abs(row.runningBalance)),
+                  '—'
+              ];
           }
-          
-          // Status Text
-          let status = row.isPresent ? "Present" : "Absent";
-          if (notes.length > 0) {
-              status += ` ${notes.join(", ")}`;
-          }
+
+          const typeLabel = this._t('adjustmentTitle', lang);
+
+          const amount =
+            row.debitAmount > 0
+              ? `- ${this._c(row.debitAmount)}`
+              : row.creditAmount > 0
+              ? `+ ${this._c(row.creditAmount)}`
+              : '—';
+
+          const details = this._s(row.description);
 
           return [
               this._s(formatDisplayDate(row.date)),
-              status,
-              this._c(earnings),
-              this._s(payments) || "—"
+              this._s(typeLabel),
+              amount,
+              details
           ];
       });
 
       if (body.length === 0) {
-          body.push([{ content: this._t('noRecords', lang), colSpan: 5, styles: { halign: 'center', textColor: [150, 150, 150] as [number, number, number] } }]);
+          body.push([{ content: this._t('noRecords', lang), colSpan: 4, styles: { halign: 'center', textColor: [150, 150, 150] as [number, number, number] } }]);
       }
 
       const tableConfig = this.getTableConfig(fontName);
@@ -643,19 +640,19 @@ export class PDFGenerator {
           ...tableConfig,
           startY: (doc as any).lastAutoTable.finalY + 10,
           head: [[
-              this._t('dateHeader', lang), 
-              this._t('attendanceSection', lang), 
-              this._t('workAmtHeader', lang), 
+              this._t('dateHeader', lang),
+              this._t('typeHeader', lang),
+              this._t('workAmtHeader', lang),
               this._t('paymentDetailsHeader', lang)
           ]],
-          headStyles: { 
+          headStyles: {
              ...tableConfig.headStyles,
-             fillColor: [211, 84, 0] as [number, number, number] 
+             fillColor: [211, 84, 0] as [number, number, number]
           },
           body: body,
           columnStyles: {
               2: { halign: 'center' as 'center' },
-              3: { halign: 'center' as 'center', textColor: COLOR_DEBIT }
+              3: { halign: 'left' as 'left' }
           }
       });
 
