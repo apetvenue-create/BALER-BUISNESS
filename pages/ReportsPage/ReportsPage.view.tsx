@@ -85,7 +85,7 @@ export const ReportsPageView: React.FC<ReportsPageViewProps> = ({
         </div>
 
         {/* Summary Cards for Selected Range */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3">
              <div className="bg-green-50 px-3 py-4 rounded-xl border border-green-100 shadow-sm text-center">
                  <p className="text-xs uppercase font-bold text-green-600 mb-1 truncate">{t.reportTotalIncome}</p>
                  <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(totalIncome)}</p>
