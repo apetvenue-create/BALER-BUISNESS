@@ -48,13 +48,20 @@ export const SettingsService = {
     return readLocalFallback(key, user.id);
   },
 
-  async set(key: string, value: any): Promise<void> {
+  async set(
+    key: string,
+    value: any,
+    options?: { throwOnError?: boolean }
+  ): Promise<void> {
     const user = await getCachedUser();
 
     // Persist locally first to prevent data loss during transient auth/network failures.
     writeLocalFallback(key, user?.id, value);
     
-    if (!user) return;
+    if (!user) {
+      if (options?.throwOnError) throw new Error('Not authenticated');
+      return;
+    }
 
     const { error } = await supabase
       .from('app_settings')
@@ -64,6 +71,9 @@ export const SettingsService = {
         value 
       }, { onConflict: 'user_id, key' });
 
-    if (error) console.error('Settings save failed', error);
+    if (error) {
+      console.error('Settings save failed', error);
+      if (options?.throwOnError) throw error;
+    }
   }
 };

@@ -1,0 +1,11 @@
+{
+  "name": "BALER BUISNESS",
+  "short_name": "BALER",
+  "description": "Mobile business and transaction manager",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f4f6",
+  "theme_color": "#2563eb"
+}

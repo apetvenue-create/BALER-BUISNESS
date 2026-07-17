@@ -14,7 +14,7 @@ import {
   FarmerProfileDetails
 } from './types';
 import { TRANSLATIONS } from './constants';
-import { getDatesInRange, formatIndianCurrency, formatDisplayDate, formatISODateLocal, formatInputCurrency, parseCurrency } from './utils';
+import { getDatesInRange, formatIndianCurrency, formatDisplayDate, formatISODateLocal, formatInputCurrency, parseCurrency, normalizeAccountName } from './utils';
 import {
   loadOwnerPreviousLocal,
   mergeOwnerPreviousEntries,
@@ -26,6 +26,9 @@ import { AccountPageController } from './pages/AccountPage/AccountPage.controlle
 import { StockPageController } from './pages/StockPage/StockPage.controller';
 import { ReportsPageController } from './pages/ReportsPage/ReportsPage.controller';
 import { DateInput } from './components/DateInput';
+import { BusinessNotes, BusinessNote } from './components/BusinessNotes';
+import { ConfirmProvider, useConfirm } from './components/ConfirmDialog';
+import { EscapeStackProvider, useEscapeLayer, ESCAPE_PRIORITY } from './components/EscapeStack';
 import { translateBatch } from './services/ai';
 import { AuthProvider, useAuth } from './auth/auth.store';
 import { AuthGuard } from './auth/auth.guard';
@@ -40,6 +43,13 @@ import { SettingsService } from './services/settings.service';
 const UserProfileHeader: React.FC = () => {
   const { session, signOut } = useAuth();
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+
+  useEscapeLayer(
+    'logout-confirm',
+    () => setIsLogoutConfirmOpen(false),
+    isLogoutConfirmOpen,
+    ESCAPE_PRIORITY.confirm
+  );
   
   if (!session) return null;
 
@@ -128,6 +138,7 @@ const UserProfileHeader: React.FC = () => {
 // --- MAIN FINANCIAL APP (WRAPPED CONTENT) ---
 const FinancialApp: React.FC = () => {
   const { session } = useAuth();
+  const confirm = useConfirm();
   const currentUserId = session?.userId || 'unauthenticated';
 
   // State
@@ -154,9 +165,47 @@ const FinancialApp: React.FC = () => {
   const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
   
   const [activeTab, setActiveTab] = useState<'transactions' | 'accounts' | 'stock' | 'reports'>('transactions');
+  const mainContentRef = useRef<HTMLElement>(null);
+  const skipInitialTabScrollRef = useRef(true);
+
+  // Keep every page scrollable while hiding the browser's side scrollbar.
+  useEffect(() => {
+    document.documentElement.classList.add('hide-page-scrollbar');
+    document.body.classList.add('hide-page-scrollbar');
+    return () => {
+      document.documentElement.classList.remove('hide-page-scrollbar');
+      document.body.classList.remove('hide-page-scrollbar');
+    };
+  }, []);
+
+  // After switching tabs, jump to the page content so header/nav sit above the screen.
+  // Scroll up anytime to reveal them again.
+  useEffect(() => {
+    if (skipInitialTabScrollRef.current) {
+      skipInitialTabScrollRef.current = false;
+      return;
+    }
+
+    const el = mainContentRef.current;
+    if (!el) return;
+
+    const scrollToPageStart = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    };
+
+    const rafId = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(scrollToPageStart);
+    });
+    const timeoutId = window.setTimeout(scrollToPageStart, 120);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.clearTimeout(timeoutId);
+    };
+  }, [activeTab]);
   
   // Translation State
-  const [isTranslating, setIsTranslating] = useState(false);
   // Cache structure: { 'hi': { 'Hello': 'नमस्ते' }, 'pa': { ... } }
   const [translationCache, setTranslationCache] = useState<Record<string, Record<string, string>>>({
       hi: {},
@@ -175,7 +224,7 @@ const FinancialApp: React.FC = () => {
 
   // Cashbook State
   const [dateFilter, setDateFilter] = useState<DateFilter>({
-      mode: 'range',
+      mode: 'single',
       singleDate: todayStr,
       fromDate: monthStartStr,
       toDate: monthEndStr
@@ -189,13 +238,27 @@ const FinancialApp: React.FC = () => {
   const openingBalanceSubmittingRef = useRef(false);
 
   // Stats Section State
+  const notesSectionRef = useRef<HTMLDivElement>(null);
+  const previousBalanceRef = useRef<HTMLDivElement>(null);
+  const expenseTransactionsRef = useRef<HTMLDivElement>(null);
+  const incomeTransactionsRef = useRef<HTMLDivElement>(null);
+  const finalBalanceRef = useRef<HTMLDivElement>(null);
   const summaryReportRef = useRef<HTMLDivElement>(null);
+  const [floatingDownStep, setFloatingDownStep] = useState(0);
+  const [floatingUpStep, setFloatingUpStep] = useState(0);
   const [statsStartDate, setStatsStartDate] = useState<string>(
       formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
   const [statsEndDate, setStatsEndDate] = useState<string>(
       formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
   );
+
+  useEffect(() => {
+    if (activeTab === 'transactions') {
+      setFloatingDownStep(0);
+      setFloatingUpStep(0);
+    }
+  }, [activeTab]);
   
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -204,6 +267,7 @@ const FinancialApp: React.FC = () => {
   const [modalDefaults, setModalDefaults] = useState<{ category?: string, accountName?: string }>({});
 
   const [isLoading, setIsLoading] = useState(true);
+  const [businessNotes, setBusinessNotes] = useState<BusinessNote[]>([]);
 
   // ---- Local outbox for transactions (prevents “disappears after refresh”) ----
   // If Supabase insert fails / is pending and the user refreshes, we keep the tx locally
@@ -312,11 +376,12 @@ const FinancialApp: React.FC = () => {
               AccountService.getAll(),
               StockService.getAll(),
           ]);
-          const [obResult, transCacheResult, hiddenLedgerResult, removedLedgerResult] = await Promise.allSettled([
+          const [obResult, transCacheResult, hiddenLedgerResult, removedLedgerResult, notesResult] = await Promise.allSettled([
               SettingsService.get('openingBalanceData'),
               SettingsService.get('translationCache'),
               SettingsService.get('hiddenLedgerAccounts'),
               SettingsService.get('removedLedgerAccounts'),
+              SettingsService.get('businessNotes'),
           ]);
 
           const txs = txsResult.status === 'fulfilled' ? txsResult.value : [];
@@ -326,6 +391,7 @@ const FinancialApp: React.FC = () => {
           const transCache = transCacheResult.status === 'fulfilled' ? transCacheResult.value : null;
           const hiddenLedger = hiddenLedgerResult.status === 'fulfilled' ? hiddenLedgerResult.value : [];
           const removedLedger = removedLedgerResult.status === 'fulfilled' ? removedLedgerResult.value : [];
+          const savedNotes = notesResult.status === 'fulfilled' ? notesResult.value : [];
 
           // Merge any locally pending txs so they don't disappear on refresh.
           // Then try to sync them in background.
@@ -341,6 +407,7 @@ const FinancialApp: React.FC = () => {
           setTransactions([...txs, ...pendingAsTxs]);
           setHiddenLedgerAccounts(Array.isArray(hiddenLedger) ? hiddenLedger : []);
           setRemovedLedgerAccounts(Array.isArray(removedLedger) ? removedLedger : []);
+          setBusinessNotes(Array.isArray(savedNotes) ? savedNotes : []);
           const localOwnerPrev = loadOwnerPreviousLocal(currentUserId);
           const accsMerged = accs.map(acc => {
             if (acc.type !== 'partner') return acc;
@@ -398,6 +465,17 @@ const FinancialApp: React.FC = () => {
     loadData();
   }, []);
 
+  const handleBusinessNotesChange = async (notes: BusinessNote[]) => {
+      const previousNotes = businessNotes;
+      // Instant UI + localStorage; remote sync in background
+      setBusinessNotes(notes);
+      void SettingsService.set('businessNotes', notes, { throwOnError: true }).catch(error => {
+          console.error('Notes sync failed', error);
+          setBusinessNotes(previousNotes);
+          alert('Note could not sync. Check your connection and try again.');
+      });
+  };
+
   // --- Persistence Handlers (Optimistic) ---
 
   const handleCreateAccount = async (
@@ -406,11 +484,14 @@ const FinancialApp: React.FC = () => {
       rate?: number,
       details?: FarmerProfileDetails
   ) => {
+      const accountName = normalizeAccountName(name);
+      if (!accountName) return;
+
       // Optimistic Check & Update
-      if (accounts.some(a => a.name.toLowerCase() === name.toLowerCase())) return;
+      if (accounts.some(a => a.name.toLowerCase() === accountName.toLowerCase())) return;
 
       const nextHiddenCreate = hiddenLedgerAccounts.filter(
-          n => n.toLowerCase() !== name.toLowerCase()
+          n => n.toLowerCase() !== accountName.toLowerCase()
       );
       if (nextHiddenCreate.length < hiddenLedgerAccounts.length) {
           setHiddenLedgerAccounts(nextHiddenCreate);
@@ -420,7 +501,7 @@ const FinancialApp: React.FC = () => {
       const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
       
       const newAccount: StoredAccount = {
-          name,
+          name: accountName,
           type: safeType,
           rate,
           attendance: {},
@@ -443,24 +524,21 @@ const FinancialApp: React.FC = () => {
             : {})
       };
 
-      // Update State Immediately
+      // Update State Immediately — never block the UI on network
       setAccounts(prev => [...prev, newAccount]);
 
-      // Sync
-      try {
-          await AccountService.create(name, safeType, rate, details);
-      } catch (e) {
+      void AccountService.create(accountName, safeType, rate, details).catch(e => {
           console.error("Create account failed", e);
-          setAccounts(prev => prev.filter(a => a.name !== name));
+          setAccounts(prev => prev.filter(a => a.name !== accountName));
           alert("Failed to create account on server.");
-      }
+      });
   };
 
   const handleRenameAccount = async (oldName: string, newName: string) => {
       const canonicalOld = oldName.trim();
-      const canonicalNew = newName.trim();
+      const canonicalNew = normalizeAccountName(newName);
       if (!canonicalNew) return;
-      // Allow capitalization-only changes (e.g. "ram" → "Ram"); skip only if identical
+      // Allow capitalization-only changes (e.g. "ram" → "RAM"); skip only if identical
       if (canonicalOld === canonicalNew) return;
 
       // Conflict only if a *different* account already uses this name (ignore case)
@@ -684,12 +762,18 @@ const FinancialApp: React.FC = () => {
       }
   };
 
-  const handleAddTransaction = async (data: Omit<Transaction, 'id' | 'timestamp'>) => {
-      // 1. Create Account if needed (Optimistic)
+  const handleAddTransaction = async (rawData: Omit<Transaction, 'id' | 'timestamp'>) => {
+      const data = {
+        ...rawData,
+        accountName: rawData.accountName ? normalizeAccountName(rawData.accountName) : rawData.accountName,
+        amount: Math.round(Number(rawData.amount) || 0),
+      };
+
+      // 1. Create Account if needed — fire-and-forget so the row appears in the same tick
       if (data.accountName) {
-         const exists = accounts.some(a => a.name === data.accountName);
+         const exists = accounts.some(a => a.name.toLowerCase() === data.accountName!.toLowerCase());
          if (!exists) {
-             await handleCreateAccount(data.accountName, data.category as AccountType);
+             void handleCreateAccount(data.accountName, data.category as AccountType);
          }
       }
 
@@ -776,7 +860,7 @@ const FinancialApp: React.FC = () => {
               return [...next, { ...updatedTx, id: prevTx.id }];
             });
 
-            // 2) Background sync: delete old representation, create new, then re-sync
+            // 2) Background sync: delete old representation, create new — no full refetch
             (async () => {
               try {
                 // Delete old rows if needed
@@ -799,7 +883,7 @@ const FinancialApp: React.FC = () => {
 
                 // Create the new representation
                 if (isCashConversion) {
-                  await TransactionService.create({
+                  const saved = await TransactionService.create({
                     ...updatedTx,
                     type: 'expense',
                     category: 'cash_conversion',
@@ -807,16 +891,29 @@ const FinancialApp: React.FC = () => {
                     paymentType: 'online' as any,
                     timestamp: Date.now(),
                     details: (updatedTx.details || '').trim() || 'ONLINE -> CASH'
-                  });
+                  }) as Transaction & { pairedIncomeId?: number };
+                  const incomeId = saved.pairedIncomeId;
+                  setTransactions(prev =>
+                    prev.map(t => {
+                      if (t.category !== 'cash_conversion') return t;
+                      if (t.type === 'expense' && t.date === updatedTx.date && t.amount === updatedTx.amount && t.id > 1e12) {
+                        return { ...t, id: saved.id, details: saved.details || t.details };
+                      }
+                      if (t.type === 'income' && t.date === updatedTx.date && t.amount === updatedTx.amount && t.id > 1e12 && incomeId) {
+                        return { ...t, id: incomeId, details: saved.details || t.details };
+                      }
+                      return t;
+                    })
+                  );
                 } else {
-                  await TransactionService.create({
+                  const saved = await TransactionService.create({
                     ...updatedTx,
                     timestamp: Date.now()
                   });
+                  setTransactions(prev =>
+                    prev.map(t => (t.id === prevTx.id ? { ...saved } : t))
+                  );
                 }
-
-                const all = await TransactionService.getAll();
-                setTransactions(all);
               } catch (e) {
                 console.error("Update (cash conversion) failed", e);
                 const all = await TransactionService.getAll().catch(() => null);
@@ -830,7 +927,7 @@ const FinancialApp: React.FC = () => {
             // Background Sync
             TransactionService.update(updatedTx).catch(e => {
               console.error("Update tx failed", e);
-              // Revert logic would go here
+              setTransactions(prev => prev.map(t => t.id === prevTx.id ? prevTx : t));
             });
           }
       } else {
@@ -842,7 +939,7 @@ const FinancialApp: React.FC = () => {
               ...data,
               date: d,
               accountName: '', // internal transfer
-              details: data.details?.trim() || 'Online to Cash Transfer',
+              details: data.details?.trim() || 'ONLINE -> CASH',
             };
 
             // Expense: money leaves Online
@@ -872,22 +969,33 @@ const FinancialApp: React.FC = () => {
             const pair = makeCashConversionPair(data.date, tempId, Date.now());
             setTransactions(prev => [...prev, ...pair]);
 
-            // Background Sync: create once (service creates both), then re-sync
+            // Background Sync: create once (service creates both), patch IDs — no full refetch
             (async () => {
               try {
-                await TransactionService.create({
+                const saved = await TransactionService.create({
                   ...data,
                   type: 'expense',
                   paymentType: 'online' as any,
                   accountName: '',
                   timestamp: Date.now(),
                   details: data.details?.trim() || 'ONLINE -> CASH'
-                });
-                const all = await TransactionService.getAll();
-                setTransactions(all);
+                }) as Transaction & { pairedIncomeId?: number };
+                const incomeId = saved.pairedIncomeId;
+                setTransactions(prev =>
+                  prev.map(t => {
+                    if (t.id === tempId) {
+                      return { ...t, id: saved.id, details: saved.details || t.details };
+                    }
+                    if (t.id === tempId + 1 && incomeId) {
+                      return { ...t, id: incomeId, details: saved.details || t.details };
+                    }
+                    return t;
+                  })
+                );
               } catch (e) {
                 console.error("Create cash conversion failed", e);
                 setTransactions(prev => prev.filter(t => t.id !== tempId && t.id !== tempId + 1));
+                alert(`Transfer not saved. Check internet/login and try again.\n\n${(e as any)?.message || ''}`.trim());
               }
             })();
           } else {
@@ -921,7 +1029,13 @@ const FinancialApp: React.FC = () => {
   };
 
   const handleDeleteTransaction = async (id: number) => {
-      if (!window.confirm(t.confirmDelete)) return;
+      const ok = await confirm({
+        title: t.deleteBtn,
+        message: t.confirmDelete,
+        confirmLabel: t.deleteBtn,
+        cancelLabel: t.cancelBtn,
+      });
+      if (!ok) return;
 
       const tx = transactions.find(t => t.id === id);
       if (!tx) return;
@@ -1068,6 +1182,27 @@ const FinancialApp: React.FC = () => {
       return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
   }, [isBalanceModalOpen]);
 
+  useEscapeLayer(
+    'opening-balance-modal',
+    () => {
+      openingBalanceSubmittingRef.current = false;
+      setIsBalanceModalOpen(false);
+    },
+    isBalanceModalOpen,
+    ESCAPE_PRIORITY.modal
+  );
+
+  // ESC from Accounts / Stock / Reports returns to home (Transactions + navigation).
+  useEscapeLayer(
+    'tab-home',
+    () => {
+      setActiveTab('transactions');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    activeTab !== 'transactions',
+    ESCAPE_PRIORITY.home
+  );
+
   // Stock Handlers (Optimistic)
   const handleAddStockMovement = async (m: StockMovement) => {
       // Optimistic — show in history immediately
@@ -1094,12 +1229,17 @@ const FinancialApp: React.FC = () => {
   };
 
   const handleDeleteStockMovement = async (id: number) => {
-      if (window.confirm(t.confirmDelete)) {
-          // Optimistic
-          setStockMovements(prev => prev.filter(item => item.id !== id));
-          // Sync
-          StockService.delete(id).catch(e => console.error("Delete stock failed", e));
-      }
+      const ok = await confirm({
+        title: t.deleteBtn,
+        message: t.confirmDelete,
+        confirmLabel: t.deleteBtn,
+        cancelLabel: t.cancelBtn,
+      });
+      if (!ok) return;
+      // Optimistic
+      setStockMovements(prev => prev.filter(item => item.id !== id));
+      // Sync
+      StockService.delete(id).catch(e => console.error("Delete stock failed", e));
   };
 
   // Specific Account Handlers (Optimistic Deep Updates)
@@ -1335,17 +1475,32 @@ const FinancialApp: React.FC = () => {
     if (!text) return "";
     if (language === 'en') return text;
     const cache = translationCache[language];
-    return cache && cache[text] ? cache[text] : text;
+    if (!cache) return text;
+    if (cache[text]) return cache[text];
+
+    // Preserve translations created before account names were normalized to uppercase.
+    const matchingKey = Object.keys(cache).find(
+      key => key.trim().toLocaleLowerCase() === text.trim().toLocaleLowerCase()
+    );
+    return matchingKey ? cache[matchingKey] : text;
   }, [language, translationCache]);
 
   const handleTranslateData = async () => {
       if (language === 'en') return;
-      setIsTranslating(true);
       
       const textsToTranslate = new Set<string>();
       
       // Accounts
-      accounts.forEach(a => textsToTranslate.add(a.name));
+      accounts.forEach(a => {
+          textsToTranslate.add(a.name);
+          if (a.address) textsToTranslate.add(a.address);
+          a.manualAdjustments?.forEach(adj => {
+              if (adj.note) textsToTranslate.add(adj.note);
+          });
+          a.ownerPreviousEntries?.forEach(entry => {
+              if (entry.note) textsToTranslate.add(entry.note);
+          });
+      });
       
       // Transactions
       transactions.forEach(t => {
@@ -1359,14 +1514,17 @@ const FinancialApp: React.FC = () => {
           if(m.note) textsToTranslate.add(m.note);
       });
 
+      // Business notes
+      businessNotes.forEach(note => {
+          if (note.title) textsToTranslate.add(note.title);
+          if (note.body) textsToTranslate.add(note.body);
+      });
+
       // Filter out already translated
       const currentCache = translationCache[language] || {};
       const pendingTexts = Array.from(textsToTranslate).filter(t => !currentCache[t]);
 
-      if (pendingTexts.length === 0) {
-          setIsTranslating(false);
-          return;
-      }
+      if (pendingTexts.length === 0) return;
 
       try {
           if (language === 'hi' || language === 'pa') {
@@ -1382,10 +1540,18 @@ const FinancialApp: React.FC = () => {
           }
       } catch (e) {
           console.error("Translation error", e);
-      } finally {
-          setIsTranslating(false);
       }
   };
+
+  // Automatically translate user-entered data whenever Hindi/Punjabi is selected
+  // or new account/transaction/stock/note data arrives.
+  useEffect(() => {
+      if (language === 'en') return;
+      void handleTranslateData();
+      // translationCache is intentionally excluded: updating translations must not
+      // start another request for the same data.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language, accounts, transactions, stockMovements, businessNotes]);
 
   // --- Logic: Calculations ---
 
@@ -1400,6 +1566,15 @@ const FinancialApp: React.FC = () => {
       // independent of selected transaction date.
       return [...filtered].sort((a, b) => b.timestamp - a.timestamp);
   }, [transactions, dateFilter]);
+
+  const expenseTransactions = useMemo(
+    () => displayedTransactions.filter(tr => tr.type === 'expense'),
+    [displayedTransactions]
+  );
+  const incomeTransactions = useMemo(
+    () => displayedTransactions.filter(tr => tr.type === 'income'),
+    [displayedTransactions]
+  );
 
   // Previous Balance: Initial + (Income - Expense) before start date
   const previousBalance = useMemo(() => {
@@ -1548,41 +1723,17 @@ const FinancialApp: React.FC = () => {
                           <option value="hi">हिंदी</option>
                           <option value="pa">ਪੰਜਾਬੀ</option>
                       </select>
-
-                      <button
-                         onClick={handleTranslateData}
-                         disabled={isTranslating || language === 'en'}
-                         className={`px-3 py-2 rounded-lg text-sm font-bold shadow-sm flex items-center gap-2 transition-all ${
-                           language === 'en'
-                             ? 'opacity-0 pointer-events-none select-none'
-                             : (isTranslating ? 'bg-gray-100 text-gray-500' : 'bg-blue-50 text-blue-700 hover:bg-blue-100')
-                         }`}
-                         title="Translate all names and notes using AI"
-                         aria-hidden={language === 'en'}
-                         tabIndex={language === 'en' ? -1 : 0}
-                      >
-                         {isTranslating ? (
-                             <>
-                               <svg className="animate-spin h-4 w-4 text-blue-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                               </svg>
-                               {t.translating}
-                             </>
-                         ) : (
-                             <>
-                                <span>🌐</span> {t.translateBtn}
-                             </>
-                         )}
-                      </button>
                   </div>
 
                   {/* User profile */}
                   <UserProfileHeader />
               </div>
+              <div ref={notesSectionRef} className="scroll-mt-2">
+                <BusinessNotes notes={businessNotes} onChange={handleBusinessNotesChange} />
+              </div>
               {/* Tabs */}
-              <div className="bg-slate-50 border-t border-slate-200 px-2 py-2 sm:px-4 sm:py-3">
-                  <div className="tab-strip flex gap-1.5 sm:gap-2 overflow-x-auto p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-slate-200/60 border border-slate-200/80">
+              <div className="relative z-20 bg-slate-50 border-t border-slate-200 px-3 py-3">
+                  <div className="tab-strip grid grid-cols-2 gap-2">
                       {([
                           { id: 'transactions' as const, label: t.tabTransactions },
                           { id: 'accounts' as const, label: t.tabAccounts },
@@ -1595,13 +1746,13 @@ const FinancialApp: React.FC = () => {
                                   key={tab.id}
                                   type="button"
                                   onClick={() => setActiveTab(tab.id)}
-                                  className={`flex-1 min-w-[5.5rem] sm:min-w-[6.75rem] flex items-center justify-center text-center py-2 px-2.5 sm:py-3 sm:px-5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-bold whitespace-nowrap leading-snug transition-colors duration-150 ${
+                                  className={`relative z-20 flex w-full min-w-0 items-center justify-center border text-center py-4 px-3 rounded-xl text-sm font-bold leading-snug transition-all duration-150 touch-manipulation ${
                                       isActive
-                                          ? 'bg-blue-600 text-white shadow-sm'
-                                          : 'bg-transparent text-slate-500 hover:text-slate-800 hover:bg-white/70'
+                                          ? 'border-blue-600 bg-blue-600 text-white shadow-md'
+                                          : 'border-slate-200 bg-white text-slate-600 shadow-sm hover:border-blue-200 hover:text-blue-700 hover:shadow-md'
                                   }`}
                               >
-                                  {tab.label}
+                                  <span className="truncate">{tab.label}</span>
                               </button>
                           );
                       })}
@@ -1610,29 +1761,76 @@ const FinancialApp: React.FC = () => {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 max-w-7xl mx-auto w-full p-2 sm:p-4 md:p-6 min-h-0 flex flex-col">
-              <div className="flex-1 min-h-0 lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-gray-200 lg:p-6">
+          <main
+            ref={mainContentRef}
+            className="flex-1 max-w-7xl mx-auto w-full p-2 sm:p-4 md:p-6 min-h-[100dvh] flex flex-col scroll-mt-0"
+          >
+              <div className="flex-1 flex flex-col lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-gray-200 lg:p-6">
               {activeTab === 'transactions' && (
                   <div className="flex flex-col space-y-3 sm:space-y-6">
                       <button
                         type="button"
-                        onClick={() => summaryReportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                        onClick={() => {
+                          const destinations = [
+                            previousBalanceRef,
+                            expenseTransactionsRef,
+                            incomeTransactionsRef,
+                            finalBalanceRef,
+                            summaryReportRef,
+                          ];
+                          destinations[floatingDownStep].current?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                          });
+                          if (floatingDownStep === destinations.length - 1) {
+                            setFloatingUpStep(0);
+                          }
+                          setFloatingDownStep(step => Math.min(step + 1, destinations.length - 1));
+                        }}
                         className="fixed bottom-5 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-indigo-400/40 bg-indigo-600 text-white shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-xl active:translate-y-0 sm:bottom-6 sm:right-6 sm:h-12 sm:w-12"
-                        title="Go to Summary Report"
-                        aria-label="Go to Summary Report"
+                        title={`Go down to ${['Previous Balance', 'Expense Transactions', 'Income Transactions', 'Final Balance', 'Summary Report'][floatingDownStep]}`}
+                        aria-label={`Go down to ${['Previous Balance', 'Expense Transactions', 'Income Transactions', 'Final Balance', 'Summary Report'][floatingDownStep]}`}
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m0 0 6-6m-6 6-6-6" />
                         </svg>
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const destinations = [
+                            finalBalanceRef,
+                            incomeTransactionsRef,
+                            expenseTransactionsRef,
+                            previousBalanceRef,
+                            notesSectionRef,
+                          ];
+                          destinations[floatingUpStep].current?.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start',
+                          });
+                          if (floatingUpStep === destinations.length - 1) {
+                            setFloatingDownStep(0);
+                          }
+                          setFloatingUpStep(step => Math.min(step + 1, destinations.length - 1));
+                        }}
+                        className="fixed bottom-20 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-slate-400/40 bg-slate-700 text-white shadow-lg shadow-slate-900/20 transition hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl active:translate-y-0 sm:bottom-[5.25rem] sm:right-6 sm:h-12 sm:w-12"
+                        title={`Go up to ${['Final Balance', 'Income Transactions', 'Expense Transactions', 'Previous Balance', 'Notes'][floatingUpStep]}`}
+                        aria-label={`Go up to ${['Final Balance', 'Income Transactions', 'Expense Transactions', 'Previous Balance', 'Notes'][floatingUpStep]}`}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 19.5v-15m0 0 6 6m-6-6-6 6" />
+                        </svg>
+                      </button>
                       
                       {/* Compact Date Filter */}
-                      <div className="rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm sm:px-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h2 className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-xs">
+                      <div className="w-full rounded-xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                        <div className="flex w-full flex-col gap-3">
+                          <h2 className="text-center text-xs font-bold uppercase tracking-wider text-slate-500">
                             {t.dateSelectionTitle}
                           </h2>
-                          <div className="flex shrink-0 rounded-md border border-slate-200 bg-slate-50 p-0.5">
+                          <div className="grid w-full grid-cols-3 rounded-lg border border-slate-200 bg-slate-50 p-1">
                             {([
                               { mode: 'all' as const, label: t.allDatesLabel },
                               { mode: 'single' as const, label: t.singleDayLabel },
@@ -1642,7 +1840,7 @@ const FinancialApp: React.FC = () => {
                                 key={option.mode}
                                 type="button"
                                 onClick={() => setDateFilter(prev => ({ ...prev, mode: option.mode }))}
-                                className={`rounded px-2 py-1 text-[10px] font-bold transition sm:px-2.5 sm:text-xs ${
+                                className={`w-full rounded-md px-2 py-2 text-xs font-bold transition ${
                                   dateFilter.mode === option.mode
                                     ? 'bg-slate-700 text-white shadow-sm'
                                     : 'text-slate-500 hover:bg-white hover:text-slate-700'
@@ -1656,24 +1854,24 @@ const FinancialApp: React.FC = () => {
                           {dateFilter.mode === 'single' && (
                             <DateInput
                               compact
-                              className="w-[8.5rem]"
+                              className="w-full"
                               value={dateFilter.singleDate}
                               onChange={(d) => setDateFilter(prev => ({ ...prev, singleDate: d, fromDate: d, toDate: d }))}
                             />
                           )}
 
                           {dateFilter.mode === 'range' && (
-                            <div className="flex min-w-0 items-center gap-1.5">
+                            <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2">
                               <DateInput
                                 compact
-                                className="w-[8.25rem]"
+                                className="w-full min-w-0"
                                 value={dateFilter.fromDate}
                                 onChange={(d) => setDateFilter(prev => ({ ...prev, fromDate: d }))}
                               />
                               <span className="text-xs text-slate-400">—</span>
                               <DateInput
                                 compact
-                                className="w-[8.25rem]"
+                                className="w-full min-w-0"
                                 value={dateFilter.toDate}
                                 onChange={(d) => setDateFilter(prev => ({ ...prev, toDate: d }))}
                               />
@@ -1683,45 +1881,45 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* PREVIOUS BALANCE CARD */}
-                      <div className="w-full max-w-3xl mx-auto bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md px-3 py-3 sm:px-5 sm:py-5 md:px-6 md:py-6 text-white relative isolate">
+                      <div ref={previousBalanceRef} className="scroll-mt-4 w-full max-w-3xl mx-auto bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md px-4 py-5 text-white relative isolate">
                             <button 
                                 type="button"
                                 onClick={openBalanceModal}
-                                className="absolute top-1.5 right-1.5 z-30 bg-white/25 hover:bg-white/40 active:bg-white/50 w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded transition border border-white/40"
+                                className="absolute top-3 right-3 z-30 bg-white/25 hover:bg-white/40 active:bg-white/50 w-7 h-7 flex items-center justify-center rounded-md transition border border-white/40"
                                 title={t.editOpeningBalanceTitle}
                                 aria-label={t.editOpeningBalanceTitle}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="w-3 h-3 pointer-events-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="w-3.5 h-3.5 pointer-events-none">
                                   <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
                                 </svg>
                             </button>
 
-                            <h2 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-wider mb-2.5 sm:mb-4 pr-7 sm:pr-9 text-center opacity-95">{t.prevBalTitle}</h2>
-                            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
-                                <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
-                                    <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.cashBalLabel}</p>
-                                    <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(previousBalance.cash)}</p>
+                            <h2 className="text-base font-bold uppercase tracking-wider mb-4 pr-9 text-center opacity-95">{t.prevBalTitle}</h2>
+                            <div className="grid grid-cols-1 gap-3">
+                                <div className="flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl bg-white/20 px-4 py-2.5 backdrop-blur-sm">
+                                    <p className="text-sm opacity-90 font-semibold">{t.cashBalLabel}</p>
+                                    <p className="text-xl font-extrabold tabular-nums leading-tight text-right break-all">₹{formatIndianCurrency(previousBalance.cash)}</p>
                                 </div>
-                                <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
-                                    <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.onlineBalLabel}</p>
-                                    <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(previousBalance.online)}</p>
+                                <div className="flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl bg-white/20 px-4 py-2.5 backdrop-blur-sm">
+                                    <p className="text-sm opacity-90 font-semibold">{t.onlineBalLabel}</p>
+                                    <p className="text-xl font-extrabold tabular-nums leading-tight text-right break-all">₹{formatIndianCurrency(previousBalance.online)}</p>
                                 </div>
-                                <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
-                                    <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.totalBalLabel}</p>
-                                    <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(previousBalance.total)}</p>
+                                <div className="flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/30 bg-white/25 px-4 py-2.5 backdrop-blur-sm">
+                                    <p className="text-sm opacity-95 font-bold">{t.totalBalLabel}</p>
+                                    <p className="text-xl font-extrabold tabular-nums leading-tight text-right break-all">₹{formatIndianCurrency(previousBalance.total)}</p>
                                 </div>
                             </div>
                       </div>
 
                       {/* EXPENSE TRANSACTIONS */}
-                      <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-l-4 border-red-500">
-                          <div className="flex flex-wrap justify-between items-center gap-2 mb-2.5 sm:mb-4">
-                              <h2 className="text-sm sm:text-base md:text-xl font-extrabold tracking-wide uppercase text-red-700">
+                      <div ref={expenseTransactionsRef} className="scroll-mt-4 bg-white rounded-xl shadow-md px-4 py-5 border-l-4 border-red-500">
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                              <h2 className="text-lg font-extrabold tracking-wide uppercase text-red-700">
                                 {t.expenseTitle}
                               </h2>
                               <button 
                                   onClick={() => openTransactionModal('expense')}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold transition shadow-sm text-xs sm:text-sm"
+                                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm text-sm"
                               >
                                   {t.addExpenseBtn}
                               </button>
@@ -1729,15 +1927,15 @@ const FinancialApp: React.FC = () => {
 
                           {/* Portrait: compact cards — no horizontal scroll */}
                           <div className="lg:hidden space-y-1.5">
-                              {displayedTransactions.filter(tr => tr.type === 'expense').length === 0 ? (
-                                  <p className="py-4 text-center text-gray-500 text-sm">{t.noExpense}</p>
+                              {expenseTransactions.length === 0 ? (
+                                  <p className="py-8 text-center text-gray-500 text-base">{t.noExpense}</p>
                               ) : (
-                                  displayedTransactions.filter(tr => tr.type === 'expense').map(tr => (
-                                      <article key={tr.id} className="rounded-lg border border-red-100 bg-red-50/40 px-2.5 py-2">
+                                  expenseTransactions.map(tr => (
+                                      <article key={tr.id} className="rounded-xl border border-red-100 bg-red-50/40 px-3 py-3">
                                           <div className="flex items-center gap-2">
                                               <div className="min-w-0 flex-1">
                                                   <div className="flex items-baseline gap-1.5 min-w-0">
-                                                      <p className="text-sm font-bold text-slate-900 truncate">{getTranslated(tr.accountName) || '—'}</p>
+                                                      <p className="text-base font-bold text-slate-900 truncate">{getTranslated(tr.accountName) || '—'}</p>
                                                       <p className="text-[10px] font-semibold text-slate-400 tabular-nums shrink-0">{formatDisplayDate(tr.date)}</p>
                                                   </div>
                                                   <div className="flex flex-wrap items-center gap-1 mt-0.5">
@@ -1752,7 +1950,7 @@ const FinancialApp: React.FC = () => {
                                                       </span>
                                                   </div>
                                               </div>
-                                              <p className="shrink-0 text-sm font-extrabold text-red-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                                              <p className="shrink-0 text-base font-extrabold text-red-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
                                               <div className="flex shrink-0">
                                                   <button type="button" onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} className="text-blue-500 hover:bg-blue-50 p-1 rounded transition" title={t.editBtn}>
                                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
@@ -1765,7 +1963,7 @@ const FinancialApp: React.FC = () => {
                                       </article>
                                   ))
                               )}
-                              <div className="rounded-lg bg-red-50 border border-red-100 px-2.5 py-2 font-bold text-sm text-slate-800 flex items-center justify-between gap-2">
+                              <div className="rounded-xl bg-red-50 border border-red-100 px-3 py-3 font-bold text-base text-slate-800 flex items-center justify-between gap-2">
                                   <span>{t.expenseTotalLabel}</span>
                                   <span className="text-red-700 tabular-nums">₹{formatIndianCurrency(totalExpense)}</span>
                               </div>
@@ -1795,10 +1993,10 @@ const FinancialApp: React.FC = () => {
                                       </tr>
                                   </thead>
                                   <tbody>
-                                      {displayedTransactions.filter(tr => tr.type === 'expense').length === 0 && (
+                                      {expenseTransactions.length === 0 && (
                                           <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noExpense}</td></tr>
                                       )}
-                                      {displayedTransactions.filter(tr => tr.type === 'expense').map(tr => (
+                                      {expenseTransactions.map(tr => (
                                           <tr key={tr.id} className="border-b hover:bg-gray-50">
                                               <td className="px-3 py-3 text-sm text-gray-600 tabular-nums">{formatDisplayDate(tr.date)}</td>
                                               <td className="px-3 py-3 text-sm font-bold text-gray-800 truncate">{getTranslated(tr.accountName)}</td>
@@ -1840,14 +2038,14 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* INCOME TRANSACTIONS */}
-                      <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-l-4 border-green-500">
-                          <div className="flex flex-wrap justify-between items-center gap-2 mb-2.5 sm:mb-4">
-                              <h2 className="text-sm sm:text-base md:text-xl font-extrabold tracking-wide uppercase text-green-700">
+                      <div ref={incomeTransactionsRef} className="scroll-mt-4 bg-white rounded-xl shadow-md px-4 py-5 border-l-4 border-green-500">
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-4">
+                              <h2 className="text-lg font-extrabold tracking-wide uppercase text-green-700">
                                 {t.incomeTitle}
                               </h2>
                               <button 
                                   onClick={() => openTransactionModal('income')}
-                                  className="bg-green-500 hover:bg-green-600 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold transition shadow-sm text-xs sm:text-sm"
+                                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm text-sm"
                               >
                                   {t.addIncomeBtn}
                               </button>
@@ -1855,15 +2053,15 @@ const FinancialApp: React.FC = () => {
 
                           {/* Portrait: compact cards — no horizontal scroll */}
                           <div className="lg:hidden space-y-1.5">
-                              {displayedTransactions.filter(tr => tr.type === 'income').length === 0 ? (
-                                  <p className="py-4 text-center text-gray-500 text-sm">{t.noIncome}</p>
+                              {incomeTransactions.length === 0 ? (
+                                  <p className="py-8 text-center text-gray-500 text-base">{t.noIncome}</p>
                               ) : (
-                                  displayedTransactions.filter(tr => tr.type === 'income').map(tr => (
-                                      <article key={tr.id} className="rounded-lg border border-green-100 bg-green-50/40 px-2.5 py-2">
+                                  incomeTransactions.map(tr => (
+                                      <article key={tr.id} className="rounded-xl border border-green-100 bg-green-50/40 px-3 py-3">
                                           <div className="flex items-center gap-2">
                                               <div className="min-w-0 flex-1">
                                                   <div className="flex items-baseline gap-1.5 min-w-0">
-                                                      <p className="text-sm font-bold text-slate-900 truncate">{getTranslated(tr.accountName) || '—'}</p>
+                                                      <p className="text-base font-bold text-slate-900 truncate">{getTranslated(tr.accountName) || '—'}</p>
                                                       <p className="text-[10px] font-semibold text-slate-400 tabular-nums shrink-0">{formatDisplayDate(tr.date)}</p>
                                                   </div>
                                                   <div className="flex flex-wrap items-center gap-1 mt-0.5">
@@ -1878,7 +2076,7 @@ const FinancialApp: React.FC = () => {
                                                       </span>
                                                   </div>
                                               </div>
-                                              <p className="shrink-0 text-sm font-extrabold text-green-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                                              <p className="shrink-0 text-base font-extrabold text-green-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
                                               <div className="flex shrink-0">
                                                   <button type="button" onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} className="text-blue-500 hover:bg-blue-50 p-1 rounded transition" title={t.editBtn}>
                                                       <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
@@ -1891,7 +2089,7 @@ const FinancialApp: React.FC = () => {
                                       </article>
                                   ))
                               )}
-                              <div className="rounded-lg bg-green-50 border border-green-100 px-2.5 py-2 font-bold text-sm text-slate-800 flex items-center justify-between gap-2">
+                              <div className="rounded-xl bg-green-50 border border-green-100 px-3 py-3 font-bold text-base text-slate-800 flex items-center justify-between gap-2">
                                   <span>{t.incomeTotalLabel}</span>
                                   <span className="text-green-700 tabular-nums">₹{formatIndianCurrency(totalIncome)}</span>
                               </div>
@@ -1921,10 +2119,10 @@ const FinancialApp: React.FC = () => {
                                       </tr>
                                   </thead>
                                   <tbody>
-                                      {displayedTransactions.filter(tr => tr.type === 'income').length === 0 && (
+                                      {incomeTransactions.length === 0 && (
                                           <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-500">{t.noIncome}</td></tr>
                                       )}
-                                      {displayedTransactions.filter(tr => tr.type === 'income').map(tr => (
+                                      {incomeTransactions.map(tr => (
                                           <tr key={tr.id} className="border-b hover:bg-gray-50">
                                               <td className="px-3 py-3 text-sm text-gray-600 tabular-nums">{formatDisplayDate(tr.date)}</td>
                                               <td className="px-3 py-3 text-sm font-bold text-gray-800 truncate">{getTranslated(tr.accountName)}</td>
@@ -1966,40 +2164,40 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* FINAL BALANCE CARD */}
-                      <div className="w-full max-w-3xl mx-auto bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-md px-3 py-3 sm:px-5 sm:py-5 md:px-6 md:py-6 text-white">
-                          <h2 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-wider mb-2.5 sm:mb-4 text-center opacity-95">{t.finalBalanceTitle}</h2>
+                      <div ref={finalBalanceRef} className="scroll-mt-4 w-full max-w-3xl mx-auto bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-md px-4 py-5 text-white">
+                          <h2 className="text-base font-bold uppercase tracking-wider mb-4 text-center opacity-95">{t.finalBalanceTitle}</h2>
                           
-                          <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
-                              <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
-                                  <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.cashBalLabel}</p>
-                                  <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(finalCashBalance)}</p>
+                          <div className="grid grid-cols-1 gap-3">
+                              <div className="flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl bg-white/20 px-4 py-2.5 backdrop-blur-sm">
+                                  <p className="text-sm opacity-90 font-semibold">{t.cashBalLabel}</p>
+                                  <p className="text-xl font-extrabold tabular-nums leading-tight text-right break-all">₹{formatIndianCurrency(finalCashBalance)}</p>
                               </div>
-                              <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
-                                  <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.onlineBalLabel}</p>
-                                  <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(finalOnlineBalance)}</p>
+                              <div className="flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl bg-white/20 px-4 py-2.5 backdrop-blur-sm">
+                                  <p className="text-sm opacity-90 font-semibold">{t.onlineBalLabel}</p>
+                                  <p className="text-xl font-extrabold tabular-nums leading-tight text-right break-all">₹{formatIndianCurrency(finalOnlineBalance)}</p>
                               </div>
-                              <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0 border border-white/30">
-                                  <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.totalBalLabel}</p>
-                                  <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(finalTotalBalance)}</p>
+                              <div className="flex min-h-[3.25rem] w-full items-center justify-between gap-4 rounded-xl border border-white/30 bg-white/25 px-4 py-2.5 backdrop-blur-sm">
+                                  <p className="text-sm opacity-95 font-bold">{t.totalBalLabel}</p>
+                                  <p className="text-xl font-extrabold tabular-nums leading-tight text-right break-all">₹{formatIndianCurrency(finalTotalBalance)}</p>
                               </div>
                           </div>
                       </div>
 
                       {/* --- SUMMARY REPORT (STATS) SECTION --- */}
-                      <div ref={summaryReportRef} className="scroll-mt-4 bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-t-4 border-indigo-500">
-                          <h2 className="text-sm sm:text-base md:text-xl font-extrabold tracking-wide uppercase text-indigo-900 mb-2.5 sm:mb-4 md:mb-6">
+                      <div ref={summaryReportRef} className="scroll-mt-4 bg-white rounded-xl shadow-md px-4 py-5 border-t-4 border-indigo-500">
+                          <h2 className="text-lg font-extrabold tracking-wide uppercase text-indigo-900 mb-4">
                             {t.statsTitle}
                           </h2>
                           
-                          <div className="flex flex-col md:flex-row gap-2 sm:gap-4 mb-3 sm:mb-6 md:mb-8">
-                              <div className="w-full md:w-64">
+                          <div className="flex flex-col gap-3 mb-5">
+                              <div className="w-full">
                                   <DateInput 
                                       label={t.fromDateLabel}
                                       value={statsStartDate} 
                                       onChange={setStatsStartDate}
                                   />
                               </div>
-                              <div className="w-full md:w-64">
+                              <div className="w-full">
                                   <DateInput 
                                       label={t.toDateLabel}
                                       value={statsEndDate} 
@@ -2008,31 +2206,31 @@ const FinancialApp: React.FC = () => {
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 md:gap-6">
+                          <div className="grid grid-cols-2 gap-3">
                               {/* Total Expense */}
-                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-red-50 rounded-lg border border-red-100 shadow-sm">
-                                   <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-red-500 mb-0.5 sm:mb-1">{t.statsTotalExpense}</p>
-                                   <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.expense)}</p>
+                              <div className="px-3 py-4 bg-red-50 rounded-xl border border-red-100 shadow-sm">
+                                   <p className="text-xs uppercase tracking-wide font-bold text-red-500 mb-1">{t.statsTotalExpense}</p>
+                                   <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.expense)}</p>
                               </div>
                               {/* Labour Expense */}
-                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-orange-50 rounded-lg border border-orange-100 shadow-sm">
-                                   <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-orange-500 mb-0.5 sm:mb-1">{t.statsLabourExpense}</p>
-                                   <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.labour)}</p>
+                              <div className="px-3 py-4 bg-orange-50 rounded-xl border border-orange-100 shadow-sm">
+                                   <p className="text-xs uppercase tracking-wide font-bold text-orange-500 mb-1">{t.statsLabourExpense}</p>
+                                   <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.labour)}</p>
                               </div>
                               {/* Oil Expense */}
-                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-yellow-50 rounded-lg border border-yellow-100 shadow-sm">
-                                   <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-yellow-600 mb-0.5 sm:mb-1">{t.statsOilExpense}</p>
-                                   <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.oil)}</p>
+                              <div className="px-3 py-4 bg-yellow-50 rounded-xl border border-yellow-100 shadow-sm">
+                                   <p className="text-xs uppercase tracking-wide font-bold text-yellow-600 mb-1">{t.statsOilExpense}</p>
+                                   <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.oil)}</p>
                               </div>
                               {/* Thread Expense */}
-                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
-                                      <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-blue-600 mb-0.5 sm:mb-1">{t.statsElectricityExpense}</p>
-                                      <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.electricity)}</p>
+                              <div className="px-3 py-4 bg-blue-50 rounded-xl border border-blue-100 shadow-sm">
+                                      <p className="text-xs uppercase tracking-wide font-bold text-blue-600 mb-1">{t.statsElectricityExpense}</p>
+                                      <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.electricity)}</p>
                               </div>
                               {/* Machine Repair */}
-                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-teal-50 rounded-lg border border-teal-100 shadow-sm">
-                                      <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-teal-700 mb-0.5 sm:mb-1">{t.statsMachineRepairExpense}</p>
-                                      <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.machineRepair)}</p>
+                              <div className="px-3 py-4 bg-teal-50 rounded-xl border border-teal-100 shadow-sm">
+                                      <p className="text-xs uppercase tracking-wide font-bold text-teal-700 mb-1">{t.statsMachineRepairExpense}</p>
+                                      <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.machineRepair)}</p>
                               </div>
                           </div>
                       </div>
@@ -2040,58 +2238,64 @@ const FinancialApp: React.FC = () => {
               )}
 
               {activeTab === 'accounts' && (
-                  <AccountPageController 
-                      transactions={transactions}
-                      stockMovements={stockMovements}
-                      t={t}
-                      accounts={accounts}
-                      hiddenLedgerAccountNames={hiddenLedgerAccounts}
-                      removedAccounts={removedLedgerAccounts}
-                      onAddAccount={handleCreateAccount}
-                      onUpdateAccount={handleUpdateAccount}
-                      onOpenTransactionModal={openTransactionModal}
-                      getTranslated={getTranslated}
-                      // Pass granular handlers
-                      onToggleAttendance={handleToggleAttendance}
-                      onToggleHisaab={handleToggleHisaab}
-                      onAddAdjustment={handleAddAdjustment}
-                      onUpdateAdjustment={handleUpdateAdjustment}
-                      onDeleteAdjustment={handleDeleteAdjustment}
-                      onRenameAccount={handleRenameAccount}
-                      onDeleteAccount={handleDeleteAccount}
-                      onRestoreAccount={handleRestoreLedgerAccount}
-                      onDeleteRemovedAccount={handleDeleteRemovedLedgerAccount}
-                      onAddOwnerPreviousEntry={handleAddOwnerPreviousEntry}
-                      onUpdateOwnerPreviousEntry={handleUpdateOwnerPreviousEntry}
-                      onDeleteOwnerPreviousEntry={handleDeleteOwnerPreviousEntry}
-                  />
+                  <div className="flex min-h-[100dvh] flex-1 flex-col">
+                    <AccountPageController 
+                        transactions={transactions}
+                        stockMovements={stockMovements}
+                        t={t}
+                        accounts={accounts}
+                        hiddenLedgerAccountNames={hiddenLedgerAccounts}
+                        removedAccounts={removedLedgerAccounts}
+                        onAddAccount={handleCreateAccount}
+                        onUpdateAccount={handleUpdateAccount}
+                        onOpenTransactionModal={openTransactionModal}
+                        getTranslated={getTranslated}
+                        // Pass granular handlers
+                        onToggleAttendance={handleToggleAttendance}
+                        onToggleHisaab={handleToggleHisaab}
+                        onAddAdjustment={handleAddAdjustment}
+                        onUpdateAdjustment={handleUpdateAdjustment}
+                        onDeleteAdjustment={handleDeleteAdjustment}
+                        onRenameAccount={handleRenameAccount}
+                        onDeleteAccount={handleDeleteAccount}
+                        onRestoreAccount={handleRestoreLedgerAccount}
+                        onDeleteRemovedAccount={handleDeleteRemovedLedgerAccount}
+                        onAddOwnerPreviousEntry={handleAddOwnerPreviousEntry}
+                        onUpdateOwnerPreviousEntry={handleUpdateOwnerPreviousEntry}
+                        onDeleteOwnerPreviousEntry={handleDeleteOwnerPreviousEntry}
+                    />
+                  </div>
               )}
 
               {activeTab === 'stock' && (
-                  <StockPageController 
-                      t={t}
-                      language={language}
-                      stockMovements={stockMovements}
-                      transactions={transactions}
-                      accounts={accounts}
-                      onAddStockMovement={handleAddStockMovement}
-                      onUpdateStockMovement={handleUpdateStockMovement}
-                      onDeleteStockMovement={handleDeleteStockMovement}
-                      onAddTransaction={handleAddTransaction}
-                      onAddAccount={handleCreateAccount}
-                      onUpdateAccount={handleUpdateAccount}
-                      getTranslated={getTranslated}
-                  />
+                  <div className="min-h-[100dvh]">
+                    <StockPageController 
+                        t={t}
+                        language={language}
+                        stockMovements={stockMovements}
+                        transactions={transactions}
+                        accounts={accounts}
+                        onAddStockMovement={handleAddStockMovement}
+                        onUpdateStockMovement={handleUpdateStockMovement}
+                        onDeleteStockMovement={handleDeleteStockMovement}
+                        onAddTransaction={handleAddTransaction}
+                        onAddAccount={handleCreateAccount}
+                        onUpdateAccount={handleUpdateAccount}
+                        getTranslated={getTranslated}
+                    />
+                  </div>
               )}
 
               {activeTab === 'reports' && (
-                  <ReportsPageController 
-                      transactions={transactions}
-                      stockMovements={stockMovements}
-                      t={t}
-                      language={language}
-                      getTranslated={getTranslated}
-                  />
+                  <div className="min-h-[100dvh]">
+                    <ReportsPageController 
+                        transactions={transactions}
+                        stockMovements={stockMovements}
+                        t={t}
+                        language={language}
+                        getTranslated={getTranslated}
+                    />
+                  </div>
               )}
               </div>
           </main>
@@ -2201,9 +2405,13 @@ const FinancialApp: React.FC = () => {
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <AuthGuard>
-        <FinancialApp />
-      </AuthGuard>
+      <EscapeStackProvider>
+        <ConfirmProvider>
+          <AuthGuard>
+            <FinancialApp />
+          </AuthGuard>
+        </ConfirmProvider>
+      </EscapeStackProvider>
     </AuthProvider>
   );
 };

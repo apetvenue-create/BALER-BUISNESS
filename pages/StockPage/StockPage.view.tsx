@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Translation, StockMovement, StoredAccount } from '../../types';
 import { formatIndianCurrency, formatDisplayDate } from '../../utils';
 import { DateInput } from '../../components/DateInput';
+import { ESCAPE_PRIORITY, useEscapeLayer } from '../../components/EscapeStack';
 
 interface StockPageViewProps {
   t: Translation;
@@ -124,6 +125,19 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
       setEditErrors('');
   };
 
+  useEscapeLayer(
+    'stock-edit-modal',
+    closeEditModal,
+    !!editingMovement,
+    ESCAPE_PRIORITY.modal
+  );
+  useEscapeLayer(
+    'stock-history-modal',
+    () => setShowHistoryModal(false),
+    showHistoryModal,
+    ESCAPE_PRIORITY.modal
+  );
+
   const validateEdit = (): boolean => {
       const qtyNum = parseFloat(editQty);
       if (isNaN(qtyNum) || qtyNum <= 0) {
@@ -138,7 +152,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
       if (!validateEdit()) return;
       
       const qtyNum = parseFloat(editQty);
-      const qtyKg = qtyNum * 100;
+      const qtyKg = Math.round(qtyNum * 100);
       let totalAmount = 0;
       let rate = 0;
 
@@ -180,7 +194,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
       if (!saved) return;
       setDispatchErrors({});
       setDispatchSuccess(true);
-      window.setTimeout(() => setDispatchSuccess(false), 1600);
+      window.setTimeout(() => setDispatchSuccess(false), 350);
   };
 
   const handleAdjustClick = (type: 'add' | 'sub') => {
@@ -190,7 +204,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
           return;
       }
       if (type === 'sub') {
-          const qtyKg = qty * 100;
+          const qtyKg = Math.round(qty * 100);
           if (currentStockKg < qtyKg) {
               setAdjustErrors(t.alertInsufficientStock);
               return;
@@ -204,7 +218,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
   // -- HISTORY CALCULATION HELPER --
   // Calculate Previous Stock dynamically for the Modal View
-  const getLedgerData = () => {
+  const ledgerData = useMemo(() => {
       const sorted = [...stockMovements].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.id - b.id);
       
       return sorted.map(m => {
@@ -219,7 +233,9 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
               isAdd
           };
       });
-  };
+  }, [stockMovements]);
+
+  const getLedgerData = () => ledgerData;
 
 
   return (
@@ -229,45 +245,45 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
        <div className="animate-fade-in space-y-3 sm:space-y-6">
             
             {/* SECTION 1: CURRENT STOCK DASHBOARD */}
-            <div className={`rounded-lg shadow-md px-3 py-3 sm:p-6 border-l-4 sm:border-l-8 ${isLowStock ? 'bg-red-50 border-red-500' : 'bg-white border-blue-500'}`}>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div className={`rounded-xl shadow-md px-4 py-5 border-l-8 ${isLowStock ? 'bg-red-50 border-red-500' : 'bg-white border-blue-500'}`}>
+                <div className="flex flex-col justify-between items-start gap-5">
                     <div className="min-w-0">
-                        <h2 className="text-[11px] sm:text-sm text-gray-500 font-bold uppercase tracking-wider mb-0.5 sm:mb-1">{t.currentStockTitle}</h2>
-                        <div className="flex items-baseline gap-1.5 sm:gap-2">
-                            <span className="text-xl sm:text-4xl md:text-5xl font-extrabold text-gray-900 tabular-nums">
+                        <h2 className="text-sm text-gray-500 font-bold uppercase tracking-wider mb-1">{t.currentStockTitle}</h2>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-4xl font-extrabold text-gray-900 tabular-nums">
                                 {displayStock.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </span>
-                            <span className="text-xs sm:text-xl font-bold text-gray-500">{t.unitQuintal}</span>
+                            <span className="text-xl font-bold text-gray-500">{t.unitQuintal}</span>
                         </div>
-                        <div className="mt-2 sm:mt-3">
+                        <div className="mt-3">
                             <button 
                                 onClick={() => setShowHistoryModal(true)}
-                                className="text-xs sm:text-sm font-bold text-blue-600 hover:bg-blue-50 px-2 py-0.5 sm:px-2 sm:py-1 rounded border border-blue-200 shadow-sm transition flex items-center gap-1"
+                                className="text-sm font-bold text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg border border-blue-200 shadow-sm transition flex items-center gap-1.5"
                             >
                                 {t.viewHistoryBtn}
                             </button>
                         </div>
 
                         {/* TOTAL SALES SMALL SECTION */}
-                        <div className="mt-2 sm:mt-4 pt-1.5 sm:pt-2 border-t border-dashed border-gray-200 inline-block min-w-[100px]">
-                             <p className="text-[9px] sm:text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">{t.totalSalesValue}</p>
-                             <p className="text-sm sm:text-base font-bold text-green-600 tabular-nums">
+                        <div className="mt-4 pt-3 border-t border-dashed border-gray-200 inline-block min-w-[150px]">
+                             <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-1">{t.totalSalesValue}</p>
+                             <p className="text-xl font-bold text-green-600 tabular-nums">
                                 ₹{formatIndianCurrency(totalSalesAmount)}
                              </p>
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-stretch md:items-end gap-2 sm:gap-4 mt-2 md:mt-0 w-full md:w-auto md:min-w-[280px] lg:min-w-[320px]">
+                    <div className="flex flex-col items-stretch gap-4 w-full">
                         {/* Manual Adjust */}
-                        <div className="w-full rounded-lg sm:rounded-2xl border border-slate-200 bg-white p-2.5 sm:p-5 shadow-sm">
-                            <label className="block text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        <div className="w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                                 {t.quantityLabel}
                             </label>
-                            <div className="relative mb-2.5 sm:mb-4">
+                            <div className="relative mb-4">
                                 <input
                                     type="number"
                                     placeholder="0.00"
-                                    className={`w-full px-2.5 py-2 sm:px-4 sm:py-3.5 pr-14 sm:pr-20 rounded-lg sm:rounded-xl border text-sm sm:text-lg font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
+                                    className={`w-full px-4 py-3.5 pr-20 rounded-xl border text-lg font-semibold text-slate-900 focus:outline-none focus:ring-2 transition ${
                                         adjustErrors
                                             ? 'border-red-400 ring-1 ring-red-400'
                                             : 'border-slate-200 focus:ring-blue-400/40 focus:border-blue-400'
@@ -275,16 +291,16 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                     value={adjustQty}
                                     onChange={(e) => { setAdjustQty(e.target.value); setAdjustErrors(''); }}
                                 />
-                                <span className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-slate-500 bg-slate-100 px-1.5 sm:px-2.5 py-0.5 sm:py-1 rounded-md">
+                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-wide text-slate-500 bg-slate-100 px-2.5 py-1 rounded-md">
                                     {t.unitQuintal}
                                 </span>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                            <div className="grid grid-cols-2 gap-3">
                                 <button
                                     type="button"
                                     onClick={() => handleAdjustClick('add')}
-                                    className="bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 sm:py-3 rounded-lg sm:rounded-xl shadow-sm font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1"
+                                    className="bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl shadow-sm font-bold text-sm transition flex items-center justify-center gap-1"
                                 >
                                     <span className="text-sm leading-none">+</span>
                                     {t.addStockBtn.replace(/^\+\s*/, '')}
@@ -292,7 +308,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                 <button
                                     type="button"
                                     onClick={() => handleAdjustClick('sub')}
-                                    className="bg-rose-600 hover:bg-rose-700 text-white py-1.5 sm:py-3 rounded-lg sm:rounded-xl shadow-sm font-bold text-xs sm:text-sm transition flex items-center justify-center gap-1"
+                                    className="bg-rose-600 hover:bg-rose-700 text-white py-3 rounded-xl shadow-sm font-bold text-sm transition flex items-center justify-center gap-1"
                                 >
                                     <span className="text-sm leading-none">−</span>
                                     {t.subtractStockBtn.replace(/^-\s*/, '')}
@@ -307,9 +323,9 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
             </div>
 
             {/* SECTION 2: DISPATCH FORM */}
-            <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-6 border-t-4 border-orange-500">
-                <h3 className="text-sm sm:text-lg md:text-xl font-bold text-gray-800 mb-2 sm:mb-4 md:mb-6">{t.dispatchTitle}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-4 md:gap-6">
+            <div className="bg-white rounded-xl shadow-md px-4 py-5 border-t-4 border-orange-500">
+                <h3 className="text-lg font-bold text-gray-800 mb-5">{t.dispatchTitle}</h3>
+                <div className="grid grid-cols-2 gap-4">
                     {/* Date */}
                     <div className="col-span-2 md:col-span-1">
                         <DateInput 
@@ -321,11 +337,11 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
                     {/* Customer */}
                     <div className="col-span-2 md:col-span-1">
-                        <label className="block text-xs sm:text-sm font-semibold text-gray-600 mb-0.5 sm:mb-1">{t.tabCustomers}</label>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">{t.tabCustomers}</label>
                         <select
                             value={selectedCustomer}
                             onChange={e => { setSelectedCustomer(e.target.value); setDispatchErrors(prev => ({...prev, customer: ''})); }}
-                            className={`w-full border rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:outline-none text-sm sm:text-base ${dispatchErrors.customer ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}
+                            className={`w-full border rounded-xl px-4 py-3 focus:ring-2 focus:outline-none text-base ${dispatchErrors.customer ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}
                         >
                              <option value="">{t.selectAccountPlaceholder}</option>
                              {customerAccounts.map(acc => (
@@ -338,25 +354,25 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
                     {/* Vehicle */}
                     <div>
-                        <label className="block text-xs sm:text-sm font-semibold text-gray-600 mb-0.5 sm:mb-1">{t.vehicleNoLabel}</label>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">{t.vehicleNoLabel}</label>
                         <input 
                             type="text"
                             placeholder="HR-55-..."
                             value={vehicleNumber}
                             onChange={e => setVehicleNumber(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-orange-500 focus:outline-none uppercase text-sm sm:text-base"
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:outline-none uppercase text-base"
                         />
                     </div>
 
                     {/* Quantity */}
                     <div>
-                        <label className="block text-xs sm:text-sm font-semibold text-gray-600 mb-0.5 sm:mb-1">{t.quantityLabel} ({t.unitQuintal})</label>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">{t.quantityLabel} ({t.unitQuintal})</label>
                         <input 
                             type="number"
                             placeholder="0.00"
                             value={dispatchQty}
                             onChange={e => { setDispatchQty(e.target.value); setDispatchErrors(prev => ({...prev, qty: ''})); }}
-                            className={`w-full border rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:outline-none font-mono text-sm sm:text-lg ${dispatchErrors.qty ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}
+                            className={`w-full border rounded-xl px-4 py-3 focus:ring-2 focus:outline-none font-mono text-lg ${dispatchErrors.qty ? 'border-red-500 ring-red-500' : 'border-gray-300 focus:ring-orange-500'}`}
                         />
                         {dispatchErrors.qty && <p className="text-red-500 text-[11px] sm:text-xs mt-0.5">{dispatchErrors.qty}</p>}
 
@@ -364,21 +380,21 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
                     {/* Rate */}
                     <div>
-                        <label className="block text-xs sm:text-sm font-semibold text-gray-600 mb-0.5 sm:mb-1">{t.rateLabel}</label>
+                        <label className="block text-sm font-semibold text-gray-600 mb-1">{t.rateLabel}</label>
                         <input 
                             type="number"
                             placeholder="0"
                             value={ratePerQuintal}
                             onChange={e => setRatePerQuintal(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 focus:ring-2 focus:ring-orange-500 focus:outline-none font-mono text-sm sm:text-lg"
+                            className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:outline-none font-mono text-lg"
                         />
                     </div>
 
                     {/* Total & Action */}
                     <div className="col-span-2 md:col-span-1 flex flex-col justify-end">
-                         <div className="mb-1.5 sm:mb-2 flex justify-between items-baseline gap-2">
-                             <span className="text-xs sm:text-sm font-bold text-gray-500">{t.totalPriceLabel}</span>
-                             <span className="text-sm sm:text-xl font-bold text-green-600 tabular-nums">₹{formatIndianCurrency(dispatchTotalPrice)}</span>
+                         <div className="mb-3 flex justify-between items-baseline gap-2">
+                             <span className="text-sm font-bold text-gray-500">{t.totalPriceLabel}</span>
+                             <span className="text-xl font-bold text-green-600 tabular-nums">₹{formatIndianCurrency(dispatchTotalPrice)}</span>
                          </div>
                          {(dispatchErrors.customer || dispatchErrors.qty) && (
                              <p className="text-red-500 text-[11px] sm:text-xs font-semibold mb-1.5 text-center">
@@ -389,7 +405,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                              type="button"
                              onClick={handleDispatchClick}
                              disabled={dispatchSuccess}
-                             className={`w-full text-white font-bold py-2 sm:py-2.5 rounded-lg shadow transition active:transform active:scale-95 disabled:cursor-default text-sm sm:text-base ${
+                             className={`w-full text-white font-bold py-3 rounded-xl shadow transition active:transform active:scale-95 disabled:cursor-default text-base ${
                                  dispatchSuccess
                                      ? 'bg-emerald-600 hover:bg-emerald-600'
                                      : 'bg-orange-600 hover:bg-orange-700'
@@ -402,10 +418,10 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
             </div>
 
             {/* SECTION 3: HISTORY */}
-            <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-6 sm:mb-10">
-                <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-6 py-2.5 sm:py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-                    <span className="hidden sm:block w-1.5 h-7 rounded-full bg-blue-500 shrink-0" aria-hidden />
-                    <h3 className="text-sm sm:text-lg md:text-xl font-extrabold text-slate-900 tracking-tight">
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden mb-10">
+                <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
+                    <span className="block w-1.5 h-7 rounded-full bg-blue-500 shrink-0" aria-hidden />
+                    <h3 className="text-lg font-extrabold text-slate-900 tracking-tight">
                         {t.stockHistoryTitle}
                     </h3>
                 </div>
@@ -413,18 +429,18 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                 {/* Portrait / mobile: equal-field cards */}
                 <div className="md:hidden divide-y divide-slate-100">
                     {stockMovements.length === 0 ? (
-                        <p className="px-3 py-8 text-center text-slate-400 text-sm font-semibold">{t.noRecords}</p>
+                        <p className="px-4 py-12 text-center text-slate-400 text-base font-semibold">{t.noRecords}</p>
                     ) : (
                         [...stockMovements].reverse().map(move => {
                             const isOut = move.type === 'out' || move.type === 'adjust_sub';
                             return (
-                                <article key={move.id} className="px-2.5 py-2.5 sm:p-4 space-y-2">
+                                <article key={move.id} className="p-4 space-y-3">
                                     <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0">
-                                            <p className="text-sm font-bold text-slate-900 truncate">
+                                            <p className="text-base font-bold text-slate-900 truncate">
                                                 {getTranslated(move.accountName || move.note) || '—'}
                                             </p>
-                                            <p className="text-[10px] sm:text-sm font-semibold text-slate-500 mt-0.5 tabular-nums">
+                                            <p className="text-sm font-semibold text-slate-500 mt-1 tabular-nums">
                                                 {formatDisplayDate(move.date)}
                                             </p>
                                         </div>
@@ -432,7 +448,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={() => openEditModal(move)}
-                                                className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 w-8 h-8 rounded-lg flex items-center justify-center transition border border-slate-200 text-sm font-bold"
+                                                className="text-slate-500 hover:text-blue-600 hover:bg-blue-50 w-10 h-10 rounded-xl flex items-center justify-center transition border border-slate-200 text-base font-bold"
                                                 aria-label={t.updateBtn}
                                             >
                                                 ✎
@@ -440,36 +456,36 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                                             <button
                                                 type="button"
                                                 onClick={() => onDeleteStockMovement(move.id)}
-                                                className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 w-8 h-8 rounded-lg flex items-center justify-center transition border border-slate-200 text-sm font-bold"
+                                                className="text-slate-500 hover:text-rose-600 hover:bg-rose-50 w-10 h-10 rounded-xl flex items-center justify-center transition border border-slate-200 text-base font-bold"
                                                 aria-label={t.cancelBtn}
                                             >
                                                 ✕
                                             </button>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-1.5 sm:gap-2.5">
-                                        <div className="rounded-lg sm:rounded-xl bg-slate-50 border border-slate-100 px-2 py-2 sm:px-3.5 sm:py-3">
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{t.colGadi}</p>
-                                            <p className="text-xs sm:text-base font-bold text-slate-800 uppercase truncate">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{t.colGadi}</p>
+                                            <p className="text-base font-bold text-slate-800 uppercase truncate">
                                                 {move.vehicleNumber || '—'}
                                             </p>
                                         </div>
-                                        <div className="rounded-lg sm:rounded-xl bg-slate-50 border border-slate-100 px-2 py-2 sm:px-3.5 sm:py-3">
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{t.colQty}</p>
-                                            <p className={`text-xs sm:text-base font-extrabold font-mono tabular-nums ${isOut ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{t.colQty}</p>
+                                            <p className={`text-base font-extrabold font-mono tabular-nums ${isOut ? 'text-rose-600' : 'text-emerald-600'}`}>
                                                 {isOut ? '−' : '+'}{(move.quantityKg / 100).toFixed(2)}{' '}
                                                 <span className="text-slate-400 font-sans text-[10px] font-bold">{t.unitQuintal}</span>
                                             </p>
                                         </div>
-                                        <div className="rounded-lg sm:rounded-xl bg-slate-50 border border-slate-100 px-2 py-2 sm:px-3.5 sm:py-3">
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{t.colRate}</p>
-                                            <p className="text-xs sm:text-base font-bold text-slate-800 tabular-nums">
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{t.colRate}</p>
+                                            <p className="text-base font-bold text-slate-800 tabular-nums">
                                                 {move.ratePerQuintal ? `₹${move.ratePerQuintal}` : '—'}
                                             </p>
                                         </div>
-                                        <div className="rounded-lg sm:rounded-xl bg-slate-50 border border-slate-100 px-2 py-2 sm:px-3.5 sm:py-3">
-                                            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">{t.totalPriceLabel}</p>
-                                            <p className="text-xs sm:text-base font-extrabold text-slate-900 tabular-nums">
+                                        <div className="rounded-xl bg-slate-50 border border-slate-100 px-3.5 py-3">
+                                            <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-1">{t.totalPriceLabel}</p>
+                                            <p className="text-base font-extrabold text-slate-900 tabular-nums">
                                                 {move.totalAmount ? `₹${formatIndianCurrency(move.totalAmount)}` : '—'}
                                             </p>
                                         </div>
@@ -686,17 +702,17 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
        {/* DETAILED HISTORY MODAL */}
        {showHistoryModal && (
-           <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2 sm:p-4">
-               <div className="bg-white rounded-lg p-3 sm:p-6 w-full max-w-4xl shadow-2xl h-[88vh] sm:h-[80vh] flex flex-col animate-fade-in">
-                   <div className="flex justify-between items-center mb-2 sm:mb-4 border-b pb-2 gap-2">
-                       <h3 className="text-sm sm:text-lg md:text-2xl font-bold text-gray-800 truncate">{t.historyModalTitle}</h3>
+           <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2">
+               <div className="bg-white rounded-xl p-4 w-full max-w-4xl shadow-2xl h-[92vh] flex flex-col animate-fade-in">
+                   <div className="flex justify-between items-center mb-4 border-b pb-3 gap-2">
+                       <h3 className="text-lg font-bold text-gray-800 truncate">{t.historyModalTitle}</h3>
                        <div className="flex gap-2 shrink-0">
-                           <button onClick={onDownloadPdf} className="text-gray-600 hover:text-black flex items-center gap-1 text-xs sm:text-sm font-bold bg-gray-100 px-2 py-1 sm:px-3 rounded">
+                           <button onClick={onDownloadPdf} className="text-gray-600 hover:text-black flex items-center gap-1 text-sm font-bold bg-gray-100 px-3 py-2 rounded-lg">
                                📄 PDF
                            </button>
                            <button 
                               onClick={() => setShowHistoryModal(false)}
-                              className="text-gray-500 hover:text-gray-700 text-xl sm:text-2xl font-bold px-1.5 sm:px-2"
+                              className="text-gray-500 hover:text-gray-700 text-2xl font-bold px-2"
                            >
                               ✕
                            </button>
@@ -707,38 +723,38 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
                         {/* Mobile cards */}
                         <div className="md:hidden divide-y divide-gray-100">
                             {getLedgerData().length === 0 ? (
-                                <p className="p-6 text-center text-gray-400 text-sm">{t.noRecords}</p>
+                                <p className="p-10 text-center text-gray-400 text-base">{t.noRecords}</p>
                             ) : (
                                 getLedgerData().reverse().map((row) => (
-                                    <article key={row.id} className="px-2.5 py-2.5 space-y-1.5">
+                                    <article key={row.id} className="px-3 py-4 space-y-3">
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0">
-                                                <p className="text-sm font-bold text-gray-800">
+                                                <p className="text-base font-bold text-gray-800">
                                                     {row.type === 'out'
                                                         ? t.dispatchTypeLabel
                                                         : (row.type === 'adjust_add' ? t.stockAdded : t.stockSubtracted)}
                                                 </p>
-                                                <p className="text-[10px] text-gray-500 truncate">
+                                                <p className="text-xs text-gray-500 truncate mt-1">
                                                     {getTranslated(row.accountName ? row.accountName : row.note)}
                                                     {row.vehicleNumber && ` (${row.vehicleNumber})`}
                                                 </p>
                                             </div>
-                                            <p className="text-[10px] font-semibold text-gray-500 tabular-nums shrink-0">{formatDisplayDate(row.date)}</p>
+                                            <p className="text-xs font-semibold text-gray-500 tabular-nums shrink-0">{formatDisplayDate(row.date)}</p>
                                         </div>
-                                        <div className="grid grid-cols-3 gap-1.5 text-center">
-                                            <div className="rounded-lg bg-gray-50 px-1.5 py-1.5">
-                                                <p className="text-[9px] font-bold uppercase text-gray-400">{t.colPrevStock}</p>
-                                                <p className="text-xs font-mono font-bold text-gray-700">{(row.prevStockKg / 100).toFixed(2)}</p>
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div className="rounded-xl bg-gray-50 px-2 py-3">
+                                                <p className="text-[10px] font-bold uppercase text-gray-400">{t.colPrevStock}</p>
+                                                <p className="text-base font-mono font-bold text-gray-700 mt-1">{(row.prevStockKg / 100).toFixed(2)}</p>
                                             </div>
-                                            <div className="rounded-lg bg-gray-50 px-1.5 py-1.5">
-                                                <p className="text-[9px] font-bold uppercase text-gray-400">{t.colChange}</p>
-                                                <p className={`text-xs font-mono font-bold ${row.isAdd ? 'text-green-600' : 'text-red-600'}`}>
+                                            <div className="rounded-xl bg-gray-50 px-2 py-3">
+                                                <p className="text-[10px] font-bold uppercase text-gray-400">{t.colChange}</p>
+                                                <p className={`text-base font-mono font-bold mt-1 ${row.isAdd ? 'text-green-600' : 'text-red-600'}`}>
                                                     {row.isAdd ? '+' : '-'} {(row.quantityKg / 100).toFixed(2)}
                                                 </p>
                                             </div>
-                                            <div className="rounded-lg bg-blue-50 px-1.5 py-1.5">
-                                                <p className="text-[9px] font-bold uppercase text-blue-400">{t.colNewStock}</p>
-                                                <p className="text-xs font-mono font-bold text-blue-700">{(row.remainingStockKg / 100).toFixed(2)}</p>
+                                            <div className="rounded-xl bg-blue-50 px-2 py-3">
+                                                <p className="text-[10px] font-bold uppercase text-blue-400">{t.colNewStock}</p>
+                                                <p className="text-base font-mono font-bold text-blue-700 mt-1">{(row.remainingStockKg / 100).toFixed(2)}</p>
                                             </div>
                                         </div>
                                     </article>

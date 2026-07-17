@@ -75,7 +75,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
       const qty = parseFloat(adjustQty);
       if (isNaN(qty) || qty <= 0) return; // Validation handled in View
 
-      const qtyKg = qty * 100;
+      const qtyKg = Math.round(qty * 100);
       
       const newMovement: StockMovement = {
           id: Date.now(),
@@ -93,7 +93,7 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
       const qty = parseFloat(adjustQty);
       if (isNaN(qty) || qty <= 0) return; // Validation handled in View
 
-      const qtyKg = qty * 100;
+      const qtyKg = Math.round(qty * 100);
       // Insufficient stock check handled in view, but extra safety:
       if (currentStockKg < qtyKg) return;
 
@@ -113,15 +113,15 @@ export const StockPageController: React.FC<StockPageControllerProps> = ({
   const dispatchTotalKg = useMemo(() => {
       const q = parseFloat(dispatchQty);
       if (isNaN(q)) return 0;
-      return q * 100;
+      return Math.round(q * 100);
   }, [dispatchQty]);
 
   const dispatchTotalPrice = useMemo(() => {
       const r = parseFloat(ratePerQuintal);
       if (isNaN(r) || dispatchTotalKg === 0) return 0;
-      // Rate is ALWAYS per Quintal
+      // Rate is ALWAYS per Quintal — round to whole rupees for cashbook accuracy
       const weightInQuintal = dispatchTotalKg / 100;
-      return weightInQuintal * r;
+      return Math.round(weightInQuintal * r);
   }, [dispatchTotalKg, ratePerQuintal]);
 
   const handleDispatch = (): boolean => {

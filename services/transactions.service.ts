@@ -90,10 +90,14 @@ export const TransactionService = {
         const expenseRow = (existing || []).find(
           (r: any) => r.type === 'expense' && r.payment_type === t.paymentType
         );
+        const incomeRow = (existing || []).find(
+          (r: any) => r.type === 'income' && r.payment_type === 'cash'
+        );
         return {
           ...t,
-          id: Number(expenseRow?.id ?? (existing || [])[0]?.id)
-        };
+          id: Number(expenseRow?.id ?? (existing || [])[0]?.id),
+          pairedIncomeId: incomeRow ? Number(incomeRow.id) : undefined
+        } as Transaction & { pairedIncomeId?: number };
       }
       
       // 1. Expense Record (Money Leaving Online/Bank)
@@ -129,13 +133,17 @@ export const TransactionService = {
           .select();
 
       if (error) throw error;
-      
-      // Return the first one (Expense) to satisfy the frontend single-return expectation immediately,
-      // though the UI will refresh the whole list anyway.
+
+      const expenseRow = (data || []).find((r: any) => r.type === 'expense') || data?.[0];
+      const incomeRow = (data || []).find((r: any) => r.type === 'income') || data?.[1];
+
+      // Return expense id + paired income id so the UI can patch optimistic rows
+      // without a full list refetch.
       return {
           ...t,
-          id: Number(data[0].id)
-      };
+          id: Number(expenseRow.id),
+          pairedIncomeId: incomeRow ? Number(incomeRow.id) : undefined
+      } as Transaction & { pairedIncomeId?: number };
     }
 
     // --- Standard Single Transaction ---

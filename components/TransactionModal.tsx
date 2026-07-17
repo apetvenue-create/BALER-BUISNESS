@@ -2,8 +2,9 @@
 
 import React, { useRef, useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, Translation, StoredAccount } from '../types';
-import { formatInputCurrency, parseCurrency } from '../utils';
+import { formatInputCurrency, parseCurrency, normalizeAccountName } from '../utils';
 import { DateInput } from './DateInput';
+import { ESCAPE_PRIORITY, useEscapeLayer } from './EscapeStack';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -31,6 +32,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 }) => {
   const formRef = useRef<HTMLFormElement | null>(null);
   const isSubmittingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+  const hasMobileBackEntryRef = useRef(false);
+  const mobileBackMarkerRef = useRef(
+    `transaction-modal-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
   const [category, setCategory] = useState<string>('');
   const [accountName, setAccountName] = useState<string>('');
   const [details, setDetails] = useState<string>('');
@@ -46,6 +52,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   // Flag for Cash Conversion
   const isCashConversion = category === 'cash_conversion';
+
+  onCloseRef.current = onClose;
+
+  const closeModal = () => {
+    if (
+      hasMobileBackEntryRef.current &&
+      window.history.state?.transactionModalMarker === mobileBackMarkerRef.current
+    ) {
+      hasMobileBackEntryRef.current = false;
+      window.history.back();
+    }
+    onCloseRef.current();
+  };
 
   // Derived: Filter accounts based on selected category
   const filteredAccounts = useMemo(() => {
@@ -98,6 +117,29 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   }, [isOpen, initialData, mode, defaultCategory, defaultAccountName]);
 
+  // Android back gesture / browser Back closes the modal instead of leaving the app.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    window.history.pushState(
+      {
+        ...window.history.state,
+        transactionModalMarker: mobileBackMarkerRef.current,
+      },
+      ''
+    );
+    hasMobileBackEntryRef.current = true;
+
+    const onPopState = () => {
+      if (!hasMobileBackEntryRef.current) return;
+      hasMobileBackEntryRef.current = false;
+      onCloseRef.current();
+    };
+
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [isOpen]);
+
   // Effect to handle Cash Conversion Logic
   useEffect(() => {
     if (isCashConversion) {
@@ -127,6 +169,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     window.addEventListener('keydown', onKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true });
   }, [isOpen]);
+
+  useEscapeLayer('transaction-modal', closeModal, isOpen, ESCAPE_PRIORITY.modal);
 
   if (!isOpen) return null;
 
@@ -178,13 +222,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     onSubmit({
       type: mode,
       category: normalizedCategory,
-      accountName: accountName.trim(), 
+      accountName: accountName ? normalizeAccountName(accountName) : accountName.trim(), 
       details: normalizedDetails,
       amount: parseCurrency(amountStr),
       paymentType: paymentType as any,
       date,
     });
-    onClose();
+    closeModal();
   };
 
   const handleAccountChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -217,7 +261,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       <div className="bg-white rounded-lg w-full max-w-md shadow-xl transform transition-all relative max-h-[92vh] overflow-y-auto">
         <button
           type="button"
-          onClick={onClose}
+          onClick={closeModal}
           className="absolute top-2 right-2 sm:top-3 sm:right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center transition font-extrabold"
           aria-label={t.cancelBtn}
           title={t.cancelBtn}
@@ -314,11 +358,11 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               type="text"
                               value={accountName}
                               onChange={e => {
-                                  setAccountName(e.target.value);
+                                  setAccountName(e.target.value.toUpperCase());
                                   if (errors.accountName) setErrors(prev => ({...prev, accountName: ''}));
                               }}
                               placeholder={t.enterAccountName}
-                              className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+                              className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border rounded-lg uppercase focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
                           />
                           {errors.accountName && <p className="text-red-500 text-xs mt-1">{errors.accountName}</p>}
                       </div>

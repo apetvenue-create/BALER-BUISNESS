@@ -2,9 +2,11 @@
 import React, { useRef, useState, useMemo, useEffect, useCallback } from 'react';
 import { Transaction, Translation, AccountTab, PartnerSummary, LabourSummary, StoredAccount, AccountType, LabourLedgerItem, StockMovement, CustomerSummary, CustomerLedgerItem, SupplierSummary, SupplierLedgerItem, TransactionType, Language, ManualAdjustment, OwnerPreviousEntry, AccountOnlyLedgerEntry, FarmerProfileDetails } from '../../types';
 import { AccountPageView } from './AccountPage.view';
-import { formatMonthYear, formatISODateLocal } from '../../utils';
+import { formatMonthYear, formatISODateLocal, normalizeAccountName } from '../../utils';
 import { PDFGenerator } from '../../services/pdfGenerator';
 import { SettingsService } from '../../services/settings.service';
+import { useConfirm } from '../../components/ConfirmDialog';
+import { ESCAPE_PRIORITY, useEscapeLayer } from '../../components/EscapeStack';
 
 interface AccountPageControllerProps {
   transactions: Transaction[];
@@ -63,6 +65,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   onUpdateOwnerPreviousEntry,
   onDeleteOwnerPreviousEntry
 }) => {
+  const confirm = useConfirm();
   const [activeTab, setActiveTab] = useState<AccountTab>(initialTab);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAccountName, setSelectedAccountName] = useState<string | null>(null);
@@ -74,19 +77,16 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
     selectedAccountNameRef.current = selectedAccountName;
   }, [selectedAccountName]);
 
-  // Esc (laptop): go back from detail view to list
-  useEffect(() => {
-    if (!selectedAccountName && !isCreatingFarmer) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setSelectedAccountName(null);
-        setIsCreatingFarmer(false);
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedAccountName, isCreatingFarmer]);
+  // Esc / layered stack: leave account detail and return to accounts list
+  useEscapeLayer(
+    'account-detail',
+    () => {
+      setSelectedAccountName(null);
+      setIsCreatingFarmer(false);
+    },
+    !!(selectedAccountName || isCreatingFarmer),
+    ESCAPE_PRIORITY.detail
+  );
 
   // Mobile back button (browser back): go back from detail view to list
   useEffect(() => {
@@ -144,6 +144,16 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   const [newFarmerDateCutter, setNewFarmerDateCutter] = useState('');
   const [newLabourPhone, setNewLabourPhone] = useState('');
   const [newCustomerPhone, setNewCustomerPhone] = useState('');
+
+  useEscapeLayer(
+    'account-add-modal',
+    () => {
+      setIsAddModalOpen(false);
+      setNewAccountName('');
+    },
+    isAddModalOpen,
+    ESCAPE_PRIORITY.modal
+  );
 
   const isLegacyWageAdjustment = (note?: string) => note?.trim().toLowerCase() === 'wage';
   const [accountOrder, setAccountOrder] = useState<Record<string, number>>({});
@@ -712,7 +722,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
                   phone: newCustomerPhone.replace(/\D/g, '').slice(0, 10) || undefined,
                 }
               : undefined;
-          onAddAccount(newAccountName.trim(), activeTab, parseFloat(newAccountRate) || 0, farmerDetails);
+          onAddAccount(normalizeAccountName(newAccountName), activeTab, parseFloat(newAccountRate) || 0, farmerDetails);
           setIsAddModalOpen(false);
           setNewAccountName('');
           setNewAccountRate('400');
@@ -805,7 +815,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   };
 
   const handleUpdateLabourProfile = (oldName: string, newName: string, phone: string) => {
-      const trimmedName = newName.trim();
+      const trimmedName = normalizeAccountName(newName);
       if (!trimmedName) return;
       const digits = phone.replace(/\D/g, '').slice(0, 10);
       if (digits.length !== 10) return;
@@ -824,7 +834,7 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
   };
 
   const handleUpdateCustomerProfile = (oldName: string, newName: string, phone: string) => {
-      const trimmedName = newName.trim();
+      const trimmedName = normalizeAccountName(newName);
       const digits = phone.replace(/\D/g, '').slice(0, 10);
       if (!trimmedName || digits.length !== 10) return;
       const account = accounts.find(a => a.name === oldName);
@@ -868,17 +878,29 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
 
   const handleRenameLocal = (oldName: string, newName: string) => {
       if (!onRenameAccount) return;
-      const next = newName.trim();
+      const next = normalizeAccountName(newName);
       if (!next || next === oldName) return;
       onRenameAccount(oldName, next);
       // Update selected name locally so UI doesn't break
       setSelectedAccountName(next);
   };
 
-  const handleDeleteAccountClick = (name: string) => {
+  const handleDeleteAccountClick = async (name: string) => {
       if (!onDeleteAccount) return;
-      if (!window.confirm(t.confirmDeleteAccount)) return;
-      if (!window.confirm(t.confirmDeleteAccountSecond)) return;
+      const first = await confirm({
+        title: t.deleteAccountBtn,
+        message: t.confirmDeleteAccount,
+        confirmLabel: t.deleteBtn,
+        cancelLabel: t.cancelBtn,
+      });
+      if (!first) return;
+      const second = await confirm({
+        title: t.deleteAccountBtn,
+        message: t.confirmDeleteAccountSecond,
+        confirmLabel: t.deleteBtn,
+        cancelLabel: t.cancelBtn,
+      });
+      if (!second) return;
       onDeleteAccount(name);
       setSelectedAccountName(null);
   };
@@ -1016,9 +1038,15 @@ export const AccountPageController: React.FC<AccountPageControllerProps> = ({
         const acc = removedAccounts.find(a => a.name === name);
         if (acc && onRestoreAccount) onRestoreAccount(acc);
       }}
-      onDeleteRemovedAccount={(name) => {
+      onDeleteRemovedAccount={async (name) => {
         if (!onDeleteRemovedAccount) return;
-        if (!window.confirm(t.confirmDelete)) return;
+        const ok = await confirm({
+          title: t.deleteBtn,
+          message: t.confirmDelete,
+          confirmLabel: t.deleteBtn,
+          cancelLabel: t.cancelBtn,
+        });
+        if (!ok) return;
         onDeleteRemovedAccount(name);
       }}
 

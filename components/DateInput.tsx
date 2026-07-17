@@ -48,7 +48,7 @@ export const DateInput: React.FC<DateInputProps> = ({
           className={`w-full border border-gray-300 bg-white font-sans text-gray-900 placeholder-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
             compact
               ? 'rounded-md px-2 py-1 text-xs sm:text-sm'
-              : 'rounded-lg px-3 py-1.5 text-sm sm:px-4 sm:py-2 sm:text-base'
+              : 'rounded-xl px-4 py-3 text-base'
           }`}
           placeholder={placeholder}
         />
@@ -62,7 +62,7 @@ export const DateInput: React.FC<DateInputProps> = ({
           <div className={`pointer-events-none absolute inset-0 flex items-center justify-between border border-gray-300 bg-white ${
             compact
               ? 'rounded-md px-2 py-1 text-xs sm:text-sm'
-              : 'rounded-lg px-3 py-1.5 text-sm sm:px-4 sm:py-2 sm:text-base'
+              : 'rounded-xl px-4 py-3 text-base'
           }`}>
              <span className="font-medium text-gray-900 font-sans truncate">
                {formatDisplayDate(value)}

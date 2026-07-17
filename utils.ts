@@ -1,6 +1,6 @@
-// Format number in Indian style (lakhs, crores) - whole numbers only
+// Format number in Indian style (lakhs, crores) - whole rupees, rounded accurately
 export function formatIndianCurrency(num: number): string {
-  const n = Math.floor(Number(num) || 0);
+  const n = Math.round(Number(num) || 0);
   const sign = n < 0 ? '-' : '';
   const integer = Math.abs(n).toString();
 
@@ -13,6 +13,11 @@ export function formatIndianCurrency(num: number): string {
 
   const result = otherNumbers.replace(/\B(?=(\d{2})+(?!\d))/g, ",") + lastThree;
   return sign + result;
+}
+
+/** Account names are stored and typed in capital letters by default. */
+export function normalizeAccountName(name: string): string {
+  return name.trim().toUpperCase();
 }
 
 // Format input value while typing to Indian currency format
