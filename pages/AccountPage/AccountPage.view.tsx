@@ -116,12 +116,12 @@ const FarmerDetailsPanel: React.FC<{
   };
 
   return (
-    <div className="animate-fade-in space-y-6">
-      <div className="flex items-center gap-4">
+    <div className="animate-fade-in space-y-3 sm:space-y-6">
+      <div className="flex items-center gap-2 sm:gap-4">
         <button
           type="button"
           onClick={onBack}
-          className="w-10 h-10 rounded-full flex items-center justify-center text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 font-black text-2xl leading-none shadow-sm"
+          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-indigo-700 hover:text-indigo-900 hover:bg-indigo-50 font-black text-xl sm:text-2xl leading-none shadow-sm"
           aria-label={t.backToAccounts}
           title={t.backToAccounts}
         >
@@ -129,8 +129,8 @@ const FarmerDetailsPanel: React.FC<{
         </button>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
-        <div className="relative px-6 py-7 bg-gradient-to-br from-slate-800 via-indigo-900 to-indigo-700">
+      <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+        <div className="relative px-4 py-4 sm:px-6 sm:py-7 bg-gradient-to-br from-slate-800 via-indigo-900 to-indigo-700">
           <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 20% 20%, white 0, transparent 40%), radial-gradient(circle at 80% 0%, #a5b4fc 0, transparent 35%)' }} />
           <div className="relative flex items-start justify-between gap-4">
             <div className="min-w-0">
@@ -144,7 +144,7 @@ const FarmerDetailsPanel: React.FC<{
                   className="group mt-2 text-left max-w-full"
                   title="Click to rename"
                 >
-                  <h2 className="text-3xl font-semibold text-white tracking-tight truncate inline-flex items-center gap-2 border-b border-transparent group-hover:border-white/50 transition">
+                  <h2 className="text-xl sm:text-3xl font-semibold text-white tracking-tight truncate inline-flex items-center gap-2 border-b border-transparent group-hover:border-white/50 transition">
                     {getTranslated(farmer.name)}
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-4 h-4 text-white/50 group-hover:text-white shrink-0 transition">
                       <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
@@ -152,7 +152,7 @@ const FarmerDetailsPanel: React.FC<{
                   </h2>
                 </button>
               ) : (
-                <h2 className="text-3xl font-semibold text-white mt-2 tracking-tight truncate">
+                <h2 className="text-xl sm:text-3xl font-semibold text-white mt-2 tracking-tight truncate">
                   {isCreate ? t.creatingSupplierAccount : getTranslated(farmer?.name)}
                 </h2>
               )}
@@ -191,7 +191,7 @@ const FarmerDetailsPanel: React.FC<{
           </div>
         </div>
 
-        <div className="p-6 space-y-6">
+        <div className="p-3 sm:p-6 space-y-3 sm:space-y-6">
           <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">{t.nameLabel}</label>
             {isCreate ? (
@@ -205,7 +205,7 @@ const FarmerDetailsPanel: React.FC<{
                     if (nameError) setNameError('');
                   }}
                   placeholder={t.enterAccountName}
-                  className={`w-full px-4 py-3.5 rounded-xl border bg-white text-slate-800 font-semibold text-lg focus:ring-2 focus:outline-none transition ${
+                  className={`w-full px-3 py-2 sm:px-4 sm:py-3.5 rounded-xl border bg-white text-slate-800 font-semibold text-base sm:text-lg focus:ring-2 focus:outline-none transition ${
                     nameError
                       ? 'border-red-400 focus:ring-red-300'
                       : 'border-violet-100 focus:ring-violet-400/40 focus:border-violet-400'
@@ -217,7 +217,7 @@ const FarmerDetailsPanel: React.FC<{
               <button
                 type="button"
                 onClick={() => openRenameModal(farmer.name)}
-                className="w-full text-left px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800 font-semibold text-lg hover:bg-white hover:border-violet-200 hover:shadow-sm transition group flex items-center justify-between gap-3"
+                className="w-full text-left px-3 py-2 sm:px-4 sm:py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800 font-semibold text-base sm:text-lg hover:bg-white hover:border-violet-200 hover:shadow-sm transition group flex items-center justify-between gap-3"
                 title="Click to rename"
               >
                 <span className="truncate">{getTranslated(farmer.name)}</span>
@@ -226,16 +226,16 @@ const FarmerDetailsPanel: React.FC<{
                 </span>
               </button>
             ) : (
-              <div className="px-4 py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800 font-semibold text-lg">
+              <div className="px-3 py-2 sm:px-4 sm:py-3.5 rounded-xl bg-slate-50 border border-slate-100 text-slate-800 font-semibold text-base sm:text-lg">
                 {getTranslated(farmer?.name)}
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="group relative rounded-2xl border border-emerald-100/80 bg-gradient-to-b from-emerald-50/80 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 sm:gap-4">
+            <div className="group relative rounded-xl sm:rounded-2xl border border-emerald-100/80 bg-gradient-to-b from-emerald-50/80 to-white p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shadow-emerald-200">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                   </svg>
@@ -251,13 +251,13 @@ const FarmerDetailsPanel: React.FC<{
                 value={phone}
                 onChange={e => setPhone(formatPhoneDisplay(e.target.value))}
                 placeholder="98765 43210"
-                className="w-full px-3 py-3 rounded-xl border border-emerald-100 bg-white/90 text-slate-900 font-semibold tracking-wide text-lg focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                className="w-full px-2.5 py-2 sm:px-3 sm:py-3 rounded-lg sm:rounded-xl border border-emerald-100 bg-white/90 text-slate-900 font-semibold tracking-wide text-sm sm:text-lg focus:ring-2 focus:ring-emerald-400/40 focus:border-emerald-400 focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
               />
             </div>
 
-            <div className="group relative rounded-2xl border border-amber-100/80 bg-gradient-to-b from-amber-50/80 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm shadow-amber-200">
+            <div className="group relative rounded-xl sm:rounded-2xl border border-amber-100/80 bg-gradient-to-b from-amber-50/80 to-white p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-sm shadow-amber-200">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m0-18c2.5 2 5 4.5 5 8.5S14.5 17 12 21c-2.5-4-5-6.5-5-9.5S9.5 5 12 3z" />
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4 14h16" />
@@ -275,17 +275,17 @@ const FarmerDetailsPanel: React.FC<{
                   value={acres}
                   onChange={e => setAcres(e.target.value.replace(/[^\d.]/g, ''))}
                   placeholder="0.0"
-                  className="w-full px-3 py-3 pr-16 rounded-xl border border-amber-100 bg-white/90 text-slate-900 font-semibold text-lg focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
+                  className="w-full px-2.5 py-2 sm:px-3 sm:py-3 pr-14 sm:pr-16 rounded-lg sm:rounded-xl border border-amber-100 bg-white/90 text-slate-900 font-semibold text-sm sm:text-lg focus:ring-2 focus:ring-amber-400/40 focus:border-amber-400 focus:outline-none placeholder:text-slate-300 placeholder:font-normal"
                 />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold uppercase tracking-wide text-amber-700/70 bg-amber-50 px-2 py-1 rounded-md">
+                <span className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-[10px] sm:text-xs font-bold uppercase tracking-wide text-amber-700/70 bg-amber-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md">
                   acres
                 </span>
               </div>
             </div>
 
-            <div className="group relative rounded-2xl border border-sky-100/80 bg-gradient-to-b from-sky-50/80 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-sm shadow-sky-200">
+            <div className="group relative rounded-xl sm:rounded-2xl border border-sky-100/80 bg-gradient-to-b from-sky-50/80 to-white p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-sky-600 text-white flex items-center justify-center shadow-sm shadow-sky-200">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                   </svg>
@@ -298,14 +298,14 @@ const FarmerDetailsPanel: React.FC<{
               <DateInput
                 value={dateCutter}
                 onChange={setDateCutter}
-                className="[&_input]:rounded-xl [&_input]:border-sky-100 [&_input]:py-3 [&_input]:font-semibold [&_input]:text-slate-900 [&_input]:bg-white/90 [&_input]:focus:ring-sky-400/40 [&_input]:focus:border-sky-400"
+                className="[&_input]:rounded-lg [&_input]:sm:rounded-xl [&_input]:border-sky-100 [&_input]:py-2 [&_input]:sm:py-3 [&_input]:font-semibold [&_input]:text-sm [&_input]:sm:text-base [&_input]:text-slate-900 [&_input]:bg-white/90 [&_input]:focus:ring-sky-400/40 [&_input]:focus:border-sky-400"
               />
             </div>
           </div>
 
-          <div className="rounded-2xl border border-violet-100/80 bg-gradient-to-b from-violet-50/70 to-white p-4 shadow-sm hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm shadow-violet-200">
+          <div className="rounded-xl sm:rounded-2xl border border-violet-100/80 bg-gradient-to-b from-violet-50/70 to-white p-3 sm:p-4 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-sm shadow-violet-200">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-5 h-5">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
@@ -319,16 +319,16 @@ const FarmerDetailsPanel: React.FC<{
             <textarea
               value={address}
               onChange={e => setAddress(e.target.value)}
-              rows={3}
+              rows={2}
               placeholder="Village / City / Road"
-              className="w-full px-3.5 py-3 rounded-xl border border-violet-100 bg-white/90 text-slate-800 font-medium leading-relaxed focus:ring-2 focus:ring-violet-400/40 focus:border-violet-400 focus:outline-none resize-y transition placeholder:text-slate-300 placeholder:font-normal"
+              className="w-full px-2.5 py-2 sm:px-3.5 sm:py-3 rounded-lg sm:rounded-xl border border-violet-100 bg-white/90 text-slate-800 font-medium text-sm sm:text-base leading-relaxed focus:ring-2 focus:ring-violet-400/40 focus:border-violet-400 focus:outline-none resize-y transition placeholder:text-slate-300 placeholder:font-normal"
             />
           </div>
 
           <button
             type="button"
             onClick={handleSave}
-            className={`w-full py-3.5 rounded-xl font-bold shadow-md transition tracking-wide ${
+            className={`w-full py-2.5 sm:py-3.5 rounded-lg sm:rounded-xl font-bold shadow-md transition tracking-wide text-sm sm:text-base ${
               savedFlash
                 ? 'bg-violet-500 hover:bg-violet-500 text-white'
                 : 'bg-violet-600 hover:bg-violet-700 text-white shadow-violet-200'
@@ -607,8 +607,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
   const accountOnlyModal =
     isAccountOnlyModalOpen && selectedAccountName && onAddAccountOnlyEntry ? (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in max-h-[92vh] overflow-y-auto">
           <h3 className="text-xl font-bold mb-4 text-gray-800">{t.receiveRefundBtn}</h3>
           <form onSubmit={submitAccountOnlyReceived}>
             <div className="mb-4">
@@ -673,8 +673,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
   const serialModal =
     isSerialModalOpen ? (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in max-h-[92vh] overflow-y-auto">
           <h3 className="text-xl font-bold mb-4 text-gray-800">Set Position</h3>
           <p className="text-xs text-gray-500 mb-4">Enter the position number where this account should appear.</p>
           <form onSubmit={submitSerialModal}>
@@ -719,8 +719,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
   const renameModal =
     isRenameModalOpen && onRenameAccount ? (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in relative">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+        <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in max-h-[92vh] overflow-y-auto relative">
           <button
             type="button"
             onClick={() => setIsRenameModalOpen(false)}
@@ -931,95 +931,176 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   // --- RENDER DETAIL VIEW IF SELECTED ---
   if (selectedAccountName || isCreatingFarmer) {
       if (activeTab === 'customer' && customerData) {
+          const isReceivable = customerData.balance >= 0;
           return (
-              <div className="animate-fade-in space-y-6">
-                   <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                        <div className="flex items-center gap-4">
-                            <button
-                              type="button"
-                              onClick={onBack}
-                              className="w-10 h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-2xl leading-none shadow-sm"
-                              aria-label={t.backToAccounts}
-                              title={t.backToAccounts}
-                            >
-                              ←
-                            </button>
-                        </div>
-                        
-                        <div className="flex gap-4 items-center flex-wrap">
-                            {/* View Toggle */}
-                            <div className="bg-gray-100 p-1 rounded-lg flex text-xs sm:text-sm font-bold">
-                                <button 
-                                    onClick={() => setCustomerViewMode('statement')}
-                                    className={`px-3 py-2 rounded-md transition-all ${customerViewMode === 'statement' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-                                >
-                                    📜 {t.viewStatement}
-                                </button>
-                                <button 
-                                    onClick={() => setCustomerViewMode('details')}
-                                    className={`px-3 py-2 rounded-md transition-all ${customerViewMode === 'details' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-                                >
-                                    📦 {t.viewDetails}
-                                </button>
-                            </div>
-                            
-                            {/* PDF Controls */}
-                            {renderReportControls()}
-                        </div>
+              <div className="animate-fade-in space-y-3 sm:space-y-5">
+                   <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={onBack}
+                          className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-purple-700 hover:text-purple-900 hover:bg-purple-50 font-black text-xl sm:text-2xl leading-none shadow-sm shrink-0 border border-purple-100"
+                          aria-label={t.backToAccounts}
+                          title={t.backToAccounts}
+                        >
+                          ←
+                        </button>
+                        {renderReportControls()}
                    </div>
 
-                   {/* Header with Rename Button */}
-                   <div className="flex items-center gap-3 border-b pb-2 mb-4">
-                       <h2 className="text-2xl font-bold text-gray-800">{getTranslated(customerData.name)}</h2>
-                       <button
-                           type="button"
-                           onClick={() => onRenameAccount && openRenameModal(customerData.name)}
-                           className="text-gray-400 hover:text-blue-600 text-lg p-1 rounded transition"
-                           title="Rename Account"
-                       >
-                           ✎
-                       </button>
-                       {onDeleteAccount && (
-                         <button
-                           type="button"
-                           onClick={() => onDeleteAccount(customerData.name)}
-                           className="p-1.5 rounded-lg transition text-red-600 hover:bg-red-100 hover:text-red-800 border border-transparent hover:border-red-200"
-                           title={t.deleteAccountBtn}
-                           aria-label={t.deleteAccountBtn}
-                         >
-                           <LedgerRemoveTrashIcon />
-                         </button>
-                       )}
+                   {/* Customer profile hero */}
+                   <div className="bg-white rounded-xl sm:rounded-2xl shadow-lg border border-slate-100 overflow-hidden">
+                        <div className="relative px-4 py-4 sm:px-6 sm:py-5 bg-gradient-to-br from-purple-900 via-violet-800 to-purple-700">
+                            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 15% 20%, white 0, transparent 42%), radial-gradient(circle at 85% 0%, #c4b5fd 0, transparent 38%)' }} />
+                            <div className="relative flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 border border-white/25 text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.15em] text-purple-100 backdrop-blur-sm">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 shrink-0" aria-hidden />
+                                        {t.tabCustomer}
+                                    </span>
+                                    <div className="mt-2.5 flex items-center gap-2 min-w-0">
+                                        <h2 className="text-lg sm:text-2xl md:text-3xl font-semibold text-white tracking-tight truncate">
+                                            {getTranslated(customerData.name)}
+                                        </h2>
+                                        {onRenameAccount && (
+                                            <button
+                                                type="button"
+                                                onClick={() => openRenameModal(customerData.name)}
+                                                className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 border border-white/25 text-white flex items-center justify-center transition shrink-0"
+                                                title="Rename Account"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} className="w-4 h-4">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
+                                                </svg>
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {onDeleteAccount && (
+                                        <button
+                                            type="button"
+                                            onClick={() => onDeleteAccount(customerData.name)}
+                                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/10 hover:bg-red-500/30 border border-white/25 text-white flex items-center justify-center transition"
+                                            title={t.deleteAccountBtn}
+                                            aria-label={t.deleteAccountBtn}
+                                        >
+                                            <LedgerRemoveTrashIcon />
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="relative mt-4 pt-3 border-t border-white/15 flex items-end justify-between gap-3">
+                                <div>
+                                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-purple-200/90">{t.customerBalance}</p>
+                                    <p className="text-xl sm:text-3xl font-bold text-white tabular-nums mt-0.5">
+                                        ₹{formatIndianCurrency(Math.abs(customerData.balance))}
+                                    </p>
+                                </div>
+                                <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide border ${
+                                    isReceivable
+                                        ? 'bg-red-500/20 border-red-300/40 text-red-100'
+                                        : 'bg-emerald-500/20 border-emerald-300/40 text-emerald-100'
+                                }`}>
+                                    {isReceivable ? t.statusPayable : t.statusRecoverable}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* View toggle */}
+                        <div className="px-3 py-2.5 sm:px-4 sm:py-3 bg-slate-50 border-b border-slate-100">
+                            <div className="inline-flex w-full sm:w-auto p-0.5 rounded-lg bg-slate-200/70 border border-slate-200">
+                                <button
+                                    onClick={() => setCustomerViewMode('statement')}
+                                    className={`flex-1 sm:flex-none px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-[11px] sm:text-sm font-bold transition-all ${
+                                        customerViewMode === 'statement'
+                                            ? 'bg-white shadow-sm text-purple-700 ring-1 ring-purple-100'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    {t.viewStatement}
+                                </button>
+                                <button
+                                    onClick={() => setCustomerViewMode('details')}
+                                    className={`flex-1 sm:flex-none px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-[11px] sm:text-sm font-bold transition-all ${
+                                        customerViewMode === 'details'
+                                            ? 'bg-white shadow-sm text-purple-700 ring-1 ring-purple-100'
+                                            : 'text-slate-500 hover:text-slate-700'
+                                    }`}
+                                >
+                                    {t.viewDetails}
+                                </button>
+                            </div>
+                        </div>
                    </div>
 
                    {/* --- SIMPLE STATEMENT VIEW --- */}
                    {customerViewMode === 'statement' && (
-                       <div className="space-y-4">
-                            {/* Summary Card */}
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-3">{t.transactionHistory}</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div>
-                                         <p className="text-xs text-gray-400">{t.totalDebit}</p>
-                                         <p className="text-xl font-bold text-red-600">₹{formatIndianCurrency(customerData.totalBilled)}</p>
-                                         
-                                         <p className="text-xs text-gray-400 mt-2">{t.totalCredit}</p>
-                                         <p className="text-xl font-bold text-green-600">₹{formatIndianCurrency(customerData.totalReceived)}</p>
-                                     </div>
-                                     <div className="text-right border-l pl-4 flex flex-col justify-center">
-                                         <p className="text-sm text-gray-400 mb-1">{t.totalNetBalance}</p>
-                                         <p className={`text-3xl font-bold ${customerData.balance >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                            ₹{formatIndianCurrency(Math.abs(customerData.balance))}
-                                         </p>
-                                         <p className={`text-sm font-bold ${customerData.balance >= 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                            Rs
-                                         </p>
-                                     </div>
+                       <div className="space-y-2.5 sm:space-y-4">
+                            {/* Summary stats */}
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                                <div className="rounded-xl border border-red-100 bg-gradient-to-b from-red-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-red-500/80 truncate">{t.totalDebit}</p>
+                                    <p className="text-sm sm:text-xl font-bold text-red-700 tabular-nums mt-1 break-all">₹{formatIndianCurrency(customerData.totalBilled)}</p>
+                                </div>
+                                <div className="rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-600/80 truncate">{t.totalCredit}</p>
+                                    <p className="text-sm sm:text-xl font-bold text-emerald-700 tabular-nums mt-1 break-all">₹{formatIndianCurrency(customerData.totalReceived)}</p>
+                                </div>
+                                <div className="rounded-xl border border-purple-100 bg-gradient-to-b from-purple-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-purple-600/80 truncate">{t.totalNetBalance}</p>
+                                    <p className={`text-sm sm:text-xl font-bold tabular-nums mt-1 break-all ${isReceivable ? 'text-red-700' : 'text-emerald-700'}`}>
+                                        ₹{formatIndianCurrency(Math.abs(customerData.balance))}
+                                    </p>
                                 </div>
                             </div>
 
-                            {/* Statement Table */}
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                            {/* Statement — mobile cards */}
+                            <div className="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                                    <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">{t.transactionHistory}</h3>
+                                </div>
+                                <div className="divide-y divide-slate-100">
+                                {customerData.ledger.length === 0 ? (
+                                    <p className="p-6 text-center text-gray-400 text-sm">{t.noRecords}</p>
+                                ) : (
+                                    customerData.ledger.map((row) => (
+                                        <article key={row.id} className="px-3 py-2.5">
+                                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-slate-800 tabular-nums">{formatDisplayDate(row.date)}</p>
+                                                    {getTranslated(row.description) && (
+                                                        <p className="text-[10px] text-slate-400 truncate mt-0.5">{getTranslated(row.description)}</p>
+                                                    )}
+                                                </div>
+                                                <span className={`shrink-0 inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold tabular-nums border ${
+                                                    row.runningBalance >= 0
+                                                        ? 'bg-red-50 text-red-700 border-red-100'
+                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                                }`}>
+                                                    {formatIndianCurrency(Math.abs(row.runningBalance))} Rs
+                                                </span>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-1.5 text-xs">
+                                                <div className="rounded-lg bg-red-50/70 border border-red-100/80 px-2 py-1.5 text-right">
+                                                    <span className="text-[9px] font-bold uppercase text-red-400 block">{t.colDebit}</span>
+                                                    {row.billedAmount > 0 && <span className="font-bold text-red-700 tabular-nums">{formatIndianCurrency(row.billedAmount)}</span>}
+                                                </div>
+                                                <div className="rounded-lg bg-emerald-50/70 border border-emerald-100/80 px-2 py-1.5 text-right">
+                                                    <span className="text-[9px] font-bold uppercase text-emerald-500 block">{t.colCredit}</span>
+                                                    {row.receivedAmount > 0 && <span className="font-bold text-emerald-700 tabular-nums">{formatIndianCurrency(row.receivedAmount)}</span>}
+                                                </div>
+                                            </div>
+                                        </article>
+                                    ))
+                                )}
+                                </div>
+                            </div>
+
+                            {/* Statement Table — desktop */}
+                            <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.transactionHistory}</h3>
+                                </div>
                                 <table className="w-full text-sm">
                                     <thead className="bg-gray-50 border-b border-gray-200">
                                         <tr>
@@ -1068,39 +1149,85 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
                    {/* --- DETAILED STOCK VIEW --- */}
                    {customerViewMode === 'details' && (
-                       <div className="space-y-6">
-                            {/* CUSTOMER SUMMARY CARDS */}
-                            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div className="text-xs uppercase font-bold text-gray-500">{t.customerBalance}</div>
-                                        <div className="text-right">
-                                            <p className={`text-3xl font-bold ${customerData.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                                                ₹{formatIndianCurrency(customerData.balance)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                                            <p className="text-xs text-gray-500 uppercase font-bold mb-1">{t.customerTotalStock}</p>
-                                            <p className="text-xl font-bold text-gray-800">
-                                                {(customerData.totalStockKg / 100).toFixed(2)} Q
-                                            </p>
-                                            <p className="text-xs text-gray-400">({customerData.totalStockKg} KG)</p>
-                                        </div>
-                                        <div className="bg-red-50 p-4 rounded-lg border border-red-100">
-                                            <p className="text-xs text-red-500 uppercase font-bold mb-1">{t.customerTotalBilled}</p>
-                                            <p className="text-xl font-bold text-gray-800">₹{formatIndianCurrency(customerData.totalBilled)}</p>
-                                        </div>
-                                        <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                                            <p className="text-xs text-green-600 uppercase font-bold mb-1">{t.customerTotalReceived}</p>
-                                            <p className="text-xl font-bold text-gray-800">₹{formatIndianCurrency(customerData.totalReceived)}</p>
-                                        </div>
-                                    </div>
+                       <div className="space-y-2.5 sm:space-y-4">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                                <div className="rounded-xl border border-purple-100 bg-gradient-to-b from-purple-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm col-span-2 sm:col-span-1">
+                                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-purple-600/80 truncate">{t.customerTotalStock}</p>
+                                    <p className="text-sm sm:text-xl font-bold text-slate-800 tabular-nums mt-1">
+                                        {(customerData.totalStockKg / 100).toFixed(2)} <span className="text-xs font-semibold text-slate-500">Q</span>
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">{customerData.totalStockKg} KG</p>
+                                </div>
+                                <div className="rounded-xl border border-red-100 bg-gradient-to-b from-red-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-red-500/80 truncate">{t.customerTotalBilled}</p>
+                                    <p className="text-sm sm:text-xl font-bold text-red-700 tabular-nums mt-1 break-all">₹{formatIndianCurrency(customerData.totalBilled)}</p>
+                                </div>
+                                <div className="rounded-xl border border-emerald-100 bg-gradient-to-b from-emerald-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm">
+                                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-600/80 truncate">{t.customerTotalReceived}</p>
+                                    <p className="text-sm sm:text-xl font-bold text-emerald-700 tabular-nums mt-1 break-all">₹{formatIndianCurrency(customerData.totalReceived)}</p>
+                                </div>
+                                <div className="rounded-xl border border-violet-100 bg-gradient-to-b from-violet-50 to-white px-2.5 py-2.5 sm:p-4 shadow-sm col-span-2 sm:col-span-1">
+                                    <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-violet-600/80 truncate">{t.customerBalance}</p>
+                                    <p className={`text-sm sm:text-xl font-bold tabular-nums mt-1 break-all ${customerData.balance > 0 ? 'text-red-700' : 'text-emerald-700'}`}>
+                                        ₹{formatIndianCurrency(customerData.balance)}
+                                    </p>
+                                </div>
                             </div>
 
-                            {/* UNIFIED CUSTOMER LEDGER */}
-                            <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                            {/* Mobile ledger cards */}
+                            <div className="md:hidden bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="px-3 py-2 bg-slate-50 border-b border-slate-100">
+                                    <h3 className="text-[10px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">{t.viewDetails}</h3>
+                                </div>
+                                <div className="divide-y divide-slate-100">
+                                {customerData.ledger.length === 0 ? (
+                                    <p className="p-6 text-center text-gray-400 text-sm">{t.noRecords}</p>
+                                ) : (
+                                    customerData.ledger.map((row) => (
+                                        <article key={row.id} className="px-3 py-2.5">
+                                            <div className="flex items-start justify-between gap-2 mb-1.5">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-slate-800 tabular-nums">{formatDisplayDate(row.date)}</p>
+                                                    <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                                        {row.vehicleNumber && (
+                                                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-md bg-slate-800 text-[9px] font-bold uppercase tracking-wide text-white">{row.vehicleNumber}</span>
+                                                        )}
+                                                        {getTranslated(row.description) && (
+                                                            <span className="text-[10px] text-slate-400 truncate">{getTranslated(row.description)}</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                {row.quantityKg ? (
+                                                    <span className="shrink-0 inline-flex px-2 py-0.5 rounded-md bg-purple-50 border border-purple-100 text-xs font-bold text-purple-800 tabular-nums">
+                                                        {(row.quantityKg / 100).toFixed(2)} Q
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                            <div className="grid grid-cols-3 gap-1.5 text-[10px] sm:text-xs">
+                                                <div className="rounded-lg bg-slate-50 border border-slate-100 px-1.5 py-1.5 text-center">
+                                                    <span className="text-[9px] font-bold uppercase text-slate-400 block">{t.rateLabel}</span>
+                                                    <span className="font-bold text-slate-700 tabular-nums">{row.rate ? `₹${row.rate}` : '—'}</span>
+                                                </div>
+                                                <div className="rounded-lg bg-red-50/70 border border-red-100/80 px-1.5 py-1.5 text-center">
+                                                    <span className="text-[9px] font-bold uppercase text-red-400 block">{t.colBilled}</span>
+                                                    <span className="font-bold text-red-700 tabular-nums">{row.billedAmount ? `₹${formatIndianCurrency(row.billedAmount)}` : '—'}</span>
+                                                </div>
+                                                <div className="rounded-lg bg-emerald-50/70 border border-emerald-100/80 px-1.5 py-1.5 text-center">
+                                                    <span className="text-[9px] font-bold uppercase text-emerald-500 block">{t.colReceived}</span>
+                                                    <span className="font-bold text-emerald-700 tabular-nums">{row.receivedAmount ? `₹${formatIndianCurrency(row.receivedAmount)}` : '—'}</span>
+                                                </div>
+                                            </div>
+                                        </article>
+                                    ))
+                                )}
+                                </div>
+                            </div>
+
+                            {/* UNIFIED CUSTOMER LEDGER — desktop */}
+                            <div className="hidden md:block bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                <div className="px-4 py-3 bg-slate-50 border-b border-slate-100">
+                                    <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500">{t.viewDetails}</h3>
+                                </div>
                                 <table className="w-full text-sm text-left">
                                     <thead className="bg-gray-100 text-gray-700 font-bold uppercase border-b">
                                         <tr>
@@ -1117,7 +1244,9 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                             <tr key={row.id} className="hover:bg-gray-50">
                                                 <td className="p-3 text-gray-600 font-medium">{formatDisplayDate(row.date)}</td>
                                                 <td className="p-3">
-                                                    {row.vehicleNumber && <span className="inline-block bg-gray-100 px-2 py-0.5 rounded text-xs font-bold mr-2 uppercase">{row.vehicleNumber}</span>}
+                                                    {row.vehicleNumber && (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-slate-800 text-[10px] font-bold uppercase tracking-wide text-white mr-2">{row.vehicleNumber}</span>
+                                                    )}
                                                     <span className="text-gray-500">{getTranslated(row.description)}</span>
                                                 </td>
                                                 <td className="p-3 text-right font-mono text-gray-700">
@@ -1169,12 +1298,12 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
       } else if (activeTab === 'partner' && partnerData) {
         return (
-          <div className="animate-fade-in space-y-4">
-            <div className="flex justify-between items-center mb-2">
+          <div className="animate-fade-in space-y-2.5 sm:space-y-4">
+            <div className="flex justify-between items-center mb-1 sm:mb-2 gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={onBack}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-2xl leading-none shadow-sm"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-xl sm:text-2xl leading-none shadow-sm shrink-0"
                   aria-label={t.backToAccounts}
                   title={t.backToAccounts}
                 >
@@ -1184,10 +1313,10 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
             </div>
             
             {/* Partner Summary Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 border-t-4 border-blue-500">
-              <div className="flex justify-between items-start">
-                 <div className="flex items-center gap-3">
-                    <h2 className="text-3xl font-bold text-gray-800">{getTranslated(partnerData.name)}</h2>
+            <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-6 border-t-4 border-blue-500">
+              <div className="flex justify-between items-start gap-2">
+                 <div className="flex items-center gap-2 min-w-0">
+                    <h2 className="text-base sm:text-xl md:text-3xl font-bold text-gray-800 truncate">{getTranslated(partnerData.name)}</h2>
                     <button
                        type="button"
                        onClick={() => onRenameAccount && openRenameModal(partnerData.name)}
@@ -1208,153 +1337,44 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                       </button>
                     )}
                  </div>
-                 <div className="text-right">
-                    <p className="text-gray-500 text-sm">{t.netPosition}</p>
-                    <p className={`text-2xl font-bold ${partnerData.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                 <div className="text-right shrink-0">
+                    <p className="text-gray-500 text-[10px] sm:text-sm">{t.netPosition}</p>
+                    <p className={`text-sm sm:text-lg md:text-2xl font-bold tabular-nums ${partnerData.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                       ₹{formatIndianCurrency(Math.abs(partnerData.netBalance))} Rs
                     </p>
                  </div>
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-6">
-                 <div className="bg-green-50 p-3 rounded">
-                    <p className="text-xs text-gray-500">{t.moneyIn}</p>
-                    <p className="font-bold text-green-700">₹{formatIndianCurrency(partnerData.totalIn)}</p>
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 mt-3 sm:mt-6">
+                 <div className="bg-green-50 px-2 py-2 sm:p-3 rounded-lg">
+                    <p className="text-[10px] sm:text-xs text-gray-500">{t.moneyIn}</p>
+                    <p className="font-bold text-sm sm:text-base text-green-700 tabular-nums">₹{formatIndianCurrency(partnerData.totalIn)}</p>
                  </div>
-                 <div className="bg-red-50 p-3 rounded">
-                    <p className="text-xs text-gray-500">{t.moneyOut}</p>
-                    <p className="font-bold text-red-700">₹{formatIndianCurrency(partnerData.totalOut)}</p>
+                 <div className="bg-red-50 px-2 py-2 sm:p-3 rounded-lg">
+                    <p className="text-[10px] sm:text-xs text-gray-500">{t.moneyOut}</p>
+                    <p className="font-bold text-sm sm:text-base text-red-700 tabular-nums">₹{formatIndianCurrency(partnerData.totalOut)}</p>
                  </div>
               </div>
             </div>
 
-            {/* Owner-only previous amounts */}
-            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-3">
-              {(onAddOwnerPreviousEntry || onUpdateOwnerPreviousEntry) && (
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleOpenOwnerPrevModal()}
-                    className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-2 rounded-lg font-bold text-sm shadow transition"
-                  >
-                    {t.addOwnerPreviousEntryBtn}
-                  </button>
-                </div>
-              )}
-              <div className="flex flex-col md:flex-row gap-4 min-h-[220px] md:h-[280px]">
-                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col">
-                  <div className="p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-sm sticky top-0">
-                    {t.ownerPreviousKindReceived}
-                  </div>
-                  <div className="overflow-y-auto flex-1 p-2 space-y-2">
-                    {partnerData.previousReceived.length === 0 && (
-                      <p className="text-gray-400 text-center text-sm py-4">{t.noRecords}</p>
-                    )}
-                    {partnerData.previousReceived.map((row) => (
-                      <div
-                        key={row.id}
-                        className="p-3 bg-green-50/80 rounded border border-green-100 flex justify-between items-start gap-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-bold text-gray-800">₹{formatIndianCurrency(row.amount)}</p>
-                          <p className="text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
-                          {row.note && (
-                            <p className="text-xs text-gray-600 mt-1 truncate">{getTranslated(row.note)}</p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 gap-1">
-                          {onUpdateOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOwnerPrevModal(row)}
-                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.editBtn}
-                            </button>
-                          )}
-                          {onDeleteOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
-                              }}
-                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.deleteBtn}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col">
-                  <div className="p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-sm sticky top-0">
-                    {t.ownerPreviousKindPaid}
-                  </div>
-                  <div className="overflow-y-auto flex-1 p-2 space-y-2">
-                    {partnerData.previousPaid.length === 0 && (
-                      <p className="text-gray-400 text-center text-sm py-4">{t.noRecords}</p>
-                    )}
-                    {partnerData.previousPaid.map((row) => (
-                      <div
-                        key={row.id}
-                        className="p-3 bg-red-50/80 rounded border border-red-100 flex justify-between items-start gap-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-bold text-gray-800">₹{formatIndianCurrency(row.amount)}</p>
-                          <p className="text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
-                          {row.note && (
-                            <p className="text-xs text-gray-600 mt-1 truncate">{getTranslated(row.note)}</p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 gap-1">
-                          {onUpdateOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => handleOpenOwnerPrevModal(row)}
-                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.editBtn}
-                            </button>
-                          )}
-                          {onDeleteOwnerPreviousEntry && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
-                              }}
-                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
-                            >
-                              {t.deleteBtn}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <h3 className="text-sm font-bold text-gray-700 pt-1">{t.ownerLinkedBookTitle}</h3>
+            <h3 className="text-xs sm:text-sm font-bold text-gray-700 pt-1">{t.ownerLinkedBookTitle}</h3>
 
             {/* Split View — cashbook-linked transactions only */}
-            <div className="flex flex-col md:flex-row gap-4 h-[600px]">
+            <div className="flex flex-col md:flex-row gap-2 sm:gap-4 h-[45vh] sm:h-[50vh] md:h-[600px]">
                {/* LEFT: IN */}
-               <div className="flex-1 bg-white rounded-lg shadow border border-gray-200 flex flex-col">
-                  <div className="p-3 bg-green-100 border-b border-green-200 font-bold text-green-800 sticky top-0">
+               <div className="flex-1 bg-white rounded-lg shadow border border-gray-200 flex flex-col min-h-0">
+                  <div className="p-2 sm:p-3 bg-green-100 border-b border-green-200 font-bold text-green-800 text-xs sm:text-sm sticky top-0">
                      {t.moneyIn}
                   </div>
-                  <div className="overflow-y-auto flex-1 p-2 space-y-2">
-                     {partnerData.transactionsIn.length === 0 && <p className="text-gray-400 text-center text-sm py-4">{t.noRecords}</p>}
+                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
+                     {partnerData.transactionsIn.length === 0 && <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>}
                      {partnerData.transactionsIn.map(tr => (
-                        <div key={tr.id} className="p-3 bg-green-50 rounded border border-green-100 flex justify-between items-center">
-                           <div>
-                              <p className="font-bold text-gray-800">₹{formatIndianCurrency(tr.amount)}</p>
-                              <p className="text-xs text-gray-500">{formatDisplayDate(tr.date)}</p>
+                        <div key={tr.id} className="p-2 sm:p-3 bg-green-50 rounded border border-green-100 flex justify-between items-center gap-2">
+                           <div className="min-w-0">
+                              <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                              <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(tr.date)}</p>
                            </div>
-                           <div className="text-right">
-                              <span className="text-xs bg-white border px-1 rounded text-gray-600">{tr.paymentType}</span>
+                           <div className="text-right shrink-0">
+                              <span className="text-[10px] sm:text-xs bg-white border px-1 rounded text-gray-600">{tr.paymentType}</span>
                            </div>
                         </div>
                      ))}
@@ -1362,21 +1382,21 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                </div>
 
                {/* RIGHT: OUT */}
-               <div className="flex-1 bg-white rounded-lg shadow border border-gray-200 flex flex-col">
-                  <div className="p-3 bg-red-100 border-b border-red-200 font-bold text-red-800 sticky top-0">
+               <div className="flex-1 bg-white rounded-lg shadow border border-gray-200 flex flex-col min-h-0">
+                  <div className="p-2 sm:p-3 bg-red-100 border-b border-red-200 font-bold text-red-800 text-xs sm:text-sm sticky top-0">
                      {t.moneyOut}
                   </div>
-                  <div className="overflow-y-auto flex-1 p-2 space-y-2">
-                     {partnerData.transactionsOut.length === 0 && <p className="text-gray-400 text-center text-sm py-4">{t.noRecords}</p>}
+                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
+                     {partnerData.transactionsOut.length === 0 && <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>}
                      {partnerData.transactionsOut.map(tr => (
-                        <div key={tr.id} className="p-3 bg-red-50 rounded border border-red-100 flex justify-between items-center">
-                           <div>
-                              <p className="font-bold text-gray-800">₹{formatIndianCurrency(tr.amount)}</p>
-                              <p className="text-xs text-gray-500">{formatDisplayDate(tr.date)}</p>
+                        <div key={tr.id} className="p-2 sm:p-3 bg-red-50 rounded border border-red-100 flex justify-between items-center gap-2">
+                           <div className="min-w-0">
+                              <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                              <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(tr.date)}</p>
                            </div>
-                           <div className="text-right">
-                              <p className="text-xs text-gray-600 truncate max-w-[100px]">{getTranslated(tr.details)}</p>
-                              <span className="text-xs bg-white border px-1 rounded text-gray-600">{tr.paymentType}</span>
+                           <div className="text-right shrink-0 min-w-0">
+                              <p className="text-[10px] sm:text-xs text-gray-600 truncate max-w-[80px] sm:max-w-[100px]">{getTranslated(tr.details)}</p>
+                              <span className="text-[10px] sm:text-xs bg-white border px-1 rounded text-gray-600">{tr.paymentType}</span>
                            </div>
                         </div>
                      ))}
@@ -1384,9 +1404,118 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                </div>
             </div>
 
+            {/* Owner-only previous amounts */}
+            <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-2.5 sm:p-4 space-y-2 sm:space-y-3">
+              {(onAddOwnerPreviousEntry || onUpdateOwnerPreviousEntry) && (
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenOwnerPrevModal()}
+                    className="bg-amber-600 hover:bg-amber-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-bold text-xs sm:text-sm shadow transition"
+                  >
+                    {t.addOwnerPreviousEntryBtn}
+                  </button>
+                </div>
+              )}
+              <div className="flex flex-col md:flex-row gap-2 sm:gap-4 min-h-[140px] sm:min-h-[220px] md:h-[280px]">
+                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col min-h-[120px]">
+                  <div className="p-2 sm:p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-xs sm:text-sm sticky top-0">
+                    {t.ownerPreviousKindReceived}
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
+                    {partnerData.previousReceived.length === 0 && (
+                      <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>
+                    )}
+                    {partnerData.previousReceived.map((row) => (
+                      <div
+                        key={row.id}
+                        className="p-2 sm:p-3 bg-green-50/80 rounded border border-green-100 flex justify-between items-start gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(row.amount)}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
+                          {row.note && (
+                            <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 truncate">{getTranslated(row.note)}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          {onUpdateOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOwnerPrevModal(row)}
+                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.editBtn}
+                            </button>
+                          )}
+                          {onDeleteOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
+                              }}
+                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.deleteBtn}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex-1 bg-white rounded-lg shadow border border-amber-100 flex flex-col min-h-[120px]">
+                  <div className="p-2 sm:p-3 bg-amber-100 border-b border-amber-200 font-bold text-amber-900 text-xs sm:text-sm sticky top-0">
+                    {t.ownerPreviousKindPaid}
+                  </div>
+                  <div className="overflow-y-auto flex-1 p-1.5 sm:p-2 space-y-1.5 sm:space-y-2">
+                    {partnerData.previousPaid.length === 0 && (
+                      <p className="text-gray-400 text-center text-xs sm:text-sm py-3 sm:py-4">{t.noRecords}</p>
+                    )}
+                    {partnerData.previousPaid.map((row) => (
+                      <div
+                        key={row.id}
+                        className="p-2 sm:p-3 bg-red-50/80 rounded border border-red-100 flex justify-between items-start gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm sm:text-base text-gray-800 tabular-nums">₹{formatIndianCurrency(row.amount)}</p>
+                          <p className="text-[10px] sm:text-xs text-gray-500">{formatDisplayDate(row.date)}</p>
+                          {row.note && (
+                            <p className="text-[10px] sm:text-xs text-gray-600 mt-0.5 truncate">{getTranslated(row.note)}</p>
+                          )}
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          {onUpdateOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenOwnerPrevModal(row)}
+                              className="text-blue-600 hover:bg-blue-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.editBtn}
+                            </button>
+                          )}
+                          {onDeleteOwnerPreviousEntry && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm(t.confirmDelete)) onDeleteOwnerPreviousEntry(row.id);
+                              }}
+                              className="text-red-600 hover:bg-red-50 px-2 py-1 rounded text-xs font-bold"
+                            >
+                              {t.deleteBtn}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {isOwnerPrevModalOpen && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
-                <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in relative">
+                <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-xl animate-fade-in relative max-h-[92vh] overflow-y-auto">
                   <button
                     type="button"
                     onClick={() => setIsOwnerPrevModalOpen(false)}
@@ -1497,57 +1626,55 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       } else if (activeTab === 'labour' && labourData) {
         const isPayable = labourData.lifetimeBalance > 0;
         return (
-          <div className="animate-fade-in space-y-4 font-sans">
-             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-2">
+          <div className="animate-fade-in space-y-2.5 sm:space-y-4 font-sans">
+             <div className="flex flex-col gap-2 sm:gap-4 mb-1 sm:mb-2">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={onBack}
-                  className="w-10 h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-2xl leading-none shadow-sm"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center text-blue-700 hover:text-blue-900 hover:bg-blue-50 font-black text-xl sm:text-2xl leading-none shadow-sm shrink-0"
                   aria-label={t.backToAccounts}
                   title={t.backToAccounts}
                 >
                   ←
                 </button>
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* ADD ADJUSTMENT / BONUS BUTTON */}
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end flex-1">
                     <button 
                          onClick={() => handleOpenBonusModal()}
-                         className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-bold shadow transition text-sm"
+                         className="bg-green-600 hover:bg-green-700 text-white px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-lg font-bold shadow transition text-xs sm:text-sm"
                     >
                          {t.addAdjustmentBtn}
                     </button>
-
-                    {/* PAY BUTTON */}
                     <button 
                          onClick={onPayLabour}
-                         className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold shadow transition"
+                         className="bg-red-600 hover:bg-red-700 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg font-bold shadow transition text-xs sm:text-sm"
                     >
                          {t.payLabourBtn}
                     </button>
-
-                    <div className="border-l pl-2 ml-2 flex items-center gap-1">
+                    <div className="border-l pl-1.5 sm:pl-2 ml-0.5 sm:ml-2 flex items-center gap-1">
                         <select 
                             value={pdfLanguage}
                             onChange={(e) => setPdfLanguage(e.target.value as Language)}
-                            className="bg-white border border-gray-300 rounded text-xs py-2 px-1 focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold text-gray-700"
+                            className="bg-white border border-gray-300 rounded text-[10px] sm:text-xs py-1.5 sm:py-2 px-1 focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold text-gray-700"
                         >
                             <option value="en">EN</option>
                             <option value="hi">HI</option>
                             <option value="pa">PA</option>
                         </select>
-                        <button onClick={onDownloadPdf} className="text-white bg-gray-800 hover:bg-black flex items-center gap-1 text-xs font-bold px-3 py-2 rounded shadow transition">
+                        <button onClick={onDownloadPdf} className="text-white bg-gray-800 hover:bg-black flex items-center gap-1 text-[10px] sm:text-xs font-bold px-2 py-1.5 sm:px-3 sm:py-2 rounded shadow transition">
                            📄 PDF
                         </button>
                     </div>
                 </div>
+                </div>
             </div>
             
             {/* Labour Summary Card */}
-            <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-                  <div className="flex justify-between items-start">
-                      <div>
-                          <div className="flex items-center gap-3">
-                              <h2 className="text-3xl font-bold text-gray-900">{getTranslated(labourData.name)}</h2>
+            <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-6 border-l-4 border-yellow-500">
+                  <div className="flex justify-between items-start gap-2">
+                      <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                              <h2 className="text-base sm:text-xl md:text-3xl font-bold text-gray-900 truncate">{getTranslated(labourData.name)}</h2>
                               <button
                                    type="button"
                                    onClick={() => onRenameAccount && openRenameModal(labourData.name)}
@@ -1568,57 +1695,56 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                                 </button>
                               )}
                           </div>
-                          <span className="text-xs font-bold bg-gray-900 text-white px-2 py-1 rounded mt-1 inline-block uppercase tracking-wider">{t.labourCardLabel}</span>
+                          <span className="text-[10px] sm:text-xs font-bold bg-gray-900 text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded mt-1 inline-block uppercase tracking-wider">{t.labourCardLabel}</span>
                       </div>
-                      <div className="text-right">
-                          <p className="text-gray-500 text-xs uppercase font-bold">{t.totalNetBalance}</p>
-                          <p className={`text-3xl font-bold ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
+                      <div className="text-right shrink-0">
+                          <p className="text-gray-500 text-[10px] sm:text-xs uppercase font-bold">{t.totalNetBalance}</p>
+                          <p className={`text-sm sm:text-xl md:text-3xl font-bold tabular-nums ${isPayable ? 'text-red-600' : 'text-green-600'}`}>
                             ₹{formatIndianCurrency(Math.abs(labourData.lifetimeBalance))}
                           </p>
-                          <p className="text-xs font-semibold text-gray-600">
+                          <p className="text-[10px] sm:text-xs font-semibold text-gray-600">
                              {isPayable ? t.statusPayable : t.statusRecoverable}
                           </p>
                       </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-8 mt-6 pt-4 border-t border-gray-100">
-                      <div>
-                         <p className="text-xs text-gray-500 uppercase font-bold">{t.monthDays}</p>
-                         <p className="font-bold text-xl text-black">{labourData.monthAttendanceDays}</p>
-                         <p className="text-[10px] text-gray-500 font-medium">@{labourData.rate}/day</p>
+                  <div className="grid grid-cols-3 gap-2 sm:flex sm:flex-wrap sm:gap-8 mt-3 sm:mt-6 pt-3 sm:pt-4 border-t border-gray-100">
+                      <div className="text-center sm:text-left">
+                         <p className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold truncate">{t.monthDays}</p>
+                         <p className="font-bold text-sm sm:text-xl text-black tabular-nums">{labourData.monthAttendanceDays}</p>
+                         <p className="text-[9px] sm:text-[10px] text-gray-500 font-medium">@{labourData.rate}/day</p>
                       </div>
-                      <div>
-                         <p className="text-xs text-gray-500 uppercase font-bold">{t.monthPayable}</p>
-                         <p className="font-bold text-xl text-black">₹{formatIndianCurrency(labourData.monthPayable)}</p>
+                      <div className="text-center sm:text-left sm:pl-0 pl-0 border-l sm:border-l-0 border-gray-100">
+                         <p className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold truncate">{t.monthPayable}</p>
+                         <p className="font-bold text-sm sm:text-xl text-black tabular-nums">₹{formatIndianCurrency(labourData.monthPayable)}</p>
                       </div>
-                      <div className="pl-6 border-l border-gray-200">
-                         <p className="text-xs text-gray-500 uppercase font-bold">{t.monthPaid}</p>
-                         <p className="font-bold text-xl text-blue-600">₹{formatIndianCurrency(labourData.monthPaid)}</p>
+                      <div className="text-center sm:text-left sm:pl-6 sm:border-l border-gray-200">
+                         <p className="text-[10px] sm:text-xs text-gray-500 uppercase font-bold truncate">{t.monthPaid}</p>
+                         <p className="font-bold text-sm sm:text-xl text-blue-600 tabular-nums">₹{formatIndianCurrency(labourData.monthPaid)}</p>
                       </div>
                   </div>
             </div>
 
             {/* MONTH NAVIGATION + DATE RANGE */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4 bg-white p-3 rounded-lg shadow-sm border border-gray-200">
-                 <div className="flex items-center gap-2">
-                     <button onClick={onPrevMonth} className="p-2 hover:bg-gray-100 rounded-full transition text-gray-600 font-bold" title={t.prevMonth}>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 sm:gap-4 bg-white px-2.5 py-2 sm:p-3 rounded-lg shadow-sm border border-gray-200">
+                 <div className="flex items-center gap-1 sm:gap-2 justify-center sm:justify-start">
+                     <button onClick={onPrevMonth} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition text-gray-600 font-bold text-sm" title={t.prevMonth}>
                          &lt;
                      </button>
-                     <button onClick={onNextMonth} className="p-2 hover:bg-gray-100 rounded-full transition text-gray-600 font-bold" title={t.nextMonth}>
+                     <button onClick={onNextMonth} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-full transition text-gray-600 font-bold text-sm" title={t.nextMonth}>
                          &gt;
                      </button>
                  </div>
 
-                 {/* Date Range Inputs */}
-                 <div className="flex items-center gap-2">
-                    <div className="w-32">
+                 <div className="flex items-center gap-1.5 sm:gap-2 justify-center">
+                    <div className="flex-1 sm:w-32 min-w-0">
                         <DateInput 
                             value={labourStartDate || ''} 
                             onChange={(d) => setLabourStartDate && setLabourStartDate(d)} 
                         />
                     </div>
-                    <span className="text-gray-400">➜</span>
-                    <div className="w-32">
+                    <span className="text-gray-400 text-xs">➜</span>
+                    <div className="flex-1 sm:w-32 min-w-0">
                         <DateInput 
                             value={labourEndDate || ''} 
                             onChange={(d) => setLabourEndDate && setLabourEndDate(d)} 
@@ -1627,8 +1753,93 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                  </div>
             </div>
 
-            {/* UNIFIED LEDGER VIEW */}
-            <div className="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden flex flex-col h-[650px]">
+            {/* MOBILE LEDGER CARDS */}
+            <div className="md:hidden bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden max-h-[55vh] overflow-y-auto divide-y divide-gray-100">
+                {labourData.timeline.length === 0 ? (
+                    <p className="p-6 text-center text-gray-400 text-sm italic">{t.noDaysInView}</p>
+                ) : (
+                    labourData.timeline.map((row) => {
+                        if (row.isOpeningBalance) {
+                            return (
+                                <article key="opening-bal" className="px-2.5 py-2 bg-gray-50">
+                                    <div className="flex justify-between items-center gap-2">
+                                        <p className="text-xs font-bold text-gray-700">Opening Balance</p>
+                                        <p className={`text-sm font-bold tabular-nums ${row.balance && row.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                            ₹{formatIndianCurrency(Math.abs(row.balance || 0))}
+                                        </p>
+                                    </div>
+                                </article>
+                            );
+                        }
+                        const isSunday = new Date(row.date).getDay() === 0;
+                        return (
+                            <article
+                                key={row.date}
+                                className={`px-2.5 py-2 ${isSunday ? 'bg-red-50/30' : ''} ${row.isHisaabDay ? 'bg-yellow-50' : ''}`}
+                            >
+                                <div className="flex items-center justify-between gap-2 mb-1">
+                                    <div
+                                        className="min-w-0 cursor-pointer"
+                                        onDoubleClick={() => onToggleHisaab && onToggleHisaab(row.date)}
+                                    >
+                                        <p className="text-sm font-semibold text-gray-800 tabular-nums">
+                                            {formatDisplayDate(row.date)}
+                                            {isSunday && <span className="ml-1 text-[10px] text-red-400 font-bold">{t.sundayLabel}</span>}
+                                            {row.isHisaabDay && <span className="ml-1">📌</span>}
+                                        </p>
+                                    </div>
+                                    <div
+                                        className="shrink-0 cursor-pointer"
+                                        onClick={() => onToggleAttendance && onToggleAttendance(row.date, true)}
+                                        onDoubleClick={() => onToggleAttendance && onToggleAttendance(row.date, false)}
+                                    >
+                                        {row.isPresent === true && (
+                                            <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center border border-green-200">
+                                                <CheckCircleIcon className="w-5 h-5 text-green-700" />
+                                            </div>
+                                        )}
+                                        {row.isPresent === false && (
+                                            <div className="w-7 h-7 rounded-full bg-red-100 flex items-center justify-center text-red-600 text-xs font-bold border border-red-200">❌</div>
+                                        )}
+                                        {(row.isPresent === undefined || row.isPresent === null) && (
+                                            <div className="w-7 h-7 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 text-xs font-bold border border-gray-200">-</div>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                                    {row.isPresent === true && (
+                                        <span className="font-bold text-gray-800 tabular-nums">₹{row.dailyWage}</span>
+                                    )}
+                                    {row.adjustments?.map(adj => {
+                                        const isNegative = adj.amount < 0;
+                                        return (
+                                            <span
+                                                key={adj.id}
+                                                className={`font-bold tabular-nums cursor-pointer ${isNegative ? 'text-red-600' : 'text-green-600'}`}
+                                                onClick={() => handleOpenBonusModal(adj)}
+                                            >
+                                                {isNegative ? '-' : '+'} ₹{Math.abs(adj.amount)}
+                                            </span>
+                                        );
+                                    })}
+                                </div>
+                                {row.transactions.length > 0 && (
+                                    <div className="mt-1 flex flex-wrap gap-1">
+                                        {row.transactions.map(tr => (
+                                            <span key={tr.id} className="inline-flex items-center bg-red-50 border border-red-100 px-1.5 py-0.5 rounded text-[10px] font-bold text-red-600 tabular-nums">
+                                                {t.paidPrefix} ₹{formatIndianCurrency(tr.amount)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                )}
+                            </article>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* UNIFIED LEDGER VIEW — desktop */}
+            <div className="hidden md:flex bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden flex-col h-[650px]">
                {/* Header Row */}
                <div className="flex bg-gray-100 border-b border-gray-300 text-gray-700 font-bold text-sm uppercase tracking-wide sticky top-0 z-20 shadow-sm">
                    <div className="w-48 p-3 border-r border-gray-300 text-center">{t.dateHeader}</div>
@@ -1778,8 +1989,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
             {/* ADJUSTMENT / BONUS MODAL */}
             {isBonusModalOpen && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-fade-in relative">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                    <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-xl animate-fade-in relative max-h-[92vh] overflow-y-auto">
                         <button
                             type="button"
                             onClick={() => setIsBonusModalOpen(false)}
@@ -1892,28 +2103,28 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
   return (
     <div className="bg-white rounded-lg shadow h-full flex flex-col relative">
       {/* Account Type Tabs */}
-      <div className="bg-slate-50 border-b border-slate-200 px-3 py-2.5 sm:px-4">
-        <div className="flex gap-1.5 sm:gap-2 overflow-x-auto p-1 rounded-2xl bg-slate-200/60 border border-slate-200/80">
+      <div className="bg-slate-50 border-b border-slate-200 px-2 py-2 sm:px-4 sm:py-3">
+        <div className="tab-strip flex gap-1.5 sm:gap-2 overflow-x-auto p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-slate-200/60 border border-slate-200/80">
           {([
             {
               id: 'labour' as const,
               label: t.tabLabour,
-              active: 'bg-amber-400 text-amber-950 shadow-sm shadow-amber-400/30',
+              active: 'bg-amber-400 text-amber-950 shadow-sm',
             },
             {
               id: 'partner' as const,
               label: t.tabPartner,
-              active: 'bg-sky-500 text-white shadow-sm shadow-sky-500/30',
+              active: 'bg-sky-500 text-white shadow-sm',
             },
             {
               id: 'customer' as const,
               label: t.tabCustomer,
-              active: 'bg-purple-600 text-white shadow-sm shadow-purple-600/30',
+              active: 'bg-purple-600 text-white shadow-sm',
             },
             {
               id: 'supplier' as const,
               label: t.tabSupplier,
-              active: 'bg-violet-600 text-white shadow-sm shadow-violet-600/30',
+              active: 'bg-violet-600 text-white shadow-sm',
             },
           ]).map(tab => {
             const isActive = activeTab === tab.id;
@@ -1922,7 +2133,7 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                 key={tab.id}
                 type="button"
                 onClick={() => onTabChange(tab.id)}
-                className={`flex-1 min-w-[5.5rem] flex items-center justify-center text-center py-2.5 px-3 sm:px-4 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+                className={`flex-1 min-w-[5rem] sm:min-w-[6.75rem] flex items-center justify-center text-center py-2 px-2 sm:py-3 sm:px-4 md:px-5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-bold whitespace-nowrap leading-snug transition-colors duration-150 ${
                   isActive
                     ? tab.active
                     : 'bg-transparent text-slate-500 hover:text-slate-800 hover:bg-white/70'
@@ -1936,19 +2147,19 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       </div>
 
       {/* Actions & Search */}
-      <div className="p-4 border-b bg-gray-50 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div className="p-3 sm:p-4 border-b bg-gray-50 flex flex-col md:flex-row gap-2 sm:gap-4 items-center justify-between">
          <div className="w-full md:w-1/2">
              <input 
                 type="text"
                 placeholder={t.searchPlaceholder}
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                className="w-full px-3 py-1.5 sm:px-4 sm:py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm sm:text-base"
              />
          </div>
          <button 
              onClick={onOpenAddAccount}
-             className={`px-4 py-2.5 font-semibold rounded-xl shadow-sm transition ${
+             className={`px-3 py-1.5 sm:px-4 sm:py-2.5 font-semibold rounded-lg sm:rounded-xl shadow-sm transition text-xs sm:text-sm whitespace-nowrap ${
                  activeTab === 'labour'
                     ? 'bg-amber-400 hover:bg-amber-500 text-amber-950 shadow-amber-400/30'
                     : activeTab === 'partner'
@@ -1965,23 +2176,71 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto p-4">
-         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4">
+         <div className={`grid gap-2 sm:gap-4 ${
+           activeTab === 'supplier'
+             ? 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'
+             : 'grid-cols-2 md:grid-cols-2 lg:grid-cols-3'
+         }`}>
             {accountList.map((acc, index) => (
+               activeTab === 'customer' ? (
+               <div
+                  key={acc.name}
+                  onClick={() => onAccountSelect(acc.name)}
+                  className="relative overflow-hidden rounded-xl border border-purple-100/90 bg-white cursor-pointer hover:shadow-lg hover:border-purple-200 transition-all group shadow-sm"
+               >
+                  <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-500 to-violet-600" aria-hidden />
+                  <div className="px-2.5 py-2.5 sm:px-3.5 sm:py-3 pl-3 sm:pl-4">
+                    <div className="flex items-start justify-between gap-1.5">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <span
+                          onClick={(e) => handleEditSerial(e, acc.name, acc.serial)}
+                          title="Click to set custom order"
+                          className="text-[10px] sm:text-xs font-bold w-7 h-7 sm:w-8 sm:h-8 shrink-0 rounded-lg bg-purple-100 text-purple-800 border border-purple-200/80 cursor-pointer inline-flex items-center justify-center hover:bg-purple-200 transition-colors shadow-sm"
+                        >
+                          {acc.serial !== undefined ? acc.serial : index + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="font-bold text-xs sm:text-sm text-slate-800 truncate group-hover:text-purple-800 transition-colors leading-tight">
+                            {getTranslated(acc.name)}
+                          </h3>
+                          <span className="inline-flex mt-0.5 px-1.5 py-0.5 rounded-md bg-purple-50 border border-purple-100 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-purple-600">
+                            {t.tabCustomer}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="shrink-0 text-purple-300 group-hover:text-purple-500 text-sm transition-colors">➔</span>
+                    </div>
+                    <div className="mt-2 pt-2 border-t border-purple-50 flex items-center justify-between gap-2">
+                      <p className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider text-slate-400 truncate">{t.accountBalance}</p>
+                      <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] sm:text-xs font-bold tabular-nums border ${
+                        acc.balance >= 0
+                          ? 'bg-red-50 text-red-700 border-red-100'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                      }`}>
+                        ₹{formatIndianCurrency(acc.balance)}
+                      </span>
+                    </div>
+                  </div>
+               </div>
+               ) : (
                <div 
                   key={acc.name} 
                   onClick={() => onAccountSelect(acc.name)}
-                  className={`border rounded-xl p-4 cursor-pointer hover:shadow-md transition-all bg-white flex flex-col justify-between group ${
-                    activeTab === 'supplier' ? 'min-h-[10.5rem] border-indigo-100 hover:border-indigo-200' : 'h-32'
+                  className={`border rounded-lg sm:rounded-xl px-2.5 py-2 sm:p-4 cursor-pointer hover:shadow-md transition-all bg-white flex flex-col justify-between group ${
+                    activeTab === 'labour'
+                      ? 'border-amber-100 hover:border-amber-200'
+                      : activeTab === 'partner'
+                      ? 'border-sky-100 hover:border-sky-200'
+                      : 'border-indigo-100 hover:border-indigo-200'
                   }`}
                >
-                  <div className="flex justify-between items-start">
-                     <div className="flex items-center gap-2 min-w-0">
-                        {/* Serial Number Badge - CLICKABLE */}
+                  <div className="flex justify-between items-start gap-1">
+                     <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         <span 
                             onClick={(e) => handleEditSerial(e, acc.name, acc.serial)}
                             title="Click to set custom order"
-                            className={`text-xs font-bold w-8 h-8 shrink-0 rounded-full border cursor-pointer inline-flex items-center justify-center hover:scale-110 transition-transform ${
+                            className={`text-[10px] sm:text-xs font-bold w-6 h-6 sm:w-8 sm:h-8 shrink-0 rounded-full border cursor-pointer inline-flex items-center justify-center hover:scale-110 transition-transform ${
                                 acc.serial !== undefined 
                                    ? 'bg-blue-50 text-blue-700 border-blue-300 shadow-sm' 
                                    : 'bg-transparent text-gray-500 border-gray-300 hover:bg-gray-50'
@@ -1989,84 +2248,91 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
                         >
                             {acc.serial !== undefined ? acc.serial : index + 1}
                         </span>
-                        <h3 className={`font-bold text-lg truncate transition-colors ${
-                          activeTab === 'supplier' ? 'text-slate-800 group-hover:text-indigo-700' : 'text-gray-800 group-hover:text-blue-600'
+                        <h3 className={`font-bold text-xs sm:text-base truncate transition-colors leading-tight ${
+                          activeTab === 'supplier' ? 'text-slate-800 group-hover:text-indigo-700'
+                          : activeTab === 'labour' ? 'text-gray-800 group-hover:text-amber-700'
+                          : 'text-gray-800 group-hover:text-sky-700'
                         }`}>{getTranslated(acc.name)}</h3>
                      </div>
-                     <span className={`shrink-0 ${activeTab === 'supplier' ? 'text-indigo-300 group-hover:text-indigo-500' : 'text-gray-300'}`}>➔</span>
+                     <span className={`shrink-0 text-xs sm:text-base ${
+                       activeTab === 'supplier' ? 'text-indigo-300 group-hover:text-indigo-500'
+                       : activeTab === 'labour' ? 'text-amber-300 group-hover:text-amber-500'
+                       : 'text-sky-300 group-hover:text-sky-500'
+                     }`}>➔</span>
                   </div>
                   {activeTab === 'supplier' ? (
-                    <div className="mt-3 grid grid-cols-1 gap-1.5">
-                      <div className="flex items-center gap-2.5 rounded-lg bg-emerald-50/80 border border-emerald-100/80 px-2.5 py-1.5">
-                        <span className="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                    <div className="mt-1.5 sm:mt-3 grid grid-cols-1 gap-1 sm:gap-1.5">
+                      <div className="flex items-center gap-1.5 sm:gap-2.5 rounded-md sm:rounded-lg bg-emerald-50/80 border border-emerald-100/80 px-2 py-1 sm:px-2.5 sm:py-1.5">
+                        <span className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 sm:w-3.5 sm:h-3.5">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
                           </svg>
                         </span>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700/70 leading-none">{t.farmerPhoneLabel}</p>
-                          <p className="text-sm font-semibold text-slate-800 truncate mt-0.5 tracking-wide">{acc.phone || '—'}</p>
+                          <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-700/70 leading-none truncate">{t.farmerPhoneLabel}</p>
+                          <p className="text-xs sm:text-sm font-semibold text-slate-800 truncate mt-0.5">{acc.phone || '—'}</p>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <div className="flex items-center gap-2 rounded-lg bg-amber-50/80 border border-amber-100/80 px-2.5 py-1.5">
-                          <span className="w-6 h-6 rounded-md bg-amber-600 text-white flex items-center justify-center shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                      <div className="grid grid-cols-2 gap-1 sm:gap-1.5">
+                        <div className="flex items-center gap-1 sm:gap-2 rounded-md sm:rounded-lg bg-amber-50/80 border border-amber-100/80 px-1.5 py-1 sm:px-2.5 sm:py-1.5">
+                          <span className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-amber-600 text-white flex items-center justify-center shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 sm:w-3.5 sm:h-3.5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18m0-18c2.5 2 5 4.5 5 8.5S14.5 17 12 21c-2.5-4-5-6.5-5-9.5S9.5 5 12 3z" />
                             </svg>
                           </span>
                           <div className="min-w-0">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800/70 leading-none">{t.farmerAcresLabel}</p>
-                            <p className="text-sm font-semibold text-slate-800 mt-0.5">{acc.acres != null ? acc.acres : '—'}</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-800/70 leading-none truncate">{t.farmerAcresLabel}</p>
+                            <p className="text-xs sm:text-sm font-semibold text-slate-800 mt-0.5">{acc.acres != null ? acc.acres : '—'}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2 rounded-lg bg-sky-50/80 border border-sky-100/80 px-2.5 py-1.5">
-                          <span className="w-6 h-6 rounded-md bg-sky-600 text-white flex items-center justify-center shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5">
+                        <div className="flex items-center gap-1 sm:gap-2 rounded-md sm:rounded-lg bg-sky-50/80 border border-sky-100/80 px-1.5 py-1 sm:px-2.5 sm:py-1.5">
+                          <span className="w-5 h-5 sm:w-6 sm:h-6 rounded bg-sky-600 text-white flex items-center justify-center shrink-0">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3 h-3 sm:w-3.5 sm:h-3.5">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
                             </svg>
                           </span>
                           <div className="min-w-0">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-sky-800/70 leading-none">{t.farmerDateCutterLabel}</p>
-                            <p className="text-sm font-semibold text-slate-800 mt-0.5 truncate">{acc.dateCutter ? formatDisplayDate(acc.dateCutter) : '—'}</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-sky-800/70 leading-none truncate">{t.farmerDateCutterLabel}</p>
+                            <p className="text-xs sm:text-sm font-semibold text-slate-800 mt-0.5 truncate">{acc.dateCutter ? formatDisplayDate(acc.dateCutter) : '—'}</p>
                           </div>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div>
-                        <p className="text-xs text-gray-500 uppercase font-semibold">{t.accountBalance}</p>
-                        <p className={`text-xl font-bold ${acc.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className="mt-1 sm:mt-2">
+                        <p className="text-[9px] sm:text-[10px] text-gray-500 uppercase font-semibold truncate">{t.accountBalance}</p>
+                        <p className={`text-xs sm:text-lg font-bold tabular-nums break-all leading-tight ${acc.balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                            ₹{formatIndianCurrency(acc.balance)}
                         </p>
                     </div>
                   )}
                </div>
+               )
             ))}
             {accountList.length === 0 && (
-               <div className="col-span-full text-center py-10 text-gray-400">
+               <div className="col-span-full text-center py-8 sm:py-10 text-gray-400 text-sm">
                   {t.noAccountsFound}
                </div>
             )}
          </div>
 
          {/* Removed accounts (recover) */}
-         <div className="mt-8 border-t pt-4">
-           <div className="flex items-center justify-between mb-2">
-             <h3 className="text-sm font-bold text-gray-700">{t.removedAccountsTitle}</h3>
+         <div className="mt-4 sm:mt-8 border-t pt-3 sm:pt-4">
+           <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+             <h3 className="text-xs sm:text-sm font-bold text-gray-700">{t.removedAccountsTitle}</h3>
            </div>
            {removedAccounts.length === 0 || (!onRestoreAccount && !onDeleteRemovedAccount) ? (
-             <div className="text-sm text-gray-400">{t.noRemovedAccounts}</div>
+             <div className="text-xs sm:text-sm text-gray-400">{t.noRemovedAccounts}</div>
            ) : (
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                {removedAccounts.map((acc) => (
                  <div
                    key={`removed-${acc.name}`}
-                   className="border rounded-lg p-3 bg-gray-50 flex items-center justify-between gap-3"
+                   className="border rounded-lg px-2 py-1.5 sm:p-3 bg-gray-50 flex items-center justify-between gap-2"
                  >
                    <div className="min-w-0">
-                     <div className="font-bold text-gray-800 truncate">{getTranslated(acc.name)}</div>
-                     <div className="text-[11px] text-gray-500 uppercase font-semibold">
+                     <div className="font-bold text-xs sm:text-base text-gray-800 truncate">{getTranslated(acc.name)}</div>
+                     <div className="text-[10px] text-gray-500 uppercase font-semibold">
                        {acc.type}
                      </div>
                    </div>
@@ -2099,8 +2365,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
 
       {/* --- ADD ACCOUNT MODAL --- */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className={`bg-white rounded-lg p-6 w-full shadow-xl transform transition-all animate-fade-in relative ${
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className={`bg-white rounded-lg p-4 sm:p-6 w-full shadow-xl transform transition-all animate-fade-in relative max-h-[92vh] overflow-y-auto ${
               activeTab === 'supplier' ? 'max-w-md max-h-[90vh] overflow-y-auto' : 'max-w-sm'
             }`}>
                 <button
@@ -2219,8 +2485,8 @@ export const AccountPageView: React.FC<AccountPageViewProps> = ({
         </div>
       )}
       {isAccountOnlyModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl transform transition-all animate-fade-in max-h-[92vh] overflow-y-auto">
             <h3 className="text-xl font-bold mb-4 text-gray-800">{t.receiveRefundBtn}</h3>
             <form onSubmit={submitAccountOnlyReceived}>
               <div className="mb-4">

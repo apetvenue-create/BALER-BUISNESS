@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,7 +16,22 @@
         }
       }
     </script>
-
+    <style>
+      html {
+        scrollbar-gutter: stable;
+      }
+      body {
+        overflow-y: scroll;
+      }
+      /* Keep tab bars from flashing a scrollbar while switching */
+      .tab-strip {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+      .tab-strip::-webkit-scrollbar {
+        display: none;
+      }
+    </style>
 </head>
   <body class="bg-gray-100 min-h-screen">
     <div id="root"></div>

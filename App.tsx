@@ -1368,11 +1368,11 @@ const FinancialApp: React.FC = () => {
       <div className="min-h-screen bg-gray-100 flex flex-col font-sans">
           {/* Header */}
           <header className="bg-white shadow-sm z-10">
-              <div className="max-w-5xl mx-auto px-6 py-4 flex items-center justify-center gap-8">
+              <div className="max-w-5xl mx-auto px-3 sm:px-6 py-2.5 sm:py-4 flex items-center justify-center gap-4 sm:gap-8">
                   {/* Left: Language icon + selector (fixed area) */}
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 sm:gap-3">
                       <div
-                        className="w-10 h-10 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center"
+                        className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center"
                         title={t.langLabel}
                         aria-label={t.langLabel}
                       >
@@ -1385,7 +1385,7 @@ const FinancialApp: React.FC = () => {
                       <select
                           value={language}
                           onChange={(e) => setLanguage(e.target.value as Language)}
-                          className="border border-gray-200 rounded-lg px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-all"
+                          className="border border-gray-200 rounded-lg px-2 py-1.5 sm:px-3 sm:py-2 text-xs sm:text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white transition-all"
                           aria-label={t.langLabel}
                       >
                           <option value="en">English</option>
@@ -1425,8 +1425,8 @@ const FinancialApp: React.FC = () => {
                   <UserProfileHeader />
               </div>
               {/* Tabs */}
-              <div className="bg-slate-50 border-t border-slate-200 px-3 py-2.5 sm:px-4">
-                  <div className="flex gap-1.5 sm:gap-2 overflow-x-auto p-1 rounded-2xl bg-slate-200/60 border border-slate-200/80">
+              <div className="bg-slate-50 border-t border-slate-200 px-2 py-2 sm:px-4 sm:py-3">
+                  <div className="tab-strip flex gap-1.5 sm:gap-2 overflow-x-auto p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-slate-200/60 border border-slate-200/80">
                       {([
                           { id: 'transactions' as const, label: t.tabTransactions },
                           { id: 'accounts' as const, label: t.tabAccounts },
@@ -1439,9 +1439,9 @@ const FinancialApp: React.FC = () => {
                                   key={tab.id}
                                   type="button"
                                   onClick={() => setActiveTab(tab.id)}
-                                  className={`flex-1 min-w-[5.5rem] flex items-center justify-center text-center py-2.5 px-3 sm:px-4 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+                                  className={`flex-1 min-w-[5.5rem] sm:min-w-[6.75rem] flex items-center justify-center text-center py-2 px-2.5 sm:py-3 sm:px-5 rounded-lg sm:rounded-xl text-[11px] sm:text-sm font-bold whitespace-nowrap leading-snug transition-colors duration-150 ${
                                       isActive
-                                          ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/25'
+                                          ? 'bg-blue-600 text-white shadow-sm'
                                           : 'bg-transparent text-slate-500 hover:text-slate-800 hover:bg-white/70'
                                   }`}
                               >
@@ -1454,26 +1454,26 @@ const FinancialApp: React.FC = () => {
           </header>
 
           {/* Main Content */}
-          <main className="flex-1 max-w-7xl mx-auto w-full p-4 md:p-6 overflow-hidden flex flex-col">
-              <div className="flex-1 lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-gray-200 lg:p-6">
+          <main className="flex-1 max-w-7xl mx-auto w-full p-2 sm:p-4 md:p-6 min-h-0 flex flex-col">
+              <div className="flex-1 min-h-0 lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-gray-200 lg:p-6">
               {activeTab === 'transactions' && (
-                  <div className="flex flex-col space-y-6">
+                  <div className="flex flex-col space-y-3 sm:space-y-6">
                       
                       {/* Date Selection Card */}
-                      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-                           <div className="flex flex-col gap-2">
-                               <h2 className="text-sm font-bold text-gray-500 uppercase">{t.dateSelectionTitle}</h2>
-                               <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                   <div className="flex bg-gray-100 p-1 rounded w-fit">
+                      <div className="bg-white px-3 py-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
+                           <div className="flex flex-col gap-1.5 sm:gap-2">
+                               <h2 className="text-xs sm:text-sm font-bold text-gray-500 uppercase">{t.dateSelectionTitle}</h2>
+                               <div className="flex flex-col md:flex-row md:items-center gap-2 sm:gap-4">
+                                   <div className="flex bg-gray-100 p-0.5 sm:p-1 rounded w-fit">
                                        <button 
                                           onClick={() => setDateFilter(prev => ({ ...prev, mode: 'single' }))}
-                                          className={`px-3 py-1 text-xs font-bold rounded transition ${dateFilter.mode === 'single' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+                                          className={`px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-bold rounded transition ${dateFilter.mode === 'single' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
                                        >
                                           {t.singleDayLabel}
                                        </button>
                                        <button 
                                           onClick={() => setDateFilter(prev => ({ ...prev, mode: 'range' }))}
-                                          className={`px-3 py-1 text-xs font-bold rounded transition ${dateFilter.mode === 'range' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
+                                          className={`px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-bold rounded transition ${dateFilter.mode === 'range' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
                                        >
                                           {t.dateRangeLabel}
                                        </button>
@@ -1503,56 +1503,111 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* PREVIOUS BALANCE CARD */}
-                      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg shadow-md p-6 text-white relative">
+                      <div className="w-full max-w-3xl mx-auto bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md px-3 py-3 sm:px-5 sm:py-5 md:px-6 md:py-6 text-white relative">
                             <button 
                                 onClick={openBalanceModal}
-                                className="absolute top-4 right-4 bg-white/20 hover:bg-white/30 p-2 rounded-full transition"
+                                className="absolute top-2.5 right-2.5 sm:top-3.5 sm:right-3.5 bg-white/20 hover:bg-white/30 w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg transition text-sm sm:text-base"
                                 title={t.editOpeningBalanceTitle}
                             >
                                 ✎
                             </button>
 
-                            <h2 className="text-2xl font-bold mb-4 pr-10 text-center">{t.prevBalTitle}</h2>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
-                                    <p className="text-sm opacity-90">{t.cashBalLabel}</p>
-                                    <p className="text-2xl font-bold">₹{formatIndianCurrency(previousBalance.cash)}</p>
+                            <h2 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-wider mb-2.5 sm:mb-4 pr-10 sm:pr-12 text-center opacity-95">{t.prevBalTitle}</h2>
+                            <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+                                <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
+                                    <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.cashBalLabel}</p>
+                                    <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(previousBalance.cash)}</p>
                                 </div>
-                                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
-                                    <p className="text-sm opacity-90">{t.onlineBalLabel}</p>
-                                    <p className="text-2xl font-bold">₹{formatIndianCurrency(previousBalance.online)}</p>
+                                <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
+                                    <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.onlineBalLabel}</p>
+                                    <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(previousBalance.online)}</p>
                                 </div>
-                                <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
-                                    <p className="text-sm opacity-90">{t.totalBalLabel}</p>
-                                    <p className="text-2xl font-bold">₹{formatIndianCurrency(previousBalance.total)}</p>
+                                <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
+                                    <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.totalBalLabel}</p>
+                                    <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(previousBalance.total)}</p>
                                 </div>
                             </div>
                       </div>
 
-                      {/* EXPENSE TRANSACTIONS TABLE */}
-                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-                          <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-red-700">
+                      {/* EXPENSE TRANSACTIONS */}
+                      <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-l-4 border-red-500">
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-2.5 sm:mb-4">
+                              <h2 className="text-sm sm:text-base md:text-xl font-extrabold tracking-wide uppercase text-red-700">
                                 {t.expenseTitle}
                               </h2>
                               <button 
                                   onClick={() => openTransactionModal('expense')}
-                                  className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
+                                  className="bg-red-500 hover:bg-red-600 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold transition shadow-sm text-xs sm:text-sm"
                               >
                                   {t.addExpenseBtn}
                               </button>
                           </div>
-                          <div className="overflow-x-auto">
-                              <table className="w-full">
+
+                          {/* Portrait: compact cards — no horizontal scroll */}
+                          <div className="lg:hidden space-y-1.5">
+                              {displayedTransactions.filter(tr => tr.type === 'expense').length === 0 ? (
+                                  <p className="py-4 text-center text-gray-500 text-sm">{t.noExpense}</p>
+                              ) : (
+                                  displayedTransactions.filter(tr => tr.type === 'expense').map(tr => (
+                                      <article key={tr.id} className="rounded-lg border border-red-100 bg-red-50/40 px-2.5 py-2">
+                                          <div className="flex items-center gap-2">
+                                              <div className="min-w-0 flex-1">
+                                                  <div className="flex items-baseline gap-1.5 min-w-0">
+                                                      <p className="text-sm font-bold text-slate-900 truncate">{getTranslated(tr.accountName) || '—'}</p>
+                                                      <p className="text-[10px] font-semibold text-slate-400 tabular-nums shrink-0">{formatDisplayDate(tr.date)}</p>
+                                                  </div>
+                                                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                                      {getTranslated(tr.details) && (
+                                                          <span className="text-xs text-slate-500 truncate max-w-[55%]">{getTranslated(tr.details)}</span>
+                                                      )}
+                                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                          {tr.paymentType}
+                                                      </span>
+                                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-red-100 text-red-800">
+                                                          {getCategoryLabel(tr.category)}
+                                                      </span>
+                                                  </div>
+                                              </div>
+                                              <p className="shrink-0 text-sm font-extrabold text-red-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                                              <div className="flex shrink-0">
+                                                  <button type="button" onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} className="text-blue-500 hover:bg-blue-50 p-1 rounded transition" title={t.editBtn}>
+                                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                                                  </button>
+                                                  <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} className="text-red-500 hover:bg-red-50 p-1 rounded transition" title={t.deleteBtn}>
+                                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      </article>
+                                  ))
+                              )}
+                              <div className="rounded-lg bg-red-50 border border-red-100 px-2.5 py-2 font-bold text-sm text-slate-800 flex items-center justify-between gap-2">
+                                  <span>{t.expenseTotalLabel}</span>
+                                  <span className="text-red-700 tabular-nums">₹{formatIndianCurrency(totalExpense)}</span>
+                              </div>
+                          </div>
+
+                          {/* Landscape / desktop table */}
+                          <div className="hidden lg:block">
+                              <table className="w-full table-fixed">
+                                  <colgroup>
+                                      <col className="w-[12%]" />
+                                      <col className="w-[16%]" />
+                                      <col className="w-[22%]" />
+                                      <col className="w-[10%]" />
+                                      <col className="w-[14%]" />
+                                      <col className="w-[14%]" />
+                                      <col className="w-[12%]" />
+                                  </colgroup>
                                   <thead className="bg-red-50">
                                       <tr>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.expenseTypeHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.expenseTypeHeader}</th>
+                                          <th className="px-3 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
+                                          <th className="px-3 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
                                       </tr>
                                   </thead>
                                   <tbody>
@@ -1561,41 +1616,27 @@ const FinancialApp: React.FC = () => {
                                       )}
                                       {displayedTransactions.filter(tr => tr.type === 'expense').map(tr => (
                                           <tr key={tr.id} className="border-b hover:bg-gray-50">
-                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
-                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
-                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
-                                              <td className="px-4 py-3">
+                                              <td className="px-3 py-3 text-sm text-gray-600 tabular-nums">{formatDisplayDate(tr.date)}</td>
+                                              <td className="px-3 py-3 text-sm font-bold text-gray-800 truncate">{getTranslated(tr.accountName)}</td>
+                                              <td className="px-3 py-3 text-sm text-gray-600 truncate" title={getTranslated(tr.details) || undefined}>{getTranslated(tr.details)}</td>
+                                              <td className="px-3 py-3">
                                                   <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
                                                       {tr.paymentType}
                                                   </span>
                                               </td>
-                                              <td className="px-4 py-3 text-center">
-                                                  <span className="inline-flex justify-center px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
+                                              <td className="px-3 py-3">
+                                                  <span className="inline-flex px-2 py-1 rounded text-xs font-semibold bg-red-100 text-red-800">
                                                       {getCategoryLabel(tr.category)}
                                                   </span>
                                               </td>
-                                              <td className="px-4 py-3 text-right font-bold text-red-600">₹{formatIndianCurrency(tr.amount)}</td>
-                                              <td className="px-4 py-3 text-right">
-                                                  <div className="flex justify-end items-center gap-2">
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
-                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
-                                                          title={t.editBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                                                          </svg>
+                                              <td className="px-3 py-3 text-right font-bold text-red-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</td>
+                                              <td className="px-3 py-3 text-right">
+                                                  <div className="flex justify-end items-center gap-1">
+                                                      <button type="button" onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" title={t.editBtn}>
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                                                       </button>
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
-                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
-                                                          title={t.deleteBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                          </svg>
+                                                      <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" title={t.deleteBtn}>
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                                       </button>
                                                   </div>
                                               </td>
@@ -1604,7 +1645,7 @@ const FinancialApp: React.FC = () => {
                                   </tbody>
                                   <tfoot className="bg-red-50 border-t border-red-200">
                                       <tr>
-                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
+                                          <td colSpan={3} className="px-3 py-3 font-bold text-gray-800 text-left">
                                               {t.expenseTotalLabel} <span className="text-red-700 text-lg ml-2">₹{formatIndianCurrency(totalExpense)}</span>
                                           </td>
                                           <td colSpan={4}></td>
@@ -1614,30 +1655,85 @@ const FinancialApp: React.FC = () => {
                           </div>
                       </div>
 
-                      {/* INCOME TRANSACTIONS TABLE */}
-                      <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-                          <div className="flex justify-between items-center mb-4">
-                              <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-green-700">
+                      {/* INCOME TRANSACTIONS */}
+                      <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-l-4 border-green-500">
+                          <div className="flex flex-wrap justify-between items-center gap-2 mb-2.5 sm:mb-4">
+                              <h2 className="text-sm sm:text-base md:text-xl font-extrabold tracking-wide uppercase text-green-700">
                                 {t.incomeTitle}
                               </h2>
                               <button 
                                   onClick={() => openTransactionModal('income')}
-                                  className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg font-semibold transition shadow-sm"
+                                  className="bg-green-500 hover:bg-green-600 text-white px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-lg font-semibold transition shadow-sm text-xs sm:text-sm"
                               >
                                   {t.addIncomeBtn}
                               </button>
                           </div>
-                          <div className="overflow-x-auto">
-                              <table className="w-full">
+
+                          {/* Portrait: compact cards — no horizontal scroll */}
+                          <div className="lg:hidden space-y-1.5">
+                              {displayedTransactions.filter(tr => tr.type === 'income').length === 0 ? (
+                                  <p className="py-4 text-center text-gray-500 text-sm">{t.noIncome}</p>
+                              ) : (
+                                  displayedTransactions.filter(tr => tr.type === 'income').map(tr => (
+                                      <article key={tr.id} className="rounded-lg border border-green-100 bg-green-50/40 px-2.5 py-2">
+                                          <div className="flex items-center gap-2">
+                                              <div className="min-w-0 flex-1">
+                                                  <div className="flex items-baseline gap-1.5 min-w-0">
+                                                      <p className="text-sm font-bold text-slate-900 truncate">{getTranslated(tr.accountName) || '—'}</p>
+                                                      <p className="text-[10px] font-semibold text-slate-400 tabular-nums shrink-0">{formatDisplayDate(tr.date)}</p>
+                                                  </div>
+                                                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                                      {getTranslated(tr.details) && (
+                                                          <span className="text-xs text-slate-500 truncate max-w-[55%]">{getTranslated(tr.details)}</span>
+                                                      )}
+                                                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
+                                                          {tr.paymentType}
+                                                      </span>
+                                                      <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-green-100 text-green-800">
+                                                          {getCategoryLabel(tr.category)}
+                                                      </span>
+                                                  </div>
+                                              </div>
+                                              <p className="shrink-0 text-sm font-extrabold text-green-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</p>
+                                              <div className="flex shrink-0">
+                                                  <button type="button" onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} className="text-blue-500 hover:bg-blue-50 p-1 rounded transition" title={t.editBtn}>
+                                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
+                                                  </button>
+                                                  <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} className="text-red-500 hover:bg-red-50 p-1 rounded transition" title={t.deleteBtn}>
+                                                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      </article>
+                                  ))
+                              )}
+                              <div className="rounded-lg bg-green-50 border border-green-100 px-2.5 py-2 font-bold text-sm text-slate-800 flex items-center justify-between gap-2">
+                                  <span>{t.incomeTotalLabel}</span>
+                                  <span className="text-green-700 tabular-nums">₹{formatIndianCurrency(totalIncome)}</span>
+                              </div>
+                          </div>
+
+                          {/* Landscape / desktop table */}
+                          <div className="hidden lg:block">
+                              <table className="w-full table-fixed">
+                                  <colgroup>
+                                      <col className="w-[12%]" />
+                                      <col className="w-[16%]" />
+                                      <col className="w-[22%]" />
+                                      <col className="w-[10%]" />
+                                      <col className="w-[14%]" />
+                                      <col className="w-[14%]" />
+                                      <col className="w-[12%]" />
+                                  </colgroup>
                                   <thead className="bg-green-50">
                                       <tr>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
-                                          <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">{t.incomeTypeHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
-                                          <th className="px-4 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.transactionDateLabel}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.nameLabel}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.detailsHeader}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.typeHeader}</th>
+                                          <th className="px-3 py-3 text-left text-sm font-semibold text-gray-700">{t.incomeTypeHeader}</th>
+                                          <th className="px-3 py-3 text-right text-sm font-semibold text-gray-700">{t.amountHeader}</th>
+                                          <th className="px-3 py-3 text-right text-sm font-semibold text-gray-700">{t.actionHeader}</th>
                                       </tr>
                                   </thead>
                                   <tbody>
@@ -1646,41 +1742,27 @@ const FinancialApp: React.FC = () => {
                                       )}
                                       {displayedTransactions.filter(tr => tr.type === 'income').map(tr => (
                                           <tr key={tr.id} className="border-b hover:bg-gray-50">
-                                              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDisplayDate(tr.date)}</td>
-                                              <td className="px-4 py-3 text-sm font-bold text-gray-800">{getTranslated(tr.accountName)}</td>
-                                              <td className="px-4 py-3 text-sm text-gray-600">{getTranslated(tr.details)}</td>
-                                              <td className="px-4 py-3">
+                                              <td className="px-3 py-3 text-sm text-gray-600 tabular-nums">{formatDisplayDate(tr.date)}</td>
+                                              <td className="px-3 py-3 text-sm font-bold text-gray-800 truncate">{getTranslated(tr.accountName)}</td>
+                                              <td className="px-3 py-3 text-sm text-gray-600 truncate" title={getTranslated(tr.details) || undefined}>{getTranslated(tr.details)}</td>
+                                              <td className="px-3 py-3">
                                                   <span className={`px-2 py-1 rounded text-xs font-semibold ${tr.paymentType === 'cash' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>
                                                       {tr.paymentType}
                                                   </span>
                                               </td>
-                                              <td className="px-4 py-3 text-center">
-                                                  <span className="inline-flex justify-center px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                              <td className="px-3 py-3">
+                                                  <span className="inline-flex px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
                                                       {getCategoryLabel(tr.category)}
                                                   </span>
                                               </td>
-                                              <td className="px-4 py-3 text-right font-bold text-green-600">₹{formatIndianCurrency(tr.amount)}</td>
-                                              <td className="px-4 py-3 text-right">
-                                                  <div className="flex justify-end items-center gap-2">
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} 
-                                                          className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" 
-                                                          title={t.editBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                                                          </svg>
+                                              <td className="px-3 py-3 text-right font-bold text-green-600 tabular-nums">₹{formatIndianCurrency(tr.amount)}</td>
+                                              <td className="px-3 py-3 text-right">
+                                                  <div className="flex justify-end items-center gap-1">
+                                                      <button type="button" onClick={(e) => { e.stopPropagation(); openTransactionModal(tr.type, {}, tr); }} className="text-blue-500 hover:bg-blue-50 p-2 rounded-full transition" title={t.editBtn}>
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" /></svg>
                                                       </button>
-                                                      <button 
-                                                          type="button"
-                                                          onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} 
-                                                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" 
-                                                          title={t.deleteBtn}
-                                                      >
-                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                                                          </svg>
+                                                      <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tr.id); }} className="text-red-500 hover:bg-red-50 p-2 rounded-full transition" title={t.deleteBtn}>
+                                                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5"><path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
                                                       </button>
                                                   </div>
                                               </td>
@@ -1689,7 +1771,7 @@ const FinancialApp: React.FC = () => {
                                   </tbody>
                                   <tfoot className="bg-green-50 border-t border-green-200">
                                       <tr>
-                                          <td colSpan={3} className="px-4 py-3 font-bold text-gray-800 text-left">
+                                          <td colSpan={3} className="px-3 py-3 font-bold text-gray-800 text-left">
                                               {t.incomeTotalLabel} <span className="text-green-700 text-lg ml-2">₹{formatIndianCurrency(totalIncome)}</span>
                                           </td>
                                           <td colSpan={4}></td>
@@ -1700,32 +1782,32 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* FINAL BALANCE CARD */}
-                      <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg shadow-md p-6 text-white text-center md:text-left">
-                          <h2 className="text-2xl font-bold mb-4 text-center">{t.finalBalanceTitle}</h2>
+                      <div className="w-full max-w-3xl mx-auto bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-md px-3 py-3 sm:px-5 sm:py-5 md:px-6 md:py-6 text-white">
+                          <h2 className="text-sm sm:text-base md:text-lg font-bold uppercase tracking-wider mb-2.5 sm:mb-4 text-center opacity-95">{t.finalBalanceTitle}</h2>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                              <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
-                                  <p className="text-sm opacity-90">{t.cashBalLabel}</p>
-                                  <p className="text-2xl font-bold">₹{formatIndianCurrency(finalCashBalance)}</p>
+                          <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+                              <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
+                                  <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.cashBalLabel}</p>
+                                  <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(finalCashBalance)}</p>
                               </div>
-                              <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm">
-                                  <p className="text-sm opacity-90">{t.onlineBalLabel}</p>
-                                  <p className="text-2xl font-bold">₹{formatIndianCurrency(finalOnlineBalance)}</p>
+                              <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0">
+                                  <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.onlineBalLabel}</p>
+                                  <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(finalOnlineBalance)}</p>
                               </div>
-                              <div className="bg-white/20 rounded-lg p-4 backdrop-blur-sm border-2 border-white/30">
-                                  <p className="text-sm opacity-90">{t.totalBalLabel}</p>
-                                  <p className="text-2xl font-bold">₹{formatIndianCurrency(finalTotalBalance)}</p>
+                              <div className="bg-white/20 rounded-lg sm:rounded-xl px-2 py-2.5 sm:px-3 sm:py-3.5 md:px-4 md:py-4 backdrop-blur-sm text-center min-w-0 border border-white/30">
+                                  <p className="text-[10px] sm:text-xs md:text-sm opacity-90 font-semibold truncate">{t.totalBalLabel}</p>
+                                  <p className="text-sm sm:text-lg md:text-xl font-extrabold tabular-nums leading-tight mt-1 sm:mt-1.5 break-all">₹{formatIndianCurrency(finalTotalBalance)}</p>
                               </div>
                           </div>
                       </div>
 
                       {/* --- SUMMARY REPORT (STATS) SECTION --- */}
-                      <div className="bg-white rounded-lg shadow-md p-6 border-t-4 border-indigo-500">
-                          <h2 className="text-lg sm:text-xl font-extrabold tracking-wide uppercase text-indigo-900 mb-6">
+                      <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-t-4 border-indigo-500">
+                          <h2 className="text-sm sm:text-base md:text-xl font-extrabold tracking-wide uppercase text-indigo-900 mb-2.5 sm:mb-4 md:mb-6">
                             {t.statsTitle}
                           </h2>
                           
-                          <div className="flex flex-col md:flex-row gap-4 mb-8">
+                          <div className="flex flex-col md:flex-row gap-2 sm:gap-4 mb-3 sm:mb-6 md:mb-8">
                               <div className="w-full md:w-64">
                                   <DateInput 
                                       label={t.fromDateLabel}
@@ -1742,26 +1824,26 @@ const FinancialApp: React.FC = () => {
                               </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 md:gap-6">
                               {/* Total Expense */}
-                              <div className="p-5 bg-red-50 rounded-lg border border-red-100 shadow-sm">
-                                   <p className="text-xs uppercase tracking-wide font-bold text-red-500 mb-1">{t.statsTotalExpense}</p>
-                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.expense)}</p>
+                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-red-50 rounded-lg border border-red-100 shadow-sm">
+                                   <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-red-500 mb-0.5 sm:mb-1">{t.statsTotalExpense}</p>
+                                   <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.expense)}</p>
                               </div>
                               {/* Labour Expense */}
-                              <div className="p-5 bg-orange-50 rounded-lg border border-orange-100 shadow-sm">
-                                   <p className="text-xs uppercase tracking-wide font-bold text-orange-500 mb-1">{t.statsLabourExpense}</p>
-                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.labour)}</p>
+                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-orange-50 rounded-lg border border-orange-100 shadow-sm">
+                                   <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-orange-500 mb-0.5 sm:mb-1">{t.statsLabourExpense}</p>
+                                   <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.labour)}</p>
                               </div>
                               {/* Oil Expense */}
-                              <div className="p-5 bg-yellow-50 rounded-lg border border-yellow-100 shadow-sm">
-                                   <p className="text-xs uppercase tracking-wide font-bold text-yellow-600 mb-1">{t.statsOilExpense}</p>
-                                   <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.oil)}</p>
+                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-yellow-50 rounded-lg border border-yellow-100 shadow-sm">
+                                   <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-yellow-600 mb-0.5 sm:mb-1">{t.statsOilExpense}</p>
+                                   <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.oil)}</p>
                               </div>
                               {/* Thread Expense */}
-                              <div className="p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
-                                      <p className="text-xs uppercase tracking-wide font-bold text-blue-600 mb-1">{t.statsElectricityExpense}</p>
-                                      <p className="text-3xl font-bold text-gray-800">₹{formatIndianCurrency(stats.electricity)}</p>
+                              <div className="px-2.5 py-2.5 sm:p-4 md:p-5 bg-blue-50 rounded-lg border border-blue-100 shadow-sm">
+                                      <p className="text-[10px] sm:text-xs uppercase tracking-wide font-bold text-blue-600 mb-0.5 sm:mb-1">{t.statsElectricityExpense}</p>
+                                      <p className="text-sm sm:text-xl md:text-3xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.electricity)}</p>
                               </div>
                           </div>
                       </div>
@@ -1840,18 +1922,18 @@ const FinancialApp: React.FC = () => {
 
           {/* Opening Balance Modal */}
           {isBalanceModalOpen && (
-              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                  <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl animate-fade-in relative">
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+                  <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl animate-fade-in relative max-h-[92vh] overflow-y-auto">
                       <button
                         type="button"
                         onClick={() => setIsBalanceModalOpen(false)}
-                        className="absolute top-3 right-3 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition"
+                        className="absolute top-2 right-2 sm:top-3 sm:right-3 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center transition"
                         aria-label={t.cancelBtn}
                         title={t.cancelBtn}
                       >
                         ✕
                       </button>
-                      <h3 className="text-xl font-bold mb-4">{t.editOpeningBalanceTitle}</h3>
+                      <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 pr-8">{t.editOpeningBalanceTitle}</h3>
                       <form
                         ref={openingBalanceFormRef}
                         onSubmit={(e) => {
@@ -1861,8 +1943,8 @@ const FinancialApp: React.FC = () => {
                           void saveOpeningBalance();
                         }}
                       >
-                        <div className="mb-4">
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialCashLabel}</label>
+                        <div className="mb-3 sm:mb-4">
+                            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-0.5 sm:mb-1">{t.initialCashLabel}</label>
                             <input
                                 type="text"
                                 inputMode="numeric"
@@ -1870,11 +1952,11 @@ const FinancialApp: React.FC = () => {
                                 onChange={(e) =>
                                   setTempOpeningBalance(prev => ({ ...prev, cash: formatInputCurrency(e.target.value) }))
                                 }
-                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                className="w-full px-3 py-1.5 sm:py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm sm:text-base"
                             />
                         </div>
-                        <div className="mb-6">
-                            <label className="block text-sm font-semibold text-gray-700 mb-1">{t.initialOnlineLabel}</label>
+                        <div className="mb-4 sm:mb-6">
+                            <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-0.5 sm:mb-1">{t.initialOnlineLabel}</label>
                             <input
                                 type="text"
                                 inputMode="numeric"
@@ -1882,12 +1964,12 @@ const FinancialApp: React.FC = () => {
                                 onChange={(e) =>
                                   setTempOpeningBalance(prev => ({ ...prev, online: formatInputCurrency(e.target.value) }))
                                 }
-                                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                className="w-full px-3 py-1.5 sm:py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm sm:text-base"
                             />
                         </div>
                         <button
                             type="submit"
-                            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition"
+                            className="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold transition text-sm sm:text-base"
                         >
                             {t.saveBtn}
                         </button>

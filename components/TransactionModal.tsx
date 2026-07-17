@@ -213,12 +213,12 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     );
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-md shadow-xl transform transition-all relative">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+      <div className="bg-white rounded-lg w-full max-w-md shadow-xl transform transition-all relative max-h-[92vh] overflow-y-auto">
         <button
           type="button"
           onClick={onClose}
-          className="absolute top-3 right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-9 h-9 flex items-center justify-center transition font-extrabold"
+          className="absolute top-2 right-2 sm:top-3 sm:right-3 text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-full w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center transition font-extrabold"
           aria-label={t.cancelBtn}
           title={t.cancelBtn}
         >
@@ -226,8 +226,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         </button>
 
         {/* Scrollable content (close button stays fixed) */}
-        <div className="p-6">
-          <h3 className={`text-2xl font-bold mb-4 pr-10 ${mode === 'income' ? 'text-green-600' : 'text-red-600'}`}>
+        <div className="p-4 sm:p-6">
+          <h3 className={`text-lg sm:text-2xl font-bold mb-3 sm:mb-4 pr-10 ${mode === 'income' ? 'text-green-600' : 'text-red-600'}`}>
             {initialData 
               ? (mode === 'income' ? t.editIncomeTitle : t.editExpenseTitle)
               : (mode === 'income' ? t.addIncomeTitle : t.addExpenseTitle)
@@ -240,15 +240,15 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           >
             
             {/* Date Selection */}
-            <div className="mb-4">
+            <div className="mb-3 sm:mb-4">
                <DateInput 
                    value={date}
                    onChange={setDate}
                />
             </div>
 
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <div className="mb-3 sm:mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
                 {mode === 'income' ? t.incomeTypeLabel : t.expenseTypeHeader}
               </label>
               <select 
@@ -258,7 +258,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     setAccountName(''); // Reset account when category changes
                     setIsManualEntry(false);
                 }}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+                className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
               >
                 {mode === 'income' ? (
                   <>
@@ -300,8 +300,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             </div>
 
           {showAccountSelect && (
-            <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <div className="mb-3 sm:mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
                 {mode === 'income' ? t.selectAccountLabel : t.selectPersonLabel}
               </label>
               
@@ -317,7 +317,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                                   if (errors.accountName) setErrors(prev => ({...prev, accountName: ''}));
                               }}
                               placeholder={t.enterAccountName}
-                              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+                              className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
                           />
                           {errors.accountName && <p className="text-red-500 text-xs mt-1">{errors.accountName}</p>}
                       </div>
@@ -339,7 +339,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       <select 
                         value={accountName}
                         onChange={handleAccountChange}
-                        className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+                        className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.accountName ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
                       >
                         <option value="">{t.selectAccountPlaceholder}</option>
                         
@@ -362,37 +362,37 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
           )}
 
           {/* Details Field */}
-          <div className="mb-4">
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
+          <div className="mb-3 sm:mb-4">
+              <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">
                 {t.detailsLabel} <span className="text-gray-400 font-normal text-xs">(Optional)</span>
               </label>
               <input 
                 type="text" 
                 value={details}
                 onChange={e => setDetails(e.target.value)}
-                className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+                className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
               />
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t.amountLabel}</label>
+          <div className="mb-3 sm:mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">{t.amountLabel}</label>
             <input 
               type="text" 
               value={amountStr}
               onChange={handleAmountChange}
               placeholder="0"
-              className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.amount ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
+              className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border rounded-lg focus:ring-2 focus:outline-none ${errors.amount ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-300'} ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'}`}
             />
             {errors.amount && <p className="text-red-500 text-xs mt-1">{errors.amount}</p>}
           </div>
 
-          <div className="mb-4">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t.paymentLabel}</label>
+          <div className="mb-3 sm:mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-1 sm:mb-2">{t.paymentLabel}</label>
             <select 
               value={paymentType}
               onChange={e => setPaymentType(e.target.value)}
               disabled={isCashConversion} // Lock selection if conversion
-              className={`w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} ${isCashConversion ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+              className={`w-full px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none ${mode === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} ${isCashConversion ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             >
               {/* If conversion, only show Online/Bank as source options */}
               {isCashConversion ? (
@@ -411,7 +411,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             <div className="flex">
               <button 
                 type="submit" 
-                className={`w-full text-white px-4 py-2 rounded-lg font-semibold transition ${mode === 'income' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
+                className={`w-full text-white px-4 py-2 sm:py-2.5 rounded-lg font-semibold text-sm sm:text-base transition ${mode === 'income' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}
               >
                 {initialData ? t.updateBtn : t.submitBtn}
               </button>
