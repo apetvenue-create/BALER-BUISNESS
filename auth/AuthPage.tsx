@@ -1,9 +1,28 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from './auth.store';
 
 export const AuthPage: React.FC = () => {
-  const { signIn, signUp, loading, error: authError } = useAuth();
+  const {
+    signIn,
+    signUp,
+    submitting,
+    error: authError,
+    notice: authNotice,
+    clearMessages,
+  } = useAuth();
+
+  useEffect(() => {
+    const previousBodyOverflow = document.body.style.overflowY;
+    const previousScrollbarGutter = document.documentElement.style.scrollbarGutter;
+    document.body.style.overflowY = 'hidden';
+    document.documentElement.style.scrollbarGutter = 'auto';
+
+    return () => {
+      document.body.style.overflowY = previousBodyOverflow;
+      document.documentElement.style.scrollbarGutter = previousScrollbarGutter;
+    };
+  }, []);
   
   // Mode State
   const [isSignUp, setIsSignUp] = useState(false);
@@ -77,6 +96,7 @@ export const AuthPage: React.FC = () => {
 
   // --- FIELD HELPERS ---
   const clearError = (field: string) => {
+      if (authError || authNotice) clearMessages();
       if (validationErrors[field]) {
           setValidationErrors(prev => {
               const next = { ...prev };
@@ -87,106 +107,135 @@ export const AuthPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100 px-4 font-sans text-gray-900">
-      <div className="w-full max-w-md bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-slate-100 px-4 py-3 font-sans text-slate-900 sm:py-4">
+      <div className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full bg-blue-200/40 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 -right-20 h-80 w-80 rounded-full bg-slate-300/50 blur-3xl" />
+      <div className="relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_24px_60px_-24px_rgba(15,23,42,0.35)]">
         
         {/* Header */}
-        <div className="bg-blue-600 p-6 text-center">
-          <h1 className="text-2xl font-bold text-white tracking-wide">Financial Manager</h1>
-          <p className="text-blue-100 text-sm mt-1">
-              {isSignUp ? "Create your secure account" : "Secure Enterprise Access"}
-          </p>
+        <div className="shrink-0 border-b border-blue-500/30 bg-gradient-to-br from-blue-700 via-blue-600 to-sky-600 px-5 py-4 text-center">
+          <div className="mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-lg border border-white/25 bg-white/15 text-white shadow-sm backdrop-blur-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 19.5V8.75A1.75 1.75 0 0 1 5.75 7h12.5A1.75 1.75 0 0 1 20 8.75V19.5M2.5 19.5h19M8 7V4.5h8V7M8 11h2m4 0h2m-8 4h2m4 0h2" />
+            </svg>
+          </div>
+          <h1 className="text-xl font-extrabold tracking-[0.08em] text-white sm:text-2xl">BALER BUISNESS</h1>
         </div>
 
         {/* Form */}
-        <div className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="min-h-0 overflow-y-auto p-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:p-6">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-slate-900 sm:text-xl">
+              {isSignUp ? "Create your account" : "Welcome back"}
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
+              {isSignUp ? "Enter your details to get started." : "Sign in to continue to your business dashboard."}
+            </p>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-3" noValidate>
             
             {/* Business Name (Sign Up Only) */}
             {isSignUp && (
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Business / Shop Name</label>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700 sm:text-sm">Business / Shop Name</label>
                     <input
                         type="text"
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none transition-colors ${validationErrors.businessName ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`}
+                        autoComplete="organization"
+                        autoFocus
+                        className={`w-full rounded-lg border bg-white px-3.5 py-2 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${validationErrors.businessName ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'}`}
                         placeholder="e.g. Gupta Traders"
                         value={businessName}
                         onChange={e => { setBusinessName(e.target.value); clearError('businessName'); }}
-                        disabled={loading}
+                        disabled={submitting}
                     />
                     {validationErrors.businessName && (
-                        <p className="text-red-500 text-xs mt-1 font-medium">{validationErrors.businessName}</p>
+                        <p className="mt-1 text-xs font-medium text-red-600">{validationErrors.businessName}</p>
                     )}
                 </div>
             )}
 
             {/* Email */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-700 sm:text-sm">Email Address</label>
               <input
                 type="email"
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none transition-colors ${validationErrors.email ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`}
-                placeholder="user@company.com"
+                autoComplete="email"
+                autoFocus={!isSignUp}
+                className={`w-full rounded-lg border bg-white px-3.5 py-2 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${validationErrors.email ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'}`}
+                placeholder="name@example.com"
                 value={email}
                 onChange={e => { setEmail(e.target.value); clearError('email'); }}
-                disabled={loading}
+                disabled={submitting}
               />
               {validationErrors.email && (
-                  <p className="text-red-500 text-xs mt-1 font-medium">{validationErrors.email}</p>
+                  <p className="mt-1 text-xs font-medium text-red-600">{validationErrors.email}</p>
               )}
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Password</label>
+              <label className="mb-1 block text-xs font-semibold text-slate-700 sm:text-sm">Password</label>
               <input
                 type="password"
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none transition-colors ${validationErrors.password ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`}
+                autoComplete={isSignUp ? "new-password" : "current-password"}
+                className={`w-full rounded-lg border bg-white px-3.5 py-2 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${validationErrors.password ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'}`}
                 placeholder="••••••••"
                 value={pass}
                 onChange={e => { setPass(e.target.value); clearError('password'); }}
-                disabled={loading}
+                disabled={submitting}
               />
               {validationErrors.password && (
-                  <p className="text-red-500 text-xs mt-1 font-medium">{validationErrors.password}</p>
+                  <p className="mt-1 text-xs font-medium text-red-600">{validationErrors.password}</p>
               )}
             </div>
 
             {/* Confirm Password (Sign Up Only) */}
             {isSignUp && (
                 <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Confirm Password</label>
+                    <label className="mb-1 block text-xs font-semibold text-slate-700 sm:text-sm">Confirm Password</label>
                     <input
                         type="password"
-                        className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:outline-none transition-colors ${validationErrors.confirmPass ? 'border-red-500 focus:ring-red-200' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'}`}
+                        autoComplete="new-password"
+                        className={`w-full rounded-lg border bg-white px-3.5 py-2 text-sm outline-none transition placeholder:text-slate-400 focus:ring-4 ${validationErrors.confirmPass ? 'border-red-400 focus:border-red-500 focus:ring-red-100' : 'border-slate-300 focus:border-blue-500 focus:ring-blue-100'}`}
                         placeholder="••••••••"
                         value={confirmPass}
                         onChange={e => { setConfirmPass(e.target.value); clearError('confirmPass'); }}
-                        disabled={loading}
+                        disabled={submitting}
                     />
                     {validationErrors.confirmPass && (
-                        <p className="text-red-500 text-xs mt-1 font-medium">{validationErrors.confirmPass}</p>
+                        <p className="mt-1 text-xs font-medium text-red-600">{validationErrors.confirmPass}</p>
                     )}
                 </div>
             )}
 
             {/* Global API Error */}
             {authError && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600 font-medium">
-                ⚠️ {authError}
+              <div role="alert" className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
+                <span aria-hidden="true">⚠</span>
+                <span>{authError}</span>
+              </div>
+            )}
+
+            {authNotice && (
+              <div role="status" className="flex gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-800">
+                <span aria-hidden="true">✓</span>
+                <span>{authNotice}</span>
               </div>
             )}
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow-md hover:shadow-lg transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center"
+              disabled={submitting}
+              className="flex w-full items-center justify-center rounded-lg bg-blue-600 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-blue-700 hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {loading ? (
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  {isSignUp ? 'Creating account...' : 'Signing in...'}
+                </span>
               ) : (
                 isSignUp ? "Create Account" : "Sign In"
               )}
@@ -194,30 +243,24 @@ export const AuthPage: React.FC = () => {
           </form>
 
           {/* Toggle Mode */}
-          <div className="mt-6 text-center text-sm text-gray-600">
+          <div className="mt-4 border-t border-slate-100 pt-4 text-center text-xs text-slate-500 sm:text-sm">
               {isSignUp ? "Already have an account?" : "Don't have an account?"}{" "}
               <button 
                   type="button"
                   onClick={() => {
                       setIsSignUp(!isSignUp);
                       setValidationErrors({});
+                      clearMessages();
                       setBusinessName('');
                       setEmail('');
                       setPass('');
                       setConfirmPass('');
                   }}
-                  className="font-bold text-blue-600 hover:underline focus:outline-none"
+                  className="font-bold text-blue-600 transition hover:text-blue-700 hover:underline focus:outline-none"
               >
                   {isSignUp ? "Sign In" : "Sign Up"}
               </button>
           </div>
-        </div>
-        
-        {/* Footer */}
-        <div className="bg-gray-50 p-4 text-center border-t border-gray-100">
-          <p className="text-xs text-gray-400">
-            &copy; {new Date().getFullYear()} Transaction Manager. Authorized personnel only.
-          </p>
         </div>
       </div>
     </div>

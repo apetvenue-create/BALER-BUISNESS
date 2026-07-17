@@ -561,11 +561,15 @@ export const AccountService = {
 
   async deleteAdjustment(id: number): Promise<void> {
     const user = await getCachedUser();
-    if (!user) {
-      console.warn("deleteAdjustment: No authenticated user, skipping");
-      return;
-    }
-    await supabase.from('adjustments').delete().eq('id', id);
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('adjustments')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
+
+    if (error) throw error;
   },
 
   async addOwnerPreviousEntry(

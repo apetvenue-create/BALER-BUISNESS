@@ -71,6 +71,9 @@ export const StockService = {
   },
 
   async update(s: StockMovement): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) throw new Error('Not authenticated');
+
     const payload = {
       date: s.date,
       type: s.type,
@@ -86,13 +89,21 @@ export const StockService = {
     const { error } = await supabase
       .from('stock')
       .update(payload)
-      .eq('id', s.id);
+      .eq('id', s.id)
+      .eq('user_id', user.id);
       
     if (error) throw error;
   },
 
   async delete(id: number): Promise<void> {
-    const { error } = await supabase.from('stock').delete().eq('id', id);
+    const user = await getCachedUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('stock')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', user.id);
     if (error) throw error;
   }
 };

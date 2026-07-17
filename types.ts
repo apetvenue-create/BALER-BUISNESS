@@ -61,7 +61,7 @@ export interface FarmerProfileDetails {
 }
 
 export interface DateFilter {
-  mode: 'single' | 'range';
+  mode: 'all' | 'single' | 'range';
   singleDate: string;
   fromDate: string;
   toDate: string;
@@ -223,6 +223,7 @@ export interface Translation {
   editBtn: string;
   accountBalance: string;
   dateSelectionTitle: string;
+  allDatesLabel: string;
   singleDayLabel: string;
   dateRangeLabel: string;
   transactionDateLabel: string;

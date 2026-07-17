@@ -166,15 +166,22 @@ export const TransactionService = {
   },
 
   async delete(id: number): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) throw new Error('Not authenticated');
+
     const { error } = await supabase
       .from('transactions')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', user.id);
     
     if (error) throw error;
   },
   
   async update(t: Transaction): Promise<void> {
+    const user = await getCachedUser();
+    if (!user) throw new Error('Not authenticated');
+
     const { error } = await supabase
       .from('transactions')
       .update({
@@ -187,7 +194,8 @@ export const TransactionService = {
         date: t.date,
         timestamp: t.timestamp
       })
-      .eq('id', t.id);
+      .eq('id', t.id)
+      .eq('user_id', user.id);
 
       if (error) throw error;
   }

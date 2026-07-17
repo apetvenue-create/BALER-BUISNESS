@@ -30,20 +30,37 @@ const parseRetryAfterMs = (response: Response, fallbackMs: number): number => {
  * Native fetch only throws on network failure — HTTP error statuses must be
  * returned so supabase-js can read the body. We only retry transient failures.
  */
+const isAuthRequest = (input: URL | RequestInfo): boolean => {
+  const url =
+    typeof input === 'string'
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+  return /\/auth\/v1\//i.test(url);
+};
+
 const retryFetch = async (
   input: URL | RequestInfo,
   init?: RequestInit,
   retries = 3,
   delay = 1500
 ): Promise<Response> => {
+  // Auth: keep retrying quietly so users can attempt unlimited times.
+  const authCall = isAuthRequest(input);
+  const maxRetries = authCall ? Math.max(retries, 8) : retries;
+  const waitBase = authCall ? Math.min(delay, 300) : delay;
+
   try {
     const response = await fetch(input, init);
 
-    // Rate limited / temporarily unavailable — wait, then retry
-    if ((response.status === 429 || response.status === 503) && retries > 0) {
-      const waitMs = parseRetryAfterMs(response, delay);
+    // Rate limited / temporarily unavailable — wait briefly, then retry (no user-facing block)
+    if ((response.status === 429 || response.status === 503) && maxRetries > 0) {
+      const waitMs = authCall
+        ? Math.min(parseRetryAfterMs(response, waitBase), 800)
+        : parseRetryAfterMs(response, waitBase);
       await new Promise(resolve => setTimeout(resolve, waitMs));
-      return retryFetch(input, init, retries - 1, Math.min(delay * 2, 15000));
+      return retryFetch(input, init, maxRetries - 1, Math.min(waitBase * 2, authCall ? 1000 : 15000));
     }
 
     if (response.status === 401 || response.status === 403) {
@@ -56,10 +73,10 @@ const retryFetch = async (
     // Always return the Response (including 4xx/5xx) for supabase-js to handle
     return response;
   } catch (error) {
-    // Network / CORS failures only
-    if (retries > 0) {
-      await new Promise(resolve => setTimeout(resolve, delay));
-      return retryFetch(input, init, retries - 1, Math.min(delay * 2, 15000));
+    // Network / CORS failures only — keep retrying auth quietly
+    if (maxRetries > 0) {
+      await new Promise(resolve => setTimeout(resolve, waitBase));
+      return retryFetch(input, init, maxRetries - 1, Math.min(waitBase * 2, authCall ? 1000 : 15000));
     }
     throw error;
   }

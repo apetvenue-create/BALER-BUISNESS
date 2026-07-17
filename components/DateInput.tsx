@@ -9,6 +9,7 @@ interface DateInputProps {
   max?: string;
   className?: string;
   placeholder?: string;
+  compact?: boolean;
 }
 
 export const DateInput: React.FC<DateInputProps> = ({ 
@@ -18,7 +19,8 @@ export const DateInput: React.FC<DateInputProps> = ({
   min,
   max,
   className = "",
-  placeholder = "Select Date"
+  placeholder = "Select Date",
+  compact = false
 }) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -43,7 +45,11 @@ export const DateInput: React.FC<DateInputProps> = ({
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
-          className="w-full px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-sm sm:text-base text-gray-900 bg-white placeholder-gray-400 font-sans"
+          className={`w-full border border-gray-300 bg-white font-sans text-gray-900 placeholder-gray-400 focus:border-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-200 ${
+            compact
+              ? 'rounded-md px-2 py-1 text-xs sm:text-sm'
+              : 'rounded-lg px-3 py-1.5 text-sm sm:px-4 sm:py-2 sm:text-base'
+          }`}
           placeholder={placeholder}
         />
 
@@ -53,12 +59,16 @@ export const DateInput: React.FC<DateInputProps> = ({
             - pointer-events-none ensures clicks pass through to the input
         */}
         {showOverlay && (
-          <div className="absolute inset-0 px-3 py-1.5 sm:px-4 sm:py-2 border border-gray-300 rounded-lg bg-white flex items-center justify-between pointer-events-none text-sm sm:text-base">
+          <div className={`pointer-events-none absolute inset-0 flex items-center justify-between border border-gray-300 bg-white ${
+            compact
+              ? 'rounded-md px-2 py-1 text-xs sm:text-sm'
+              : 'rounded-lg px-3 py-1.5 text-sm sm:px-4 sm:py-2 sm:text-base'
+          }`}>
              <span className="font-medium text-gray-900 font-sans truncate">
                {formatDisplayDate(value)}
              </span>
              {/* Calendar Icon SVG */}
-             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-900" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+             <svg xmlns="http://www.w3.org/2000/svg" className={`${compact ? 'h-3.5 w-3.5' : 'h-5 w-5'} text-gray-700`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
              </svg>
           </div>

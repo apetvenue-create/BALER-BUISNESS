@@ -127,6 +127,9 @@ const UserProfileHeader: React.FC = () => {
 
 // --- MAIN FINANCIAL APP (WRAPPED CONTENT) ---
 const FinancialApp: React.FC = () => {
+  const { session } = useAuth();
+  const currentUserId = session?.userId || 'unauthenticated';
+
   // State
   const [language, setLanguage] = useState<Language>('en');
   const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
@@ -186,6 +189,7 @@ const FinancialApp: React.FC = () => {
   const openingBalanceSubmittingRef = useRef(false);
 
   // Stats Section State
+  const summaryReportRef = useRef<HTMLDivElement>(null);
   const [statsStartDate, setStatsStartDate] = useState<string>(
       formatISODateLocal(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
   );
@@ -204,7 +208,7 @@ const FinancialApp: React.FC = () => {
   // ---- Local outbox for transactions (prevents “disappears after refresh”) ----
   // If Supabase insert fails / is pending and the user refreshes, we keep the tx locally
   // and auto-sync it on next load.
-  const TX_OUTBOX_KEY = 'pendingTransactions_v1';
+  const TX_OUTBOX_KEY = `pendingTransactions_v1:${currentUserId}`;
   const readTxOutbox = (): Omit<Transaction, 'id'>[] => {
     try {
       const raw = localStorage.getItem(TX_OUTBOX_KEY);
@@ -281,7 +285,7 @@ const FinancialApp: React.FC = () => {
                 : a
             );
             const p = next.find(x => x.name === acc.name && x.type === 'partner');
-            persistOwnerPreviousForAccount(acc.name, p?.ownerPreviousEntries || []);
+            persistOwnerPreviousForAccount(currentUserId, acc.name, p?.ownerPreviousEntries || []);
             return next;
           });
         } catch (err) {
@@ -337,7 +341,7 @@ const FinancialApp: React.FC = () => {
           setTransactions([...txs, ...pendingAsTxs]);
           setHiddenLedgerAccounts(Array.isArray(hiddenLedger) ? hiddenLedger : []);
           setRemovedLedgerAccounts(Array.isArray(removedLedger) ? removedLedger : []);
-          const localOwnerPrev = loadOwnerPreviousLocal();
+          const localOwnerPrev = loadOwnerPreviousLocal(currentUserId);
           const accsMerged = accs.map(acc => {
             if (acc.type !== 'partner') return acc;
             return {
@@ -510,7 +514,7 @@ const FinancialApp: React.FC = () => {
       // 4. Sync with Backend
       try {
           await AccountService.rename(canonicalOld, canonicalNew);
-          renameOwnerPreviousLocalKey(canonicalOld, canonicalNew);
+          renameOwnerPreviousLocalKey(currentUserId, canonicalOld, canonicalNew);
       } catch (e) {
           console.error("Rename failed", e);
           alert("Failed to update name on server. Please refresh.");
@@ -691,10 +695,12 @@ const FinancialApp: React.FC = () => {
 
       // --- AUTO-ADJUST DATE FILTER (CASHBOOK RULE) ---
       const txDate = data.date;
-      const isInsideActiveRange = 
-          dateFilter.mode === 'range' && 
-          txDate >= dateFilter.fromDate && 
-          txDate <= dateFilter.toDate;
+      const isInsideActiveRange =
+          dateFilter.mode === 'all' ||
+          (dateFilter.mode === 'single' && txDate === dateFilter.singleDate) ||
+          (dateFilter.mode === 'range' &&
+            txDate >= dateFilter.fromDate &&
+            txDate <= dateFilter.toDate);
 
       if (!isInsideActiveRange) {
           setDateFilter({
@@ -988,6 +994,7 @@ const FinancialApp: React.FC = () => {
 
   // Net of income/expense before the current filter start date (excludes stored opening balance).
   const getPriorTxNets = () => {
+      if (dateFilter.mode === 'all') return { cash: 0, online: 0 };
       const startDate = dateFilter.mode === 'single' ? dateFilter.singleDate : dateFilter.fromDate;
       let cash = 0;
       let online = 0;
@@ -1242,7 +1249,7 @@ const FinancialApp: React.FC = () => {
                       : acc
               );
               const p = next.find(a => a.name === accountName && a.type === 'partner');
-              persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+              persistOwnerPreviousForAccount(currentUserId, accountName, p?.ownerPreviousEntries || []);
               return next;
           });
       } catch (e) {
@@ -1260,7 +1267,7 @@ const FinancialApp: React.FC = () => {
                       : acc
               );
               const p = next.find(a => a.name === accountName && a.type === 'partner');
-              persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+              persistOwnerPreviousForAccount(currentUserId, accountName, p?.ownerPreviousEntries || []);
               return next;
           });
       }
@@ -1279,7 +1286,7 @@ const FinancialApp: React.FC = () => {
                   : acc
           );
           const p = next.find(a => a.name === accountName && a.type === 'partner');
-          persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+          persistOwnerPreviousForAccount(currentUserId, accountName, p?.ownerPreviousEntries || []);
           return next;
       });
 
@@ -1303,7 +1310,7 @@ const FinancialApp: React.FC = () => {
                   : acc
           );
           const p = next.find(a => a.name === accountName && a.type === 'partner');
-          persistOwnerPreviousForAccount(accountName, p?.ownerPreviousEntries || []);
+          persistOwnerPreviousForAccount(currentUserId, accountName, p?.ownerPreviousEntries || []);
           return next;
       });
 
@@ -1386,7 +1393,7 @@ const FinancialApp: React.FC = () => {
       let filtered = transactions;
       if (dateFilter.mode === 'single') {
           filtered = filtered.filter(t => t.date === dateFilter.singleDate);
-      } else {
+      } else if (dateFilter.mode === 'range') {
           filtered = filtered.filter(t => t.date >= dateFilter.fromDate && t.date <= dateFilter.toDate);
       }
       // Keep Income/Expense tables in entry order (newest entered first),
@@ -1396,6 +1403,11 @@ const FinancialApp: React.FC = () => {
 
   // Previous Balance: Initial + (Income - Expense) before start date
   const previousBalance = useMemo(() => {
+      if (dateFilter.mode === 'all') {
+          const cash = initialOpeningBalance.cash;
+          const online = initialOpeningBalance.online;
+          return { cash, online, total: cash + online };
+      }
       const startDate = dateFilter.mode === 'single' ? dateFilter.singleDate : dateFilter.fromDate;
       
       let cash = initialOpeningBalance.cash;
@@ -1602,48 +1614,72 @@ const FinancialApp: React.FC = () => {
               <div className="flex-1 min-h-0 lg:bg-white lg:rounded-2xl lg:shadow-sm lg:border lg:border-gray-200 lg:p-6">
               {activeTab === 'transactions' && (
                   <div className="flex flex-col space-y-3 sm:space-y-6">
+                      <button
+                        type="button"
+                        onClick={() => summaryReportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                        className="fixed bottom-5 right-4 z-40 flex h-11 w-11 items-center justify-center rounded-full border border-indigo-400/40 bg-indigo-600 text-white shadow-lg shadow-indigo-900/20 transition hover:-translate-y-0.5 hover:bg-indigo-700 hover:shadow-xl active:translate-y-0 sm:bottom-6 sm:right-6 sm:h-12 sm:w-12"
+                        title="Go to Summary Report"
+                        aria-label="Go to Summary Report"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.25} className="h-5 w-5 sm:h-6 sm:w-6" aria-hidden="true">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m0 0 6-6m-6 6-6-6" />
+                        </svg>
+                      </button>
                       
-                      {/* Date Selection Card */}
-                      <div className="bg-white px-3 py-3 sm:p-4 rounded-lg shadow-sm border border-gray-200">
-                           <div className="flex flex-col gap-1.5 sm:gap-2">
-                               <h2 className="text-xs sm:text-sm font-bold text-gray-500 uppercase">{t.dateSelectionTitle}</h2>
-                               <div className="flex flex-col md:flex-row md:items-center gap-2 sm:gap-4">
-                                   <div className="flex bg-gray-100 p-0.5 sm:p-1 rounded w-fit">
-                                       <button 
-                                          onClick={() => setDateFilter(prev => ({ ...prev, mode: 'single' }))}
-                                          className={`px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-bold rounded transition ${dateFilter.mode === 'single' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-                                       >
-                                          {t.singleDayLabel}
-                                       </button>
-                                       <button 
-                                          onClick={() => setDateFilter(prev => ({ ...prev, mode: 'range' }))}
-                                          className={`px-2.5 py-0.5 sm:px-3 sm:py-1 text-[11px] sm:text-xs font-bold rounded transition ${dateFilter.mode === 'range' ? 'bg-white shadow text-blue-600' : 'text-gray-500'}`}
-                                       >
-                                          {t.dateRangeLabel}
-                                       </button>
-                                   </div>
-                                   <div className="flex gap-2 items-center">
-                                       {dateFilter.mode === 'single' ? (
-                                           <DateInput 
-                                              value={dateFilter.singleDate} 
-                                              onChange={(d) => setDateFilter(prev => ({ ...prev, singleDate: d, fromDate: d, toDate: d }))}
-                                           />
-                                       ) : (
-                                           <>
-                                              <DateInput 
-                                                  value={dateFilter.fromDate}
-                                                  onChange={(d) => setDateFilter(prev => ({ ...prev, fromDate: d }))}
-                                              />
-                                              <span className="text-gray-400">➜</span>
-                                              <DateInput 
-                                                  value={dateFilter.toDate}
-                                                  onChange={(d) => setDateFilter(prev => ({ ...prev, toDate: d }))}
-                                              />
-                                           </>
-                                       )}
-                                   </div>
-                               </div>
-                           </div>
+                      {/* Compact Date Filter */}
+                      <div className="rounded-lg border border-slate-200 bg-white px-2 py-2 shadow-sm sm:px-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-slate-400 sm:text-xs">
+                            {t.dateSelectionTitle}
+                          </h2>
+                          <div className="flex shrink-0 rounded-md border border-slate-200 bg-slate-50 p-0.5">
+                            {([
+                              { mode: 'all' as const, label: t.allDatesLabel },
+                              { mode: 'single' as const, label: t.singleDayLabel },
+                              { mode: 'range' as const, label: t.dateRangeLabel },
+                            ]).map(option => (
+                              <button
+                                key={option.mode}
+                                type="button"
+                                onClick={() => setDateFilter(prev => ({ ...prev, mode: option.mode }))}
+                                className={`rounded px-2 py-1 text-[10px] font-bold transition sm:px-2.5 sm:text-xs ${
+                                  dateFilter.mode === option.mode
+                                    ? 'bg-slate-700 text-white shadow-sm'
+                                    : 'text-slate-500 hover:bg-white hover:text-slate-700'
+                                }`}
+                              >
+                                {option.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {dateFilter.mode === 'single' && (
+                            <DateInput
+                              compact
+                              className="w-[8.5rem]"
+                              value={dateFilter.singleDate}
+                              onChange={(d) => setDateFilter(prev => ({ ...prev, singleDate: d, fromDate: d, toDate: d }))}
+                            />
+                          )}
+
+                          {dateFilter.mode === 'range' && (
+                            <div className="flex min-w-0 items-center gap-1.5">
+                              <DateInput
+                                compact
+                                className="w-[8.25rem]"
+                                value={dateFilter.fromDate}
+                                onChange={(d) => setDateFilter(prev => ({ ...prev, fromDate: d }))}
+                              />
+                              <span className="text-xs text-slate-400">—</span>
+                              <DateInput
+                                compact
+                                className="w-[8.25rem]"
+                                value={dateFilter.toDate}
+                                onChange={(d) => setDateFilter(prev => ({ ...prev, toDate: d }))}
+                              />
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       {/* PREVIOUS BALANCE CARD */}
@@ -1950,7 +1986,7 @@ const FinancialApp: React.FC = () => {
                       </div>
 
                       {/* --- SUMMARY REPORT (STATS) SECTION --- */}
-                      <div className="bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-t-4 border-indigo-500">
+                      <div ref={summaryReportRef} className="scroll-mt-4 bg-white rounded-lg shadow-md px-3 py-3 sm:p-4 md:p-6 border-t-4 border-indigo-500">
                           <h2 className="text-sm sm:text-base md:text-xl font-extrabold tracking-wide uppercase text-indigo-900 mb-2.5 sm:mb-4 md:mb-6">
                             {t.statsTitle}
                           </h2>

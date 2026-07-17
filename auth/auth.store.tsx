@@ -5,11 +5,17 @@ import { supabase } from '../services/supabase';
 
 const initialContext: AuthContextType = {
   session: null,
-  loading: true, // Initial load is true
+  loading: true,
+  submitting: false,
   error: null,
+  notice: null,
   signIn: async () => {},
-  signUp: async () => {},
+  signUp: async () => ({
+    session: { userId: '', email: '', issuedAt: 0 },
+    email: '',
+  }),
   signOut: async () => {},
+  clearMessages: () => {},
 };
 
 const AuthContext = createContext<AuthContextType>(initialContext);
@@ -18,36 +24,64 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [state, setState] = useState<AuthState>({
     session: null,
     loading: true,
+    submitting: false,
     error: null,
+    notice: null,
   });
 
   useEffect(() => {
     let mounted = true;
 
-    // App Bootstrap: Restore session
     const initAuth = async () => {
       try {
         const session = await AuthService.restoreSession();
-        if (mounted) setState(prev => ({ ...prev, session, loading: false }));
-      } catch (e) {
-        if (mounted) setState(prev => ({ ...prev, session: null, loading: false }));
+        if (mounted) {
+          setState(prev => ({
+            ...prev,
+            session,
+            loading: false,
+            submitting: false,
+          }));
+        }
+      } catch {
+        if (mounted) {
+          setState(prev => ({
+            ...prev,
+            session: null,
+            loading: false,
+            submitting: false,
+          }));
+        }
       }
     };
-    initAuth();
 
-    // Listen for Supabase auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    void initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (!mounted) return;
-      
+
       if (event === 'SIGNED_OUT') {
-        setState({ session: null, loading: false, error: null });
-      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        // Optimization: Use the session object from the event if compatible, 
-        // otherwise verify with service.
-        if (session && session.user) {
-             const mappedSession = AuthService._mapSession(session.user);
-             setState({ session: mappedSession, loading: false, error: null });
-        }
+        setState(prev => ({
+          ...prev,
+          session: null,
+          loading: false,
+          submitting: false,
+          error: null,
+          notice: null,
+        }));
+        return;
+      }
+
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        const mappedSession = AuthService._mapSession(session.user);
+        setState(prev => ({
+          ...prev,
+          session: mappedSession,
+          loading: false,
+          submitting: false,
+          error: null,
+          notice: null,
+        }));
       }
     });
 
@@ -58,59 +92,76 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const signIn = async (email: string, pass: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState(prev => ({ ...prev, submitting: true, error: null, notice: null }));
     try {
       const session = await AuthService.signIn(email, pass);
-      setState({ session, loading: false, error: null });
-    } catch (err: any) {
-      const raw = err?.message || 'Authentication failed';
-      const friendly =
-        /429|rate limit|too many|http error/i.test(raw)
-          ? 'Too many requests. Please wait a few seconds and try again.'
-          : raw;
       setState(prev => ({
         ...prev,
+        session,
         loading: false,
-        error: friendly,
+        submitting: false,
+        error: null,
+        notice: null,
+      }));
+    } catch (err: any) {
+      const raw = (err?.message || '').trim();
+      setState(prev => ({
+        ...prev,
+        submitting: false,
+        error: raw || null,
+        notice: null,
       }));
       throw err;
     }
   };
 
   const signUp = async (email: string, pass: string, name: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState(prev => ({ ...prev, submitting: true, error: null, notice: null }));
     try {
-      const session = await AuthService.signUp(email, pass, name);
-      setState({ session, loading: false, error: null });
-    } catch (err: any) {
-      const raw = err?.message || 'Registration failed';
-      const friendly =
-        /429|rate limit|too many|http error/i.test(raw)
-          ? 'Too many requests. Please wait a few seconds and try again.'
-          : raw;
+      const result = await AuthService.signUp(email, pass, name);
       setState(prev => ({
         ...prev,
+        session: result.session,
         loading: false,
-        error: friendly,
+        submitting: false,
+        error: null,
+        notice: null,
+      }));
+      return result;
+    } catch (err: any) {
+      const raw = (err?.message || '').trim();
+      setState(prev => ({
+        ...prev,
+        submitting: false,
+        error: raw || null,
+        notice: null,
       }));
       throw err;
     }
   };
 
   const signOut = async () => {
-    // 1. Instant UI Update
-    setState({ session: null, loading: false, error: null });
-    
-    // 2. Background cleanup
+    setState({
+      session: null,
+      loading: false,
+      submitting: false,
+      error: null,
+      notice: null,
+    });
+
     try {
       await AuthService.signOut();
     } catch (e) {
-      console.error("Background logout error", e);
+      console.error('Background logout error', e);
     }
   };
 
+  const clearMessages = () => {
+    setState(prev => ({ ...prev, error: null, notice: null }));
+  };
+
   return (
-    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ ...state, signIn, signUp, signOut, clearMessages }}>
       {children}
     </AuthContext.Provider>
   );
@@ -118,6 +169,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };

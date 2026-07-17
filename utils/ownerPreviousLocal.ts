@@ -1,12 +1,13 @@
 import type { OwnerPreviousEntry } from '../types';
 
 const KEY = 'transaction_manager_owner_previous_v1';
+const keyForUser = (userId: string) => `${KEY}:${userId}`;
 
 export type OwnerPreviousLocalMap = Record<string, OwnerPreviousEntry[]>;
 
-export function loadOwnerPreviousLocal(): OwnerPreviousLocalMap {
+export function loadOwnerPreviousLocal(userId: string): OwnerPreviousLocalMap {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(keyForUser(userId));
     if (!raw) return {};
     const parsed = JSON.parse(raw) as OwnerPreviousLocalMap;
     return parsed && typeof parsed === 'object' ? parsed : {};
@@ -16,38 +17,39 @@ export function loadOwnerPreviousLocal(): OwnerPreviousLocalMap {
 }
 
 export function persistOwnerPreviousForAccount(
+  userId: string,
   accountName: string,
   entries: OwnerPreviousEntry[]
 ): void {
-  const all = loadOwnerPreviousLocal();
+  const all = loadOwnerPreviousLocal(userId);
   all[accountName] = entries;
   try {
-    localStorage.setItem(KEY, JSON.stringify(all));
+    localStorage.setItem(keyForUser(userId), JSON.stringify(all));
   } catch (e) {
     console.warn('owner previous localStorage save failed', e);
   }
 }
 
-export function removeOwnerPreviousLocalForAccount(accountName: string): void {
-  const all = loadOwnerPreviousLocal();
+export function removeOwnerPreviousLocalForAccount(userId: string, accountName: string): void {
+  const all = loadOwnerPreviousLocal(userId);
   if (!(accountName in all)) return;
   const next = { ...all };
   delete next[accountName];
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(keyForUser(userId), JSON.stringify(next));
   } catch (e) {
     console.warn('owner previous localStorage remove failed', e);
   }
 }
 
-export function renameOwnerPreviousLocalKey(oldName: string, newName: string): void {
-  const all = loadOwnerPreviousLocal();
+export function renameOwnerPreviousLocalKey(userId: string, oldName: string, newName: string): void {
+  const all = loadOwnerPreviousLocal(userId);
   if (!(oldName in all)) return;
   const next = { ...all };
   next[newName] = next[oldName];
   delete next[oldName];
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(keyForUser(userId), JSON.stringify(next));
   } catch (e) {
     console.warn('owner previous localStorage rename failed', e);
   }
