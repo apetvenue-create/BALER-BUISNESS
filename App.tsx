@@ -1643,6 +1643,8 @@ const FinancialApp: React.FC = () => {
     let partnerIn = 0;
     let electricity = 0;
     let machineRepair = 0;
+    let newMachinery = 0;
+    let otherRepair = 0;
     
     transactions.forEach(t => {
         if (t.date >= statsStartDate && t.date <= statsEndDate) {
@@ -1660,13 +1662,19 @@ const FinancialApp: React.FC = () => {
                 if (t.category === 'machine_repair') {
                     machineRepair += t.amount;
                 }
+                if (t.category === 'new_machinery') {
+                    newMachinery += t.amount;
+                }
+                if (t.category === 'other_repair') {
+                    otherRepair += t.amount;
+                }
             } else if (t.type === 'income' && t.category === 'partner') {
                 partnerIn += t.amount;
             }
         }
     });
     
-    return { expense, labour, oil, electricity, machineRepair, partnerIn };
+    return { expense, labour, oil, electricity, machineRepair, newMachinery, otherRepair, partnerIn };
   }, [transactions, statsStartDate, statsEndDate]);
 
   // Helpers
@@ -1680,6 +1688,9 @@ const FinancialApp: React.FC = () => {
       if (cat === 'electricity') return t.electricityOption;
       if (cat === 'food') return t.foodOption;
       if (cat === 'machine_repair') return t.machineRepairOption;
+      if (cat === 'new_machinery') return t.newMachineryOption;
+      if (cat === 'other_repair') return t.otherRepairOption;
+      if (cat === 'custom') return t.customOption;
       if (cat === 'supplier') return t.supplierOption;
 
       if (cat === 'cash_conversion') return "ONLINE -> CASH";
@@ -2231,6 +2242,16 @@ const FinancialApp: React.FC = () => {
                               <div className="px-3 py-4 bg-teal-50 rounded-xl border border-teal-100 shadow-sm">
                                       <p className="text-xs uppercase tracking-wide font-bold text-teal-700 mb-1">{t.statsMachineRepairExpense}</p>
                                       <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.machineRepair)}</p>
+                              </div>
+                              {/* New Machinery */}
+                              <div className="px-3 py-4 bg-violet-50 rounded-xl border border-violet-100 shadow-sm">
+                                      <p className="text-xs uppercase tracking-wide font-bold text-violet-700 mb-1">{t.statsNewMachineryExpense}</p>
+                                      <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.newMachinery)}</p>
+                              </div>
+                              {/* Other Repair */}
+                              <div className="px-3 py-4 bg-rose-50 rounded-xl border border-rose-100 shadow-sm">
+                                      <p className="text-xs uppercase tracking-wide font-bold text-rose-700 mb-1">{t.statsOtherRepairExpense}</p>
+                                      <p className="text-xl font-bold text-gray-800 tabular-nums break-all">₹{formatIndianCurrency(stats.otherRepair)}</p>
                               </div>
                           </div>
                       </div>

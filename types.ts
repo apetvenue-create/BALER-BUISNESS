@@ -330,7 +330,11 @@ export interface Translation {
   statsElectricityExpense: string;
   foodOption: string;
   machineRepairOption: string;
-  statsMachineRepairExpense: string; 
+  statsMachineRepairExpense: string;
+  newMachineryOption: string;
+  otherRepairOption: string;
+  statsNewMachineryExpense: string;
+  statsOtherRepairExpense: string; 
 
   // Detailed Report Keys
   viewDetailedReport: string;

@@ -327,6 +327,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <option value="electricity">{t.electricityOption}</option>
                     <option value="food">{t.foodOption}</option>
                     <option value="machine_repair">{t.machineRepairOption}</option>
+                    <option value="new_machinery">{t.newMachineryOption}</option>
+                    <option value="other_repair">{t.otherRepairOption}</option>
                     <option value="labour">{t.labourOption}</option>
                     <option value="partner">{t.partnerOption}</option>
                     {(category === 'customer' || defaultCategory === 'customer') && (
@@ -335,8 +337,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     {(category === 'supplier' || defaultCategory === 'supplier') && (
                       <option value="supplier">{t.supplierOption}</option>
                     )}
-
-                    <option value="custom">{t.customOption}</option>
+                    {(category === 'custom' || defaultCategory === 'custom') && (
+                      <option value="custom">{t.customOption}</option>
+                    )}
                     {/* Cash Conversion Option - Only available in Expense mode */}
                     <option value="cash_conversion" className="font-bold text-blue-600">{t.cashConversionOption}</option>
                   </>
