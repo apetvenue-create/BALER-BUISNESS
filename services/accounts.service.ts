@@ -200,6 +200,49 @@ export const AccountService = {
       error = retry.error;
     }
 
+    // Re-adding a deleted account: row may still exist (or delete missed). Treat duplicate as restore.
+    if (error && (error.code === '23505' || /duplicate|unique|already exists/i.test(error.message || ''))) {
+      const { error: updateError } = await supabase
+        .from('accounts')
+        .update({
+          type,
+          rate: rate ?? null,
+          ...(type === 'supplier' && details
+            ? {
+                phone: details.phone || null,
+                address: details.address || null,
+                acres: details.acres ?? null,
+                date_cutter: details.dateCutter || null,
+              }
+            : {}),
+        })
+        .eq('user_id', user.id)
+        .eq('name', name);
+
+      if (updateError) {
+        // Case-insensitive fallback if exact name casing differs
+        const { data: existingRows } = await supabase
+          .from('accounts')
+          .select('name')
+          .eq('user_id', user.id);
+        const match = (existingRows || []).find(
+          (row: { name: string }) => row.name.trim().toLowerCase() === name.trim().toLowerCase()
+        );
+        if (!match) throw updateError;
+
+        const { error: retryUpdateError } = await supabase
+          .from('accounts')
+          .update({
+            type,
+            rate: rate ?? null,
+          })
+          .eq('user_id', user.id)
+          .eq('name', match.name);
+        if (retryUpdateError) throw retryUpdateError;
+      }
+      error = null;
+    }
+
     if (error) throw error;
 
     if (type === 'supplier' && details) {
@@ -423,18 +466,38 @@ export const AccountService = {
       return;
     }
 
-    const { error } = await supabase
+    const trimmed = accountName.trim();
+    let { error } = await supabase
       .from('accounts')
       .delete()
-      .eq('name', accountName)
+      .eq('name', trimmed)
       .eq('user_id', user.id);
 
     if (error) throw error;
 
+    // Fallback: delete by case-insensitive match if exact name missed
+    const { data: remaining } = await supabase
+      .from('accounts')
+      .select('name')
+      .eq('user_id', user.id);
+
+    const leftovers = (remaining || []).filter(
+      (row: { name: string }) => row.name.trim().toLowerCase() === trimmed.toLowerCase()
+    );
+    for (const row of leftovers) {
+      const del = await supabase
+        .from('accounts')
+        .delete()
+        .eq('name', row.name)
+        .eq('user_id', user.id);
+      if (del.error) throw del.error;
+    }
+
     try {
       const map = await readFarmerDetailsMap();
-      if (map[accountName]) {
-        delete map[accountName];
+      const keys = Object.keys(map).filter(k => k.trim().toLowerCase() === trimmed.toLowerCase());
+      if (keys.length) {
+        keys.forEach(k => delete map[k]);
         await writeFarmerDetailsMap(map);
       }
     } catch {
@@ -443,8 +506,9 @@ export const AccountService = {
 
     try {
       const labourMap = await readLabourDetailsMap();
-      if (labourMap[accountName]) {
-        delete labourMap[accountName];
+      const keys = Object.keys(labourMap).filter(k => k.trim().toLowerCase() === trimmed.toLowerCase());
+      if (keys.length) {
+        keys.forEach(k => delete labourMap[k]);
         await writeLabourDetailsMap(labourMap);
       }
     } catch {
@@ -453,8 +517,9 @@ export const AccountService = {
 
     try {
       const customerMap = await readCustomerDetailsMap();
-      if (customerMap[accountName]) {
-        delete customerMap[accountName];
+      const keys = Object.keys(customerMap).filter(k => k.trim().toLowerCase() === trimmed.toLowerCase());
+      if (keys.length) {
+        keys.forEach(k => delete customerMap[k]);
         await writeCustomerDetailsMap(customerMap);
       }
     } catch {

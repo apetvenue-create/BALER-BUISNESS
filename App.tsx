@@ -487,19 +487,54 @@ const FinancialApp: React.FC = () => {
       const accountName = normalizeAccountName(name);
       if (!accountName) return;
 
-      // Optimistic Check & Update
-      if (accounts.some(a => a.name.toLowerCase() === accountName.toLowerCase())) return;
+      const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
+      const nameKey = accountName.toLowerCase();
 
-      const nextHiddenCreate = hiddenLedgerAccounts.filter(
-          n => n.toLowerCase() !== accountName.toLowerCase()
-      );
-      if (nextHiddenCreate.length < hiddenLedgerAccounts.length) {
-          setHiddenLedgerAccounts(nextHiddenCreate);
-          void SettingsService.set('hiddenLedgerAccounts', nextHiddenCreate);
+      const existingActive = accounts.find(a => a.name.trim().toLowerCase() === nameKey);
+      const isHidden = hiddenLedgerAccounts.some(n => n.trim().toLowerCase() === nameKey);
+      const removedMeta = removedLedgerAccounts.find(a => a.name.trim().toLowerCase() === nameKey);
+
+      // Already visible in the accounts list — block duplicates.
+      if (existingActive && !isHidden && !removedMeta) {
+          alert(t.accountExists);
+          return;
       }
 
-      const safeType: AccountType = ['labour', 'partner', 'customer', 'supplier', 'other'].includes(type) ? type : 'other';
-      
+      // Re-adding a deleted/hidden account: restore it with previous data
+      // (transactions / owner previous / attendance stay keyed by the same name).
+      if (removedMeta || isHidden || existingActive) {
+          const restored: StoredAccount = {
+              ...(removedMeta || existingActive || {
+                  name: accountName,
+                  type: safeType,
+                  attendance: {},
+                  hisaabDays: {},
+                  manualAdjustments: [],
+                  ...(safeType === 'partner' ? { ownerPreviousEntries: [] as OwnerPreviousEntry[] } : {}),
+              }),
+              name: (removedMeta || existingActive)?.name.trim() || accountName,
+              type: safeType,
+              ...(rate != null ? { rate } : {}),
+              ...(safeType === 'supplier' && details
+                ? {
+                    phone: details.phone,
+                    address: details.address,
+                    acres: details.acres,
+                    dateCutter: details.dateCutter,
+                  }
+                : {}),
+              ...(safeType === 'labour' && details
+                ? { phone: details.phone?.replace(/\D/g, '').slice(0, 10) || undefined }
+                : {}),
+              ...(safeType === 'customer' && details
+                ? { phone: details.phone?.replace(/\D/g, '').slice(0, 10) || undefined }
+                : {}),
+          };
+
+          await handleRestoreLedgerAccount(restored);
+          return;
+      }
+
       const newAccount: StoredAccount = {
           name: accountName,
           type: safeType,
@@ -658,24 +693,31 @@ const FinancialApp: React.FC = () => {
       const prevAccounts = accounts;
       const prevHidden = hiddenLedgerAccounts;
       const prevRemoved = removedLedgerAccounts;
+      const nameKey = canonicalName.toLowerCase();
 
       const nextHidden = hiddenLedgerAccounts
         .map(n => n.trim())
-        .filter(n => n.toLowerCase() !== canonicalName.toLowerCase());
-      const nextRemoved = removedLedgerAccounts.filter(a => a.name.trim().toLowerCase() !== canonicalName.toLowerCase());
+        .filter(n => n.toLowerCase() !== nameKey);
+      const nextRemoved = removedLedgerAccounts.filter(a => a.name.trim().toLowerCase() !== nameKey);
 
-      // Optimistic UI: show it again in ledgers
+      // Optimistic UI: show it again in ledgers with its previous data
       setHiddenLedgerAccounts(nextHidden);
       setRemovedLedgerAccounts(nextRemoved);
-      if (!accounts.some(a => a.name.trim().toLowerCase() === canonicalName.toLowerCase())) {
-          setAccounts(prev => [...prev, { ...account, name: canonicalName }]);
-      }
+      setAccounts(prev => {
+          const without = prev.filter(a => a.name.trim().toLowerCase() !== nameKey);
+          return [...without, { ...account, name: canonicalName }];
+      });
       void SettingsService.set('hiddenLedgerAccounts', nextHidden);
       void SettingsService.set('removedLedgerAccounts', nextRemoved);
 
       try {
-          // Re-create the accounts row in Supabase so it shows up again.
-          await AccountService.create(canonicalName, account.type, account.rate);
+          // Re-create (or keep) the accounts row in Supabase so it shows up again.
+          await AccountService.create(canonicalName, account.type, account.rate, {
+              phone: account.phone,
+              address: account.address,
+              acres: account.acres,
+              dateCutter: account.dateCutter,
+          });
       } catch (e) {
           console.error('Restore account failed', e);
           setAccounts(prevAccounts);
