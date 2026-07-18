@@ -12,9 +12,23 @@ type Tone = {
   gain?: number;
   delay?: number;
   slideTo?: number;
+  /** Attack time in seconds (softer rise for melodic notes) */
+  attack?: number;
+  /** Extra release tail after duration */
+  release?: number;
+  /** Soft harmonic overtone multiplier (2 = octave) */
+  harmonic?: number;
+  harmonicGain?: number;
 };
 
 const MUTE_KEY = 'baler-ui-sound-muted';
+
+// Frequencies for short, smooth major confirmation tones.
+const G5 = 783.99;
+const B5 = 987.77;
+const D6 = 1174.66;
+const A4 = 440;
+const Cs5 = 554.37;
 
 const PATTERNS: Record<UiSoundKind, Tone[]> = {
   // Soft tactile press
@@ -24,21 +38,21 @@ const PATTERNS: Record<UiSoundKind, Tone[]> = {
     { freq: 740, duration: 0.035, type: 'sine', gain: 0.06 },
     { freq: 980, duration: 0.04, type: 'sine', gain: 0.045, delay: 0.028 },
   ],
-  // Pleasant confirmation chime (saved / success)
+  // Short, smooth save chime: a gentle three-note major resolve.
   success: [
-    { freq: 523.25, duration: 0.09, type: 'sine', gain: 0.08 },
-    { freq: 659.25, duration: 0.11, type: 'sine', gain: 0.07, delay: 0.07 },
-    { freq: 783.99, duration: 0.14, type: 'triangle', gain: 0.05, delay: 0.14 },
+    { freq: G5, duration: 0.07, type: 'sine', gain: 0.072, attack: 0.012, release: 0.09 },
+    { freq: B5, duration: 0.075, type: 'sine', gain: 0.068, delay: 0.055, attack: 0.012, release: 0.1 },
+    { freq: D6, duration: 0.11, type: 'sine', gain: 0.075, delay: 0.11, attack: 0.014, release: 0.13 },
   ],
   // Soft alert (not harsh)
   error: [
     { freq: 280, duration: 0.12, type: 'triangle', gain: 0.07, slideTo: 220 },
     { freq: 200, duration: 0.14, type: 'sine', gain: 0.05, delay: 0.1 },
   ],
-  // Confirm dialog affirmative
+  // Confirm dialog: short, warm two-note resolve.
   confirm: [
-    { freq: 440, duration: 0.06, type: 'sine', gain: 0.07 },
-    { freq: 554.37, duration: 0.1, type: 'sine', gain: 0.06, delay: 0.05 },
+    { freq: A4, duration: 0.065, type: 'sine', gain: 0.07, attack: 0.012, release: 0.08 },
+    { freq: Cs5, duration: 0.1, type: 'sine', gain: 0.075, delay: 0.055, attack: 0.012, release: 0.12 },
   ],
   // Cancel / dismiss
   cancel: [{ freq: 360, duration: 0.05, type: 'sine', gain: 0.05, slideTo: 300 }],
@@ -105,8 +119,8 @@ class UiSoundEngine {
     const now = performance.now();
     // Rate-limit identical rapid taps (double-fire from capture + bubble, etc.)
     if (this.lastKind === kind && now - this.lastPlayedAt < 55) return;
-    // Slightly longer debounce for success chimes so stacked saves don't stack tones
-    if (kind === 'success' && now - this.lastPlayedAt < 280 && this.lastKind === 'success') return;
+    // Allow the short confirmation chime to finish before another starts.
+    if (kind === 'success' && now - this.lastPlayedAt < 260 && this.lastKind === 'success') return;
 
     this.lastKind = kind;
     this.lastPlayedAt = now;
@@ -145,23 +159,52 @@ class UiSoundEngine {
   }
 
   private scheduleTone(ctx: AudioContext, dest: AudioNode, start: number, tone: Tone) {
+    this.scheduleVoice(ctx, dest, start, tone.freq, tone);
+    if (tone.harmonic && tone.harmonicGain) {
+      this.scheduleVoice(ctx, dest, start, tone.freq * tone.harmonic, {
+        ...tone,
+        gain: tone.harmonicGain,
+        harmonic: undefined,
+        harmonicGain: undefined,
+      });
+    }
+  }
+
+  private scheduleVoice(
+    ctx: AudioContext,
+    dest: AudioNode,
+    start: number,
+    freq: number,
+    tone: Tone
+  ) {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = tone.type || 'sine';
-    osc.frequency.setValueAtTime(tone.freq, start);
+    osc.frequency.setValueAtTime(freq, start);
     if (tone.slideTo != null) {
-      osc.frequency.exponentialRampToValueAtTime(Math.max(40, tone.slideTo), start + tone.duration);
+      const ratio = tone.slideTo / Math.max(tone.freq, 1);
+      osc.frequency.exponentialRampToValueAtTime(
+        Math.max(40, freq * ratio),
+        start + tone.duration
+      );
     }
 
     const peak = tone.gain ?? 0.06;
+    const attack = Math.max(0.004, tone.attack ?? 0.008);
+    const release = Math.max(0.02, tone.release ?? 0.03);
+    const sustainEnd = start + tone.duration;
+    const end = sustainEnd + release;
+
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(peak, start + 0.008);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + tone.duration);
+    gain.gain.exponentialRampToValueAtTime(peak, start + attack);
+    // Gentle hold then musical fade — feels settled / complete
+    gain.gain.setValueAtTime(peak * 0.92, sustainEnd);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
 
     osc.connect(gain);
     gain.connect(dest);
     osc.start(start);
-    osc.stop(start + tone.duration + 0.02);
+    osc.stop(end + 0.02);
   }
 }
 
