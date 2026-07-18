@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from './auth.store';
 import { isSupabaseConfigured } from '../services/supabase';
+import { playErrorSound, playSuccessSound } from '../components/UiSoundProvider';
 
 export const AuthPage: React.FC = () => {
   const {
@@ -84,6 +85,7 @@ export const AuthPage: React.FC = () => {
     
     // Fail Fast
     if (!validate()) {
+        playErrorSound();
         return;
     }
 
@@ -93,7 +95,9 @@ export const AuthPage: React.FC = () => {
       } else {
           await signIn(email, pass);
       }
+      playSuccessSound();
     } catch (e) {
+      playErrorSound();
       // Error is handled by store and displayed via `authError` prop
     }
   };

@@ -4,6 +4,7 @@ import { Translation, StockMovement, StoredAccount } from '../../types';
 import { formatIndianCurrency, formatDisplayDate } from '../../utils';
 import { DateInput } from '../../components/DateInput';
 import { ESCAPE_PRIORITY, useEscapeLayer } from '../../components/EscapeStack';
+import { playSuccessSound } from '../../components/UiSoundProvider';
 
 interface StockPageViewProps {
   t: Translation;
@@ -175,6 +176,7 @@ export const StockPageView: React.FC<StockPageViewProps> = ({
 
       onUpdateStockMovement(updated);
       setEditingMovement(null);
+      playSuccessSound();
   };
 
   const validateDispatch = (): boolean => {

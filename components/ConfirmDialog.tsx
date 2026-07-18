@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ESCAPE_PRIORITY, useEscapeLayer } from './EscapeStack';
+import { playCancelSound, playConfirmSound } from './UiSoundProvider';
 
 export type ConfirmOptions = {
   title?: string;
@@ -26,6 +27,8 @@ export const ConfirmProvider: React.FC<{ children: ReactNode }> = ({ children })
   }, []);
 
   const close = useCallback((value: boolean) => {
+    if (value) playConfirmSound();
+    else playCancelSound();
     setPending((current) => {
       current?.resolve(value);
       return null;
@@ -75,6 +78,7 @@ export const ConfirmProvider: React.FC<{ children: ReactNode }> = ({ children })
             <div className="flex gap-2">
               <button
                 type="button"
+                data-ui-sound-off
                 onClick={() => close(false)}
                 className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
               >
@@ -82,6 +86,7 @@ export const ConfirmProvider: React.FC<{ children: ReactNode }> = ({ children })
               </button>
               <button
                 type="button"
+                data-ui-sound-off
                 onClick={() => close(true)}
                 className="flex-1 rounded-xl bg-red-600 px-3 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-red-700"
               >

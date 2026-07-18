@@ -5,6 +5,7 @@ import { Transaction, TransactionType, Translation, StoredAccount } from '../typ
 import { formatInputCurrency, parseCurrency, normalizeAccountName } from '../utils';
 import { DateInput } from './DateInput';
 import { ESCAPE_PRIORITY, useEscapeLayer } from './EscapeStack';
+import { playSuccessSound } from './UiSoundProvider';
 
 interface TransactionModalProps {
   isOpen: boolean;
@@ -228,6 +229,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       paymentType: paymentType as any,
       date,
     });
+    playSuccessSound();
     closeModal();
   };
 
